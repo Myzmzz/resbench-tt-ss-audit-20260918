@@ -1,0 +1,13 @@
+# 采集时间 2026-09-18T07:06:50Z，新环境 vm-0-13-ubuntu（cri-dockerd + Docker 29.6.x）
+## nacos-0 事件（kubelet 报告已启动）
+LAST SEEN   TYPE     REASON      OBJECT        MESSAGE
+23m         Normal   Scheduled   pod/nacos-0   Successfully assigned train-ticket/nacos-0 to vm-0-13-ubuntu
+23m         Normal   Pulled      pod/nacos-0   Container image "1.94.151.57:85/train-ticket/busybox:1.32" already present on machine
+23m         Normal   Created     pod/nacos-0   Created container: initmysql
+23m         Normal   Started     pod/nacos-0   Started container initmysql
+14m         Normal   Pulling     pod/nacos-0   Pulling image "1.94.151.57:85/train-ticket/nacos-nacos-server:2.0.1"
+12m         Normal   Pulled      pod/nacos-0   Successfully pulled image "1.94.151.57:85/train-ticket/nacos-nacos-server:2.0.1" in 2m12.985s (2m12.985s including waiting). Image size: 520760050 bytes.
+12m         Normal   Created     pod/nacos-0   Created container: k8snacos
+12m         Normal   Started     pod/nacos-0   Started container k8snacos
+## nacos-0 容器状态（仍为 waiting/PodInitializing）
+[{"image":"1.94.151.57:85/train-ticket/nacos-nacos-server:2.0.1","imageID":"","lastState":{},"name":"k8snacos","ready":false,"restartCount":0,"started":false,"state":{"waiting":{"reason":"PodInitializing"}},"volumeMounts":[{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount","name":"kube-api-access-tp6z9","readOnly":true,"recursiveReadOnly":"Disabled"}]}]

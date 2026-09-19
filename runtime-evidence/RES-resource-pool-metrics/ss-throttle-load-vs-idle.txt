@@ -1,0 +1,23 @@
+# sock-shop CPU 节流：同一 9 分钟窗口长度，压测中 vs 压测后空闲（Pod 级 cgroup，throttled_periods/periods；CPU 用量单位：核）
+
+## 压测中 09:11:00–09:20:00（5 个 locust 用户）
+  carts          throttled= 33.3%  cpu_used=0.061
+  orders         throttled= 23.9%  cpu_used=0.054
+  shipping       throttled=  9.8%  cpu_used=0.014
+  queue-master   throttled=  5.1%  cpu_used=0.010
+  front-end      throttled=  1.9%  cpu_used=0.026
+  payment        throttled=  0.4%  cpu_used=0.001
+  user           throttled=  0.1%  cpu_used=0.005
+  catalogue      throttled=  0.0%  cpu_used=0.004
+
+## 压测后空闲 09:21:00–09:30:00
+  shipping       throttled=  0.2%  cpu_used=0.002
+  front-end      throttled=  0.0%  cpu_used=0.002
+  carts          throttled=  0.0%  cpu_used=0.002
+  payment        throttled=  0.0%  cpu_used=0.001
+  user           throttled=  0.0%  cpu_used=0.001
+  orders         throttled=  0.0%  cpu_used=0.002
+  catalogue      throttled=  0.0%  cpu_used=0.001
+  queue-master   throttled=  0.0%  cpu_used=0.002
+
+# 各服务 CPU limit：carts/shipping/queue-master/front-end/user 300m，orders 500m，catalogue/payment 200m

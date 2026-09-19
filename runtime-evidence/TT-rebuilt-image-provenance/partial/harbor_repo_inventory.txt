@@ -1,0 +1,101 @@
+repo count: 100
+advanced-statefulset             n_art= 2 upd=2026-09-16T01:19 | -@2026-07-13T02:20 ; v0.4.0@2026-07-13T08:25
+bitnami-kubectl                  n_art= 2 upd=2026-09-16T01:19 | -@2026-06-24T02:06 ; latest@2026-07-01T23:10
+coredns                          n_art= 3 upd=2026-09-16T01:19 | -@2026-03-17T14:18 ; -@2026-03-17T14:21 ; v1.10.1@2026-03-31T19:15
+flagd                            n_art= 6 upd=2026-09-09T00:39 | -@2026-07-01T23:10 ; -@2026-07-10T07:23 ; -@2026-07-10T07:32 ; -@2026-07-13T08:31 ; fix-perm@2026-07-13T08:31 ; v0.11.1@2026-06-24T02:06
+jaeger-all-in-one                n_art= 2 upd=2026-09-16T01:19 | -@2026-06-23T14:35 ; 1.57@2026-07-01T23:12
+kube-state-metrics               n_art= 2 upd=2026-09-18T06:51 | -@2026-06-23T14:34 ; v2.12.0@2026-07-01T23:13
+locust                           n_art= 3 upd=2026-09-16T01:19 | -@2026-07-01T23:09 ; -@2026-07-13T08:30 ; 2.14.2@2026-06-24T02:23
+locust-exporter                  n_art= 3 upd=2026-09-16T01:19 | -@2026-07-01T23:09 ; -@2026-07-13T08:29 ; v0.5.0@2026-06-24T02:23
+loki                             n_art= 2 upd=2026-09-16T01:19 | -@2026-06-23T14:34 ; 2.9.8@2026-07-01T23:13
+mongo                            n_art= 4 upd=2026-09-16T01:18 | -@2026-07-14T05:20 ; -@2026-07-23T03:58 ; latest-fixed@2026-08-27T09:03 ; latest@2026-07-29T08:11
+mysql                            n_art= 4 upd=2026-09-16T01:18 | -@2026-07-14T05:21 ; -@2026-07-29T08:09 ; latest-fixed@2026-08-27T09:03 ; latest@2026-08-17T06:44
+mysqld-exporter                  n_art= 2 upd=2026-09-16T01:19 | -@2026-07-13T02:19 ; v0.12.1@2026-07-13T08:27
+nacos-server                     n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T06:13 ; -@2026-07-29T08:06 ; latest@2026-08-17T06:43
+nginx                            n_art= 2 upd=2026-09-16T01:19 | -@2026-07-13T02:19 ; 1.20@2026-07-13T08:27
+node-exporter                    n_art= 2 upd=2026-09-16T01:19 | -@2026-06-23T14:33 ; v1.8.1@2026-07-01T23:13
+otel-collector-contrib           n_art= 2 upd=2026-09-18T06:51 | -@2026-06-23T14:35 ; 0.102.1@2026-07-01T23:11
+prometheus                       n_art= 2 upd=2026-09-18T06:48 | -@2026-06-23T14:33 ; v2.52.0@2026-07-01T23:14
+promtail                         n_art= 2 upd=2026-09-18T06:03 | -@2026-06-23T14:35 ; 2.9.8@2026-07-01T23:12
+python-base                      n_art= 2 upd=2026-09-18T09:18 | -@2026-08-21T16:52 ; 3.12.5-slim-bookworm-eac7a234d332@2026-08-25T12:41
+skywalking-java-agent            n_art= 3 upd=2026-09-16T01:19 | -@2026-06-24T02:47 ; -@2026-07-01T23:09 ; 8.8.0-alpine@2026-07-13T08:28
+train-ticket-deploy              n_art=19 upd=2026-09-16T01:19 | -@2026-06-24T02:19 ; -@2026-06-24T02:25 ; -@2026-06-24T02:45 ; -@2026-06-24T02:47 ; -@2026-07-01T23:11 ; -@2026-07-10T09:40 ; -@2026-07-13T01:30 ; -@2026-07-13T05:20 ; -@2026-07-13T08:32 ; -@2026-07-14T05:23 ; -@2026-07-14T06:13 ; -@2026-07-21T06:17 ; -@2026-07-21T09:00 ; fix-perm@2026-07-10T07:20 ; fix-registry@2026-07-13T08:33 ; ghcr-origin@2026-06-24T02:06 ; jaeger-fix@2026-08-24T08:03 ; jaeger@2026-08-03T21:13 ; latest@2026-08-03T21:14
+train-ticket-workload            n_art=11 upd=2026-09-18T09:12 | -@2026-08-21T17:12 ; -@2026-08-21T17:21 ; -@2026-08-21T17:25 ; -@2026-08-21T17:47 ; -@2026-08-22T05:39 ; 05685b72045d@2026-08-25T12:39 ; 1320c15bef95@2026-08-25T12:39 ; 6f45c14606e5@2026-08-25T12:40 ; 7595575604eb@2026-08-25T12:40 ; 84d85d84b81a@2026-08-21T16:53 ; 9c1ea4e8f829@2026-08-25T12:40
+ts-admin-basic-info-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:12 ; latest@2026-07-14T05:00
+ts-admin-order-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:11 ; latest@2026-07-14T05:01
+ts-admin-route-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:09 ; latest@2026-07-14T05:01
+ts-admin-travel-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:08 ; latest@2026-07-14T05:02
+ts-admin-user-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:06 ; latest@2026-07-14T05:02
+ts-assurance-service             n_art= 3 upd=2026-09-18T07:07 | -@2026-07-10T08:54 ; 1.0.0@2026-03-15T09:58 ; latest@2026-07-13T09:01
+ts-assurance-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:05 ; latest@2026-07-14T05:03
+ts-auth-service-with-jaeger      n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:03 ; latest@2026-07-14T05:03
+ts-avatar-service                n_art= 3 upd=2026-09-18T08:23 | -@2026-07-10T08:57 ; 1.0.0@2026-03-15T11:50 ; latest@2026-07-13T08:37
+ts-basic-service                 n_art= 6 upd=2026-09-18T07:07 | -@2026-07-10T08:54 ; -@2026-07-13T08:44 ; -@2026-07-14T04:00 ; -@2026-07-14T04:04 ; 1.0.0@2026-03-15T10:17 ; latest@2026-08-03T21:16
+ts-basic-service-with-jaeger     n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T21:01 ; latest@2026-07-14T05:03
+ts-cancel-service                n_art= 7 upd=2026-09-18T07:08 | -@2026-03-15T10:17 ; -@2026-03-17T14:57 ; -@2026-03-23T08:13 ; -@2026-07-01T23:15 ; -@2026-07-13T08:44 ; 1.0.0@2026-03-23T08:14 ; latest@2026-06-24T02:17
+ts-cancel-serviceatest           n_art= 1 upd=2026-09-16T01:19 | latest@2026-03-23T08:11
+ts-config-service-with-jaeger    n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:59 ; latest@2026-07-14T05:04
+ts-consign-price-service         n_art= 6 upd=2026-09-18T08:26 | -@2026-07-10T08:53 ; -@2026-07-13T09:01 ; -@2026-07-14T04:04 ; 1.0.0@2026-03-15T09:58 ; 1.0.1@2026-05-21T04:26 ; latest@2026-08-03T21:18
+ts-consign-price-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:57 ; latest@2026-07-14T05:04
+ts-consign-service               n_art= 3 upd=2026-09-18T07:08 | -@2026-07-10T08:53 ; 1.0.0@2026-03-15T09:58 ; latest@2026-07-13T08:59
+ts-consign-service-with-jaeger   n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:55 ; latest@2026-07-14T05:04
+ts-contacts-service              n_art= 4 upd=2026-09-18T08:27 | -@2026-07-01T23:15 ; -@2026-07-13T09:00 ; 1.0.0@2026-03-15T09:58 ; latest@2026-06-24T02:17
+ts-delivery-service              n_art= 3 upd=2026-09-18T07:10 | -@2026-07-10T08:53 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:57
+ts-execute-service               n_art= 3 upd=2026-09-18T07:08 | -@2026-07-10T08:53 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:59
+ts-execute-service-with-jaeger   n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:52 ; latest@2026-07-14T05:05
+ts-food-delivery-service         n_art= 3 upd=2026-09-18T07:07 | -@2026-07-10T08:52 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:56
+ts-food-map-service-with-jaeger  n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:50 ; latest@2026-07-14T05:05
+ts-food-service                  n_art= 3 upd=2026-09-18T07:11 | -@2026-07-10T08:52 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:55
+ts-food-service-with-jaeger      n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:48 ; latest@2026-07-14T05:05
+ts-gateway-service               n_art= 3 upd=2026-09-18T08:33 | -@2026-07-10T08:52 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:56
+ts-inside-payment-service        n_art= 3 upd=2026-09-18T07:11 | -@2026-07-10T08:52 ; 1.0.0@2026-03-15T09:59 ; latest@2026-07-13T08:54
+ts-inside-payment-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:47 ; latest@2026-07-14T05:06
+ts-news-service-with-jaeger      n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:46 ; latest@2026-07-14T05:06
+ts-notification-service          n_art= 3 upd=2026-09-18T07:10 | -@2026-07-10T08:52 ; 1.0.0@2026-03-15T10:19 ; latest@2026-07-13T08:39
+ts-notification-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:44 ; latest@2026-07-14T05:06
+ts-order-other-service           n_art= 5 upd=2026-09-18T07:11 | -@2026-07-10T08:51 ; 1.0.0@2026-03-15T10:00 ; 1.0.1@2026-05-21T04:26 ; 1.0.2@2026-05-21T04:46 ; latest@2026-07-13T08:52
+ts-order-other-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:43 ; latest@2026-07-14T05:07
+ts-order-service                 n_art= 4 upd=2026-09-18T09:18 | -@2026-07-10T08:51 ; 1.0.0@2026-03-15T10:18 ; 1.0.1@2026-05-21T04:45 ; latest@2026-07-13T08:43
+ts-order-service-with-jaeger     n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:41 ; latest@2026-07-14T05:07
+ts-payment-service               n_art= 5 upd=2026-09-18T07:10 | -@2026-07-10T08:51 ; 1.0.0@2026-03-15T10:00 ; 1.0.1@2026-05-21T04:46 ; 1.0.2@2026-05-21T04:53 ; latest@2026-07-13T08:53
+ts-payment-service-with-jaeger   n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:39 ; latest@2026-07-14T05:08
+ts-preserve-other-service        n_art= 4 upd=2026-09-18T08:33 | -@2026-03-17T14:56 ; -@2026-07-10T08:51 ; 1.0.0@2026-03-15T10:00 ; latest@2026-07-13T08:54
+ts-preserve-other-service-with-jaeger n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:37 ; latest@2026-07-14T05:08
+ts-preserve-service              n_art=11 upd=2026-09-18T07:12 | -@2026-03-15T10:01 ; -@2026-03-17T14:56 ; -@2026-03-23T08:13 ; -@2026-03-23T08:15 ; -@2026-07-10T08:51 ; -@2026-07-13T08:51 ; -@2026-07-14T04:04 ; 1.0.0,1.0.0-fix1@2026-03-30T09:53 ; 1.0.0-fix2@2026-03-30T09:57 ; 1.0.0-jdk@2026-03-31T02:43 ; latest@2026-08-03T21:18
+ts-preserve-service-with-jaeger  n_art= 2 upd=2026-09-16T01:19 | -@2026-08-03T20:36 ; latest@2026-07-14T05:08
+ts-preserve-serviceatest         n_art= 1 upd=2026-09-16T01:19 | latest@2026-03-23T08:11
+ts-price-service                 n_art= 3 upd=2026-09-18T08:27 | -@2026-07-10T08:50 ; 1.0.0@2026-03-15T10:01 ; latest@2026-07-13T08:49
+ts-price-service-with-jaeger     n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:34 ; latest@2026-07-14T05:09
+ts-rebook-service                n_art= 6 upd=2026-09-18T08:29 | -@2026-03-15T10:00 ; -@2026-03-17T14:56 ; -@2026-03-23T08:13 ; -@2026-07-10T08:50 ; 1.0.0@2026-03-23T08:16 ; latest@2026-07-13T08:52
+ts-rebook-service-with-jaeger    n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:32 ; latest@2026-07-14T05:09
+ts-rebook-serviceatest           n_art= 1 upd=2026-09-16T01:19 | latest@2026-03-23T08:11
+ts-route-plan-service            n_art= 5 upd=2026-09-18T08:34 | -@2026-07-10T08:50 ; -@2026-07-13T08:50 ; -@2026-07-14T04:04 ; 1.0.0@2026-03-15T10:01 ; latest@2026-08-03T21:17
+ts-route-plan-service-with-jaeger n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:29 ; latest@2026-07-14T05:09
+ts-route-service                 n_art= 3 upd=2026-09-18T08:31 | -@2026-07-10T08:50 ; 1.0.0@2026-03-15T10:18 ; latest@2026-07-13T08:42
+ts-route-service-with-jaeger     n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:27 ; latest@2026-07-14T05:10
+ts-seat-service                  n_art= 3 upd=2026-09-18T08:32 | -@2026-07-10T08:50 ; 1.0.0@2026-03-15T10:18 ; latest@2026-07-13T08:41
+ts-seat-service-with-jaeger      n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:25 ; latest@2026-07-14T05:10
+ts-security-service              n_art= 3 upd=2026-09-18T08:33 | -@2026-07-10T08:50 ; 1.0.0@2026-03-15T10:01 ; latest@2026-07-13T08:49
+ts-security-service-with-jaeger  n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:11 ; -@2026-07-29T08:39 ; latest@2026-08-17T06:57
+ts-station-food-service          n_art= 4 upd=2026-09-18T08:29 | -@2026-07-10T08:49 ; 1.0.0@2026-03-15T10:19 ; 1.0.1@2026-05-21T04:26 ; latest@2026-07-13T08:38
+ts-station-service               n_art= 3 upd=2026-09-18T08:32 | -@2026-07-10T08:49 ; 1.0.0@2026-03-15T10:02 ; latest@2026-07-13T08:48
+ts-station-service-with-jaeger   n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:11 ; -@2026-07-29T08:37 ; latest@2026-08-17T06:56
+ts-ticket-office-service-with-jaeger n_art= 2 upd=2026-09-16T01:18 | -@2026-08-03T20:21 ; latest@2026-07-14T05:14
+ts-ticketinfo-service-with-jaeger n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:12 ; -@2026-07-29T08:35 ; latest@2026-08-17T06:54
+ts-train-food-service            n_art= 3 upd=2026-09-18T08:31 | -@2026-07-10T08:49 ; 1.0.0@2026-03-15T10:02 ; latest@2026-07-13T08:47
+ts-train-service                 n_art= 3 upd=2026-09-18T08:31 | -@2026-07-10T08:49 ; 1.0.0@2026-03-15T10:19 ; latest@2026-07-13T08:40
+ts-train-service-with-jaeger     n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:15 ; -@2026-07-29T08:24 ; latest@2026-08-17T06:53
+ts-travel-plan-service           n_art= 5 upd=2026-09-18T08:30 | -@2026-07-10T08:49 ; -@2026-07-13T08:40 ; -@2026-07-14T04:25 ; 1.0.0@2026-03-15T10:19 ; latest@2026-08-03T21:15
+ts-travel-plan-service-with-jaeger n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:15 ; -@2026-07-29T08:20 ; latest@2026-08-17T06:51
+ts-travel-service-with-jaeger    n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:16 ; -@2026-07-29T08:19 ; latest@2026-08-17T06:49
+ts-travel-serviceatest           n_art= 1 upd=2026-09-16T01:19 | latest@2026-03-23T08:12
+ts-travel2-service               n_art= 6 upd=2026-09-18T08:32 | -@2026-03-15T10:02 ; -@2026-03-17T14:57 ; -@2026-03-23T08:13 ; -@2026-07-10T08:48 ; 1.0.0@2026-03-23T08:16 ; latest@2026-07-13T08:46
+ts-travel2-service-with-jaeger   n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:15 ; -@2026-07-29T08:22 ; latest@2026-08-17T06:52
+ts-travel2-serviceatest          n_art= 1 upd=2026-09-16T01:19 | latest@2026-03-23T08:12
+ts-ui-dashboard-with-jaeger      n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:16 ; -@2026-07-29T08:16 ; latest@2026-08-17T06:48
+ts-user-service                  n_art= 3 upd=2026-09-18T08:30 | -@2026-07-10T08:48 ; 1.0.0@2026-03-15T10:02 ; latest@2026-07-13T08:45
+ts-user-service-with-jaeger      n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:16 ; -@2026-07-29T08:14 ; latest@2026-08-17T06:47
+ts-verification-code-service     n_art= 3 upd=2026-09-18T07:12 | -@2026-07-10T08:48 ; 1.0.0@2026-03-15T10:02 ; latest@2026-07-13T08:46
+ts-verification-code-service-with-jaeger n_art= 3 upd=2026-09-16T01:18 | -@2026-07-14T05:17 ; -@2026-07-29T08:13 ; latest@2026-08-17T06:45
+ts-wait-order-service            n_art= 3 upd=2026-09-18T07:12 | -@2026-07-10T08:48 ; 1.0.0@2026-03-15T11:33 ; latest@2026-07-13T08:38
+wrk2-client                      n_art= 2 upd=2026-09-16T01:19 | -@2026-07-13T02:20 ; latest@2026-07-13T08:26

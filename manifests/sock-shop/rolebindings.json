@@ -1,0 +1,60 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "resiliencebenchmark-preparation",
+     "app.kubernetes.io/part-of": "resiliencebenchmark"
+    },
+    "name": "resbench-mcp-chaos-target-read",
+    "namespace": "sock-shop"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "ClusterRole",
+    "name": "resbench-mcp-chaos-target-read"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "resbench-chaos-control-sock-shop",
+     "namespace": "resiliencebenchmark-system"
+    }
+   ]
+  },
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "resiliencebenchmark-preparation",
+     "app.kubernetes.io/part-of": "resiliencebenchmark"
+    },
+    "name": "resbench-mcp-k8s-ro",
+    "namespace": "sock-shop"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "ClusterRole",
+    "name": "resbench-mcp-k8s-namespaced-read"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "resbench-k8s-ro-sock-shop",
+     "namespace": "resiliencebenchmark-system"
+    }
+   ]
+  }
+ ]
+}

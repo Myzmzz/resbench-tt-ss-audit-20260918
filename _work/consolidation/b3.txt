@@ -1,0 +1,63 @@
+230:### TT-B13 业务库切主：只指向主库的 Service 可能短暂没有后端，客户端没有读超时，已有连接还粘在旧主库上（运行时事实 3）
+231:- **机制族 / 失效模式**：deadline_timeout / 主 D2，次 D5、D6。
+232:- **成立条件**
+233:  - E1 静态核实：上游 all-in-one 部署把所有服务的库主机都写成 `tsdb-mysql-leader`（`S/hack/deploy/utils.sh:61,66`、`gen-mysql-secret.sh:47-60`）。该 Service 的 selector 包含 `role=leader`（`M/services.json`）；这个标签由 xenon 在选主时调用 K8s API 打上（`M/configmaps.json` 里的
+234:  - E2 成立：JDBC 没有 failover 配置，没有读超时；连接池用 Hikari 默认值：10 个连接、取连接最多等 30s、连接最长存活 30min。
+235:  - E3 成立：一次查询在同一个主库上执行约 15+4N 条 SQL，分布在 7 个服务里。
+236:  - E4 存疑：kube-proxy 按连接做地址转换，已有连接会粘在旧主库的 Pod IP 上。
+237:- **量级**（切主时 Service 没有后端的时长记为 W）
+239:| W | 结果 |
+240:|---|---|
+241:| W < 10s | 查询变慢但能成功，Hikari 的 30s 等待兜住了 |
+242:| 10s < W < 30s | 客户端 10s 已放弃，服务端之后才成功，白做（与 TT-B05 叠加） |
+243:| W > 30s | 直接 500 |
+245:  - 旧主库的 IP 如果静默消失，执行中的语句会一直挂到 TCP 重传放弃（约 15 分钟）。
+246:  - 旧主库如果还活着、只是被降为从库，已有连接可能继续从它读陈旧数据，最长 30 分钟。
+249:- **置信度**：中。
+251:### TT-B14 依赖失败被翻译成"成功，但没有车次"（灰色故障）
+252:- **机制族 / 失效模式**：fallback_degradation / D3。
+253:- **成立条件**
+254:  - E1 成立：basic 返回 status 0 或结果反序列化失败时，travel 返回 HTTP 200，内容是 `status=1` 加空列表（`TravelServiceImpl.java:353-365`）。
+255:  - E2 成立：basic 在 station、train 或 route 查不到数据时返回 status 0（`BasicServiceImpl.java:185-189, :210-214, :233-237`），分不清是真的没车次，还是数据被清空或读到了空副本。
+256:  - E3 存疑：按 HTTP 状态码计算的 SLO 会把这种情况算成成功。
+258:- **置信度**：中低。
+260:### TT-B15 JVM 堆固定 200MB，与 1500Mi 的容器配额脱钩；堆内 OOM 后进程不退出，又没有 liveness，服务僵死不重启
+261:- **机制族 / 失效模式**：resource_limit / 主 D2，次 D1。T-08 的变体。
+262:- **成立条件**
+263:  - E1 成立：各 Dockerfile 都是 `java -Xmx200m`（例如 travel `Dockerfile:6`）；JAVA_TOOL_OPTIONS 里没有 `ExitOnOutOfMemoryError`。
+264:  - E2 成立：容器内存上限 1500Mi，所以容器级 OOMKill 重启永远轮不到，堆会先在 JVM 内部溢出。
+265:  - E3 成立：没有 liveness 探针。
+266:  - E4 存疑：线上镜像的实际启动参数，以及查询链路上哪个服务最先逼近 200MB。
+268:- **置信度**：中低。
+270:### TT-B16 route-plan 和 travel-plan 串行放大，一个车次失败拖垮整个规划
+271:- **机制族 / 失效模式**：deadline_timeout / 主 D1，次 D2。
+272:- **成立条件**
+273:  - E1 成立：各规划接口的调用构成（全部串行、无超时）：
+275:| 接口 | 调用构成 | 证据 |
+276:|---|---|---|
+277:| 最便宜 / 最快 | travel 完整查询 + travel2 完整查询 + 最多 5 次 route 查询 | `RoutePlanServiceImpl.java:47-48, :83, :336-355` |
+278:| 最少站 | 每个车次 1 次 trip_detail + 1 次 route | `:239-281` |
+279:| travel-plan（在上述结果之上） | 每条结果再加 1 次 train + 2 次 seat | `TravelPlanServiceImpl.java:113-121` |
+280:| 换乘 | 4 次完整查询 | `:50-85` |
+282:  - E2 成立：trip_detail 返回 status 0 时，`:261` 直接 NPE，整个规划 500。
+283:- **业务影响**：影响 UI 的高级查询，不在默认负载里。
+284:- **置信度**：代码成立为高；对 SLO 的影响为低。
+286:### TT-B17 ticket-office：一条 SQL 出错就打崩整个进程，靠 CrashLoopBackOff 恢复；每次重启还会重复插入种子数据
+287:- **机制族 / 失效模式**：fallback_degradation（错误处理）/ 主 D3，次 D4。
+288:- **成立条件**
+289:  - E1 成立：全进程只有一个数据库连接，不是连接池，没有错误监听也不会重连（`bin/db.js:10-15`）。
+290:  - E2 成立：查询回调里写的是 `if (err) throw err`（`:23-24` 等），SQL 还是字符串拼接的（`:44-45`）。
+291:  - E3 成立：启动时无条件插入种子数据（`:30`），连不上库的错误被忽略（`:98-100`）。
+292:  - E4 成立：读取了端口环境变量，但没有传给数据库连接（`:5, :10-15`）。
+293:- **业务影响**：影响售票点页面，不在查询车次路径上。
+294:- **置信度**：代码成立为高；对 SLO 的影响为低。
+296:---
+298:## 跨范围共性问题（只提一句）
+299:- **入口**：网关的 Sentinel 只限流 admin-basic-info（`GatewayConfiguration.java:107-119`），最贵的查询路由没有准入控制；网关和 nginx 都没配超时。avatar 等非 Java 服务不注册 Nacos，但网关走 `lb://` 路由到 avatar（`application.yml:56-59`），这条路由大概率恒返回 503。
+300:- **基础设施**：
+301:  - OTel agent 从外部 NFS 挂载，所有 Pod 重建都依赖这台机器（D6）。
+302:  - CPU request 只有 10m、内存 request 100Mi，远低于 JVM 实际占用。
+303:  - 整个命名空间没有 PDB。
+304:  - MySQL 的 readiness 用 `SELECT 1`，超时只有 1s，可能把唯一的主库端点摘掉。
+305:  - DEVIATIONS 第 5 条说明，TT-RT-01 在新环境已被人为消除。
+306:- **下单链路**：order 查已售票不过滤取消状态（这是正确性问题）；preserve 的余座检查基本不起作用（`PreserveServiceImpl.java:87-96`）。

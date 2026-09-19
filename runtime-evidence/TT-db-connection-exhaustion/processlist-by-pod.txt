@@ -1,0 +1,28 @@
+# 2026-09-18T09:04:10.024038Z tsdb 主库连接占用（information_schema.processlist）
+业务客户端连接合计 213；按服务合计（前 12）：ts-order-service=20, ts-auth-service=20, ts-travel-service=10, ts-user-service=10, ts-train-service=10, ts-route-service=10, ts-price-service=10, ts-station-food-service=10, ts-notification-service=10, ts-inside-payment-service=10, ts-food-service=10, ts-food-delivery-service=10
+全局状态：root	2 | Aborted_connects	466 | Connection_errors_max_connections	120 | Max_used_connections	215 | Threads_connected	215 | 214
+   10  10.244.31.63    ts-travel-service-856779b7c4-q5p7t vm-0-13-ubuntu 旧副本集
+   10  10.244.31.5     ts-order-service-557464484d-2gpqv vm-0-13-ubuntu 旧副本集
+   10  10.244.31.1     ts-auth-service-545d98b8d-wfz4x vm-0-13-ubuntu 旧副本集
+   10  10.244.14.93    ts-order-service-75589bf6cc-bswss vm-0-10-ubuntu 
+   10  10.244.14.92    ts-user-service-65f5597ddd-dbgsj vm-0-10-ubuntu 
+   10  10.244.14.88    ts-train-service-6f4cb84698-sjh8p vm-0-10-ubuntu 
+   10  10.244.14.82    ts-route-service-5b89fb7587-gqjdn vm-0-10-ubuntu 
+   10  10.244.14.78    ts-price-service-6bb7978498-jrqrl vm-0-10-ubuntu 
+   10  10.244.14.77    ts-station-food-service-cd6b8975-4l4fc vm-0-10-ubuntu 
+   10  10.244.14.74    ts-notification-service-667bfccf9f-4qqp4 vm-0-10-ubuntu 
+   10  10.244.14.72    ts-inside-payment-service-67cd8cd4b6-d2jcg vm-0-10-ubuntu 
+   10  10.244.14.71    ts-food-service-6d4445d669-t5v8r vm-0-10-ubuntu 
+   10  10.244.14.69    ts-food-delivery-service-5f5d969f6b-s57lh vm-0-10-ubuntu 
+   10  10.244.14.67    ts-delivery-service-cb558fc7c-rgcdp vm-0-10-ubuntu 
+   10  10.244.14.66    ts-consign-service-6bc6b6d9dc-pppnp vm-0-10-ubuntu 
+   10  10.244.14.65    ts-contacts-service-685789559-lkntf vm-0-10-ubuntu 
+   10  10.244.14.64    ts-consign-price-service-68f68f95b-t24tp vm-0-10-ubuntu 
+   10  10.244.14.5     ts-payment-service-794c4c5466-8fmfv vm-0-10-ubuntu 
+   10  10.244.14.30    ts-auth-service-7c8bf7df4f-65kjp vm-0-10-ubuntu 
+   10  10.244.14.100   ts-travel2-service-58855f56ff-9dqz2 vm-0-10-ubuntu 
+    9  10.244.14.40    ts-config-service-65c4d4dcfc-2j6fg vm-0-10-ubuntu 
+    1  127.0.0.1       （不在本命名空间）  
+    1  10.244.31.54    tsdb-mysql-0 vm-0-13-ubuntu 旧副本集
+    1  10.244.14.87    ts-ticket-office-service-7df8d4c647-rpp6d vm-0-10-ubuntu 
+    1  10.244.14.19    tsdb-mysql-1 vm-0-10-ubuntu 

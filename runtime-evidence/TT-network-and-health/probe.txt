@@ -1,0 +1,12 @@
+# 采集时间 2026-09-18T09:01:40Z，探测 Pod ts-travel-service-856779b7c4-q5p7t（只读）
+# 去噪：删除了在 Pod 内调用 java 时被 JAVA_TOOL_OPTIONS 带起的 OTel agent 调试日志（原始 251KB 另存于会话临时目录），只保留下面两行版本信息与探测结果
+[otel.javaagent] INFO io.opentelemetry.javaagent.tooling.VersionLogger - opentelemetry-javaagent - version: 2.23.0
+[otel.javaagent] DEBUG io.opentelemetry.javaagent.tooling.VersionLogger - Running on Java 1.8.0_482. JVM OpenJDK 64-Bit Server VM - Temurin - 25.482-b08
+openjdk version "1.8.0_482"
+OpenJDK Runtime Environment (Temurin)(build 1.8.0_482-b08)
+OpenJDK 64-Bit Server VM (Temurin)(build 25.482-b08, mixed mode)
+actuator/health: 403
+tcp_syn_retries=6 tcp_retries2=15 tcp_keepalive_time=7200
+## 连接不存在的集群内 IP 10.244.14.254:18898：30 秒上限内未返回（SYN 被静默丢弃，按 tcp_syn_retries=6 约 127 秒才失败）
+## kube-proxy 模式
+mode: ""

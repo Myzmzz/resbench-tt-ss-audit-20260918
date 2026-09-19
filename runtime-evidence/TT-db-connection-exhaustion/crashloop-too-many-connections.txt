@@ -1,0 +1,13 @@
+# 采集时间 2026-09-18T09:04:47Z：6 个服务启动报 Too many connections 的样例日志
+## ts-assurance-service-7988c54b98-xwlfv
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections
+## ts-order-other-service-74dc6cfd56-5c94j
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections
+## ts-security-service-79f7d69d78-lz86l
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections
+java.sql.SQLNonTransientConnectionException: Too many connections

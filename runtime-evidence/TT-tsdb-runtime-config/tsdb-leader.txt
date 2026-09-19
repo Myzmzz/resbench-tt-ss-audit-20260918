@@ -1,0 +1,86 @@
+# 采集时间 2026-09-18T08:59:10Z，tsdb 主库 tsdb-mysql-2（只读查询）
+TABLE_NAME	ENGINE	TABLE_ROWS
+office	InnoDB	2
+station	InnoDB	0
+voucher	InnoDB	0
+assurance	MyISAM	0
+auth_user	MyISAM	2
+config	MyISAM	1
+consign_price	MyISAM	1
+consign_record	MyISAM	0
+contacts	MyISAM	2
+delivery	MyISAM	0
+food_delivery_order	MyISAM	0
+food_delivery_order_food_list	MyISAM	0
+food_order	MyISAM	0
+inside_money	MyISAM	1
+inside_payment	MyISAM	0
+money	MyISAM	0
+notify_info	MyISAM	0
+orders	MyISAM	3
+orders_other	MyISAM	1
+payment	MyISAM	1
+price_config	MyISAM	10
+route	MyISAM	10
+route_distances	MyISAM	31
+route_stations	MyISAM	31
+security_config	MyISAM	0
+station_food_list	MyISAM	19
+station_food_store	MyISAM	9
+train_food	MyISAM	0
+train_food_list	MyISAM	0
+train_type	MyISAM	6
+trip	MyISAM	5
+trip2	MyISAM	5
+user	MyISAM	1
+user_roles	MyISAM	2
+wait_list_order	MyISAM	0
+@@default_storage_engine	@@skip_name_resolve	@@max_connections	@@open_files_limit	@@expire_logs_days	@@innodb_buffer_pool_size	@@myisam_recover_options	@@read_only	@@super_read_only	@@binlog_format
+InnoDB	1	214	1024	0	134217728	OFF	0	0	ROW
+Variable_name	Value
+rpl_semi_sync_master_enabled	ON
+rpl_semi_sync_master_timeout	1000000000000000000
+rpl_semi_sync_master_trace_level	32
+rpl_semi_sync_master_wait_for_slave_count	1
+rpl_semi_sync_master_wait_no_slave	ON
+rpl_semi_sync_master_wait_point	AFTER_SYNC
+rpl_semi_sync_slave_enabled	ON
+rpl_semi_sync_slave_trace_level	32
+Variable_name	Value
+Max_used_connections	215
+Rpl_semi_sync_master_clients	2
+Rpl_semi_sync_master_status	ON
+Table_locks_immediate	4430
+Table_locks_waited	0
+Threads_connected	215
+Log_name	File_size
+mysql-bin.000001	177
+mysql-bin.000002	116895
+## 各服务 Secret 的 *_HOST（只解码 HOST 键）
+secret/ts-assurance-mysql tsdb-mysql-leader
+secret/ts-auth-mysql tsdb-mysql-leader
+secret/ts-config-mysql tsdb-mysql-leader
+secret/ts-consign-mysql tsdb-mysql-leader
+secret/ts-consign-price-mysql tsdb-mysql-leader
+secret/ts-contacts-mysql tsdb-mysql-leader
+secret/ts-delivery-mysql tsdb-mysql-leader
+secret/ts-food-delivery-mysql tsdb-mysql-leader
+secret/ts-food-mysql tsdb-mysql-leader
+secret/ts-inside-payment-mysql tsdb-mysql-leader
+secret/ts-notification-mysql tsdb-mysql-leader
+secret/ts-order-mysql tsdb-mysql-leader
+secret/ts-order-other-mysql tsdb-mysql-leader
+secret/ts-payment-mysql tsdb-mysql-leader
+secret/ts-price-mysql tsdb-mysql-leader
+secret/ts-route-mysql tsdb-mysql-leader
+secret/ts-security-mysql tsdb-mysql-leader
+secret/ts-station-food-mysql tsdb-mysql-leader
+secret/ts-station-mysql tsdb-mysql-leader
+secret/ts-ticket-office-mysql tsdb-mysql-leader
+secret/ts-train-food-mysql tsdb-mysql-leader
+secret/ts-train-mysql tsdb-mysql-leader
+secret/ts-travel-mysql tsdb-mysql-leader
+secret/ts-travel2-mysql tsdb-mysql-leader
+secret/ts-user-mysql tsdb-mysql-leader
+secret/ts-voucher-mysql tsdb-mysql-leader
+secret/ts-wait-order-mysql tsdb-mysql-leader

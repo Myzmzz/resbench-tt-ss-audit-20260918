@@ -1,0 +1,486 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "carts"
+    },
+    "name": "carts",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "carts"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "carts-db"
+    },
+    "name": "carts-db",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 27017,
+      "protocol": "TCP",
+      "targetPort": 27017
+     }
+    ],
+    "selector": {
+     "name": "carts-db"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "catalogue"
+    },
+    "name": "catalogue",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "catalogue"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "catalogue-db"
+    },
+    "name": "catalogue-db",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 3306,
+      "protocol": "TCP",
+      "targetPort": 3306
+     }
+    ],
+    "selector": {
+     "name": "catalogue-db"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "front-end"
+    },
+    "name": "front-end",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "externalTrafficPolicy": "Cluster",
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 8079
+     }
+    ],
+    "selector": {
+     "name": "front-end"
+    },
+    "sessionAffinity": "None",
+    "type": "NodePort"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "orders"
+    },
+    "name": "orders",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "orders"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "orders-db"
+    },
+    "name": "orders-db",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 27017,
+      "protocol": "TCP",
+      "targetPort": 27017
+     }
+    ],
+    "selector": {
+     "name": "orders-db"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "payment"
+    },
+    "name": "payment",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "payment"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "queue-master"
+    },
+    "name": "queue-master",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "queue-master"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/port": "9090",
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "rabbitmq"
+    },
+    "name": "rabbitmq",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "name": "rabbitmq",
+      "port": 5672,
+      "protocol": "TCP",
+      "targetPort": 5672
+     },
+     {
+      "name": "exporter",
+      "port": 9090,
+      "protocol": "TCP",
+      "targetPort": "exporter"
+     }
+    ],
+    "selector": {
+     "name": "rabbitmq"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "session-db"
+    },
+    "name": "session-db",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 6379,
+      "protocol": "TCP",
+      "targetPort": 6379
+     }
+    ],
+    "selector": {
+     "name": "session-db"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "shipping"
+    },
+    "name": "shipping",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "shipping"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "prometheus.io/scrape": "true",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "user"
+    },
+    "name": "user",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 80,
+      "protocol": "TCP",
+      "targetPort": 80
+     }
+    ],
+    "selector": {
+     "name": "user"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "Service",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "name": "user-db"
+    },
+    "name": "user-db",
+    "namespace": "sock-shop"
+   },
+   "spec": {
+    "internalTrafficPolicy": "Cluster",
+    "ipFamilies": [
+     "IPv4"
+    ],
+    "ipFamilyPolicy": "SingleStack",
+    "ports": [
+     {
+      "port": 27017,
+      "protocol": "TCP",
+      "targetPort": 27017
+     }
+    ],
+    "selector": {
+     "name": "user-db"
+    },
+    "sessionAffinity": "None",
+    "type": "ClusterIP"
+   }
+  }
+ ]
+}

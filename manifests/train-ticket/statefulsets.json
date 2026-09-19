@@ -1,0 +1,962 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "apps/v1",
+   "kind": "StatefulSet",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "nacos",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "Helm"
+    },
+    "name": "nacos",
+    "namespace": "train-ticket"
+   },
+   "spec": {
+    "persistentVolumeClaimRetentionPolicy": {
+     "whenDeleted": "Retain",
+     "whenScaled": "Retain"
+    },
+    "podManagementPolicy": "OrderedReady",
+    "replicas": 3,
+    "revisionHistoryLimit": 10,
+    "selector": {
+     "matchLabels": {
+      "app": "nacos"
+     }
+    },
+    "serviceName": "nacos-headless",
+    "template": {
+     "metadata": {
+      "annotations": {
+       "kubectl.kubernetes.io/restartedAt": "2026-08-22T01:39:17+08:00",
+       "repair.train-ticket/nacos-force-v2": "2026-07-29-v2"
+      },
+      "creationTimestamp": null,
+      "labels": {
+       "app": "nacos"
+      }
+     },
+     "spec": {
+      "containers": [
+       {
+        "command": [
+         "bin/docker-startup.sh"
+        ],
+        "env": [
+         {
+          "name": "NACOS_REPLICAS",
+          "value": "3"
+         },
+         {
+          "name": "NACOS_SERVER_PORT",
+          "value": "8848"
+         },
+         {
+          "name": "NACOS_APPLICATION_PORT",
+          "value": "8848"
+         },
+         {
+          "name": "PREFER_HOST_MODE",
+          "value": "hostname"
+         },
+         {
+          "name": "MODE",
+          "value": "cluster"
+         },
+         {
+          "name": "NACOS_SERVERS",
+          "value": "nacos-0.nacos-headless.train-ticket.svc.cluster.local:8848 nacos-1.nacos-headless.train-ticket.svc.cluster.local:8848 nacos-2.nacos-headless.train-ticket.svc.cluster.local:8848"
+         }
+        ],
+        "envFrom": [
+         {
+          "secretRef": {
+           "name": "nacos-mysql"
+          }
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/nacos-nacos-server:2.0.1",
+        "imagePullPolicy": "IfNotPresent",
+        "lifecycle": {
+         "postStart": {
+          "exec": {
+           "command": [
+            "/bin/sh",
+            "-c",
+            "until curl --connect-timeout 2 --max-time 5 -fsS -H 'User-Agent: Nacos-Server' -X PUT 'http://127.0.0.1:8848/nacos/v1/ns/operator/switches?debug=true&entry=doubleWriteEnabled&value=false' >/dev/null; do sleep 2; done"
+           ]
+          }
+         }
+        },
+        "name": "k8snacos",
+        "ports": [
+         {
+          "containerPort": 8848,
+          "name": "client",
+          "protocol": "TCP"
+         },
+         {
+          "containerPort": 7848,
+          "name": "old-rpc",
+          "protocol": "TCP"
+         },
+         {
+          "containerPort": 9848,
+          "name": "client-rpc",
+          "protocol": "TCP"
+         },
+         {
+          "containerPort": 9849,
+          "name": "raft-rpc",
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "initialDelaySeconds": 60,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "tcpSocket": {
+          "port": 8848
+         },
+         "timeoutSeconds": 5
+        },
+        "resources": {
+         "requests": {
+          "cpu": "500m",
+          "memory": "1Gi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File"
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "initContainers": [
+       {
+        "command": [
+         "sh",
+         "-c",
+         "echo \"Waiting for MySQL at ${MYSQL_SERVICE_HOST:-nacosdb-mysql-leader}:${MYSQL_SERVICE_PORT:-3306}\"\nuntil nc -z \"${MYSQL_SERVICE_HOST:-nacosdb-mysql-leader}\" \"${MYSQL_SERVICE_PORT:-3306}\"; do\n  echo \"  not yet, retrying in 2s...\"\n  sleep 2\ndone\necho \"MySQL is reachable\"\n"
+        ],
+        "envFrom": [
+         {
+          "secretRef": {
+           "name": "nacos-mysql"
+          }
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/busybox:1.32",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "initmysql",
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File"
+       }
+      ],
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "terminationGracePeriodSeconds": 30
+     }
+    },
+    "updateStrategy": {
+     "rollingUpdate": {
+      "partition": 0
+     },
+     "type": "RollingUpdate"
+    }
+   }
+  },
+  {
+   "apiVersion": "apps/v1",
+   "kind": "StatefulSet",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "nacosdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "nacosdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "nacosdb"
+    },
+    "name": "nacosdb-mysql",
+    "namespace": "train-ticket"
+   },
+   "spec": {
+    "persistentVolumeClaimRetentionPolicy": {
+     "whenDeleted": "Retain",
+     "whenScaled": "Retain"
+    },
+    "podManagementPolicy": "OrderedReady",
+    "replicas": 3,
+    "revisionHistoryLimit": 10,
+    "selector": {
+     "matchLabels": {
+      "app": "nacosdb-mysql",
+      "release": "nacosdb"
+     }
+    },
+    "serviceName": "nacosdb-mysql",
+    "template": {
+     "metadata": {
+      "annotations": {
+       "checksum/config": "b90c58b7645b67552901e093109469a55f3033e6fb12ecaf096606a107f0be2f"
+      },
+      "creationTimestamp": null,
+      "labels": {
+       "app": "nacosdb-mysql",
+       "release": "nacosdb",
+       "role": "candidate"
+      }
+     },
+     "spec": {
+      "containers": [
+       {
+        "args": [
+         "mysqld"
+        ],
+        "command": [
+         "/docker-entrypoint.sh"
+        ],
+        "env": [
+         {
+          "name": "MYSQL_REPL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-replication-password",
+            "name": "nacosdb-mysql"
+           }
+          }
+         },
+         {
+          "name": "MYSQL_DATABASE",
+          "value": "nacos"
+         },
+         {
+          "name": "MYSQL_USER",
+          "value": "nacos"
+         },
+         {
+          "name": "MYSQL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-password",
+            "name": "nacosdb-mysql"
+           }
+          }
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/radondb-percona:5.7.34",
+        "imagePullPolicy": "IfNotPresent",
+        "livenessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "mysqladmin ping -uroot"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 30,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 5
+        },
+        "name": "mysql",
+        "ports": [
+         {
+          "containerPort": 3306,
+          "name": "mysql",
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "mysql -uroot -e \"SELECT 1\""
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 10,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "cpu": "500m",
+          "memory": "1Gi"
+         },
+         "requests": {
+          "cpu": "100m",
+          "memory": "256Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/lib/mysql",
+          "name": "data"
+         },
+         {
+          "mountPath": "/etc/mysql/conf.d",
+          "name": "conf"
+         },
+         {
+          "mountPath": "/var/log/mysql",
+          "name": "logs"
+         }
+        ]
+       },
+       {
+        "args": [
+         "xenon",
+         "-c",
+         "/etc/xenon/xenon.json"
+        ],
+        "command": [
+         "docker-entrypoint"
+        ],
+        "env": [
+         {
+          "name": "MYSQL_REPL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-replication-password",
+            "name": "nacosdb-mysql"
+           }
+          }
+         },
+         {
+          "name": "POD_HOSTNAME",
+          "valueFrom": {
+           "fieldRef": {
+            "apiVersion": "v1",
+            "fieldPath": "metadata.name"
+           }
+          }
+         },
+         {
+          "name": "HOST",
+          "value": "$(POD_HOSTNAME).nacosdb-mysql.train-ticket"
+         },
+         {
+          "name": "LEADER_START_CMD",
+          "value": "/scripts/leader-start.sh"
+         },
+         {
+          "name": "LEADER_STOP_CMD",
+          "value": "/scripts/leader-stop.sh"
+         },
+         {
+          "name": "Master_SysVars",
+          "value": "sync_binlog=default;innodb_flush_log_at_trx_commit=default"
+         },
+         {
+          "name": "Slave_SysVars",
+          "value": "sync_binlog=1000;innodb_flush_log_at_trx_commit=1"
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/radondb-xenon:1.1.5-helm",
+        "imagePullPolicy": "IfNotPresent",
+        "lifecycle": {
+         "postStart": {
+          "exec": {
+           "command": [
+            "sh",
+            "-c",
+            "until (xenoncli xenon ping && xenoncli cluster add \"$(/scripts/create-peers.sh)\") > /dev/null 2>&1; do sleep 2; done"
+           ]
+          }
+         }
+        },
+        "livenessProbe": {
+         "exec": {
+          "command": [
+           "pgrep",
+           "xenon"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 30,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 5
+        },
+        "name": "xenon",
+        "ports": [
+         {
+          "containerPort": 8801,
+          "name": "xenon",
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "xenoncli xenon ping"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 10,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "cpu": "100m",
+          "memory": "256Mi"
+         },
+         "requests": {
+          "cpu": "50m",
+          "memory": "128Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/scripts",
+          "name": "scripts"
+         }
+        ]
+       },
+       {
+        "command": [
+         "tail",
+         "-f",
+         "/logs/mysql-slow.log"
+        ],
+        "image": "1.94.151.57:85/train-ticket/busybox:1.32",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "slowlog",
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "test -d /logs"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 5,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/logs",
+          "name": "logs"
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "initContainers": [
+       {
+        "args": [
+         "# Generate mysql server-id from pod ordinal index.\nordinal=$(echo $(hostname) | tr -cd \"[0-9]\")\n# Copy server-id.conf adding offset to avoid reserved server-id=0 value.\ncat /mnt/config-map/server-id.cnf | sed s/@@SERVER_ID@@/$((100 + $ordinal))/g > /mnt/conf.d/server-id.cnf\n# Copy appropriate conf.d files from config-map to config mount.\ncp -f /mnt/config-map/node.cnf /mnt/conf.d/\ncp -f /mnt/config-map/*.sh /mnt/scripts/\nchmod +x /mnt/scripts/*\n# remove lost+found.\nrm -rf /mnt/data/lost+found\n"
+        ],
+        "command": [
+         "sh",
+         "-c"
+        ],
+        "image": "1.94.151.57:85/train-ticket/busybox:1.32",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "init-mysql",
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/mnt/conf.d",
+          "name": "conf"
+         },
+         {
+          "mountPath": "/mnt/scripts",
+          "name": "scripts"
+         },
+         {
+          "mountPath": "/mnt/config-map",
+          "name": "config-map"
+         },
+         {
+          "mountPath": "/mnt/data",
+          "name": "data"
+         }
+        ]
+       }
+      ],
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "nacosdb-mysql",
+      "serviceAccountName": "nacosdb-mysql",
+      "terminationGracePeriodSeconds": 30,
+      "volumes": [
+       {
+        "emptyDir": {},
+        "name": "conf"
+       },
+       {
+        "emptyDir": {},
+        "name": "scripts"
+       },
+       {
+        "emptyDir": {},
+        "name": "logs"
+       },
+       {
+        "configMap": {
+         "defaultMode": 420,
+         "name": "nacosdb-mysql"
+        },
+        "name": "config-map"
+       }
+      ]
+     }
+    },
+    "updateStrategy": {
+     "rollingUpdate": {
+      "partition": 0
+     },
+     "type": "RollingUpdate"
+    },
+    "volumeClaimTemplates": [
+     {
+      "apiVersion": "v1",
+      "kind": "PersistentVolumeClaim",
+      "metadata": {
+       "name": "data"
+      },
+      "spec": {
+       "accessModes": [
+        "ReadWriteOnce"
+       ],
+       "resources": {
+        "requests": {
+         "storage": "1Gi"
+        }
+       },
+       "volumeMode": "Filesystem",
+       "storageClassName": "openebs-hostpath"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "apiVersion": "apps/v1",
+   "kind": "StatefulSet",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "tsdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "tsdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "tsdb"
+    },
+    "name": "tsdb-mysql",
+    "namespace": "train-ticket"
+   },
+   "spec": {
+    "persistentVolumeClaimRetentionPolicy": {
+     "whenDeleted": "Retain",
+     "whenScaled": "Retain"
+    },
+    "podManagementPolicy": "OrderedReady",
+    "replicas": 3,
+    "revisionHistoryLimit": 10,
+    "selector": {
+     "matchLabels": {
+      "app": "tsdb-mysql",
+      "release": "tsdb"
+     }
+    },
+    "serviceName": "tsdb-mysql",
+    "template": {
+     "metadata": {
+      "annotations": {
+       "checksum/config": "dd4963089c3241784e09150ea66f874f878381782b9af9f81a95a7f10a08ba8f"
+      },
+      "creationTimestamp": null,
+      "labels": {
+       "app": "tsdb-mysql",
+       "release": "tsdb",
+       "role": "candidate"
+      }
+     },
+     "spec": {
+      "containers": [
+       {
+        "args": [
+         "mysqld"
+        ],
+        "command": [
+         "/docker-entrypoint.sh"
+        ],
+        "env": [
+         {
+          "name": "MYSQL_REPL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-replication-password",
+            "name": "tsdb-mysql"
+           }
+          }
+         },
+         {
+          "name": "MYSQL_DATABASE",
+          "value": "ts"
+         },
+         {
+          "name": "MYSQL_USER",
+          "value": "ts"
+         },
+         {
+          "name": "MYSQL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-password",
+            "name": "tsdb-mysql"
+           }
+          }
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/radondb-percona:5.7.34",
+        "imagePullPolicy": "IfNotPresent",
+        "livenessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "mysqladmin ping -uroot"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 30,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 5
+        },
+        "name": "mysql",
+        "ports": [
+         {
+          "containerPort": 3306,
+          "name": "mysql",
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "mysql -uroot -e \"SELECT 1\""
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 10,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "cpu": "500m",
+          "memory": "1Gi"
+         },
+         "requests": {
+          "cpu": "100m",
+          "memory": "256Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/lib/mysql",
+          "name": "data"
+         },
+         {
+          "mountPath": "/etc/mysql/conf.d",
+          "name": "conf"
+         },
+         {
+          "mountPath": "/var/log/mysql",
+          "name": "logs"
+         }
+        ]
+       },
+       {
+        "args": [
+         "xenon",
+         "-c",
+         "/etc/xenon/xenon.json"
+        ],
+        "command": [
+         "docker-entrypoint"
+        ],
+        "env": [
+         {
+          "name": "MYSQL_REPL_PASSWORD",
+          "valueFrom": {
+           "secretKeyRef": {
+            "key": "mysql-replication-password",
+            "name": "tsdb-mysql"
+           }
+          }
+         },
+         {
+          "name": "POD_HOSTNAME",
+          "valueFrom": {
+           "fieldRef": {
+            "apiVersion": "v1",
+            "fieldPath": "metadata.name"
+           }
+          }
+         },
+         {
+          "name": "HOST",
+          "value": "$(POD_HOSTNAME).tsdb-mysql.train-ticket"
+         },
+         {
+          "name": "LEADER_START_CMD",
+          "value": "/scripts/leader-start.sh"
+         },
+         {
+          "name": "LEADER_STOP_CMD",
+          "value": "/scripts/leader-stop.sh"
+         },
+         {
+          "name": "Master_SysVars",
+          "value": "sync_binlog=default;innodb_flush_log_at_trx_commit=default"
+         },
+         {
+          "name": "Slave_SysVars",
+          "value": "sync_binlog=1000;innodb_flush_log_at_trx_commit=1"
+         }
+        ],
+        "image": "1.94.151.57:85/train-ticket/radondb-xenon:1.1.5-helm",
+        "imagePullPolicy": "IfNotPresent",
+        "lifecycle": {
+         "postStart": {
+          "exec": {
+           "command": [
+            "sh",
+            "-c",
+            "until (xenoncli xenon ping && xenoncli cluster add \"$(/scripts/create-peers.sh)\") > /dev/null 2>&1; do sleep 2; done"
+           ]
+          }
+         }
+        },
+        "livenessProbe": {
+         "exec": {
+          "command": [
+           "pgrep",
+           "xenon"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 30,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 5
+        },
+        "name": "xenon",
+        "ports": [
+         {
+          "containerPort": 8801,
+          "name": "xenon",
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "xenoncli xenon ping"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 10,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "cpu": "100m",
+          "memory": "256Mi"
+         },
+         "requests": {
+          "cpu": "50m",
+          "memory": "128Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/scripts",
+          "name": "scripts"
+         }
+        ]
+       },
+       {
+        "command": [
+         "tail",
+         "-f",
+         "/logs/mysql-slow.log"
+        ],
+        "image": "1.94.151.57:85/train-ticket/busybox:1.32",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "slowlog",
+        "readinessProbe": {
+         "exec": {
+          "command": [
+           "sh",
+           "-c",
+           "test -d /logs"
+          ]
+         },
+         "failureThreshold": 3,
+         "initialDelaySeconds": 5,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/logs",
+          "name": "logs"
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "initContainers": [
+       {
+        "args": [
+         "# Generate mysql server-id from pod ordinal index.\nordinal=$(echo $(hostname) | tr -cd \"[0-9]\")\n# Copy server-id.conf adding offset to avoid reserved server-id=0 value.\ncat /mnt/config-map/server-id.cnf | sed s/@@SERVER_ID@@/$((100 + $ordinal))/g > /mnt/conf.d/server-id.cnf\n# Copy appropriate conf.d files from config-map to config mount.\ncp -f /mnt/config-map/node.cnf /mnt/conf.d/\ncp -f /mnt/config-map/*.sh /mnt/scripts/\nchmod +x /mnt/scripts/*\n# remove lost+found.\nrm -rf /mnt/data/lost+found\n"
+        ],
+        "command": [
+         "sh",
+         "-c"
+        ],
+        "image": "1.94.151.57:85/train-ticket/busybox:1.32",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "init-mysql",
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/mnt/conf.d",
+          "name": "conf"
+         },
+         {
+          "mountPath": "/mnt/scripts",
+          "name": "scripts"
+         },
+         {
+          "mountPath": "/mnt/config-map",
+          "name": "config-map"
+         },
+         {
+          "mountPath": "/mnt/data",
+          "name": "data"
+         }
+        ]
+       }
+      ],
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "tsdb-mysql",
+      "serviceAccountName": "tsdb-mysql",
+      "terminationGracePeriodSeconds": 30,
+      "volumes": [
+       {
+        "emptyDir": {},
+        "name": "conf"
+       },
+       {
+        "emptyDir": {},
+        "name": "scripts"
+       },
+       {
+        "emptyDir": {},
+        "name": "logs"
+       },
+       {
+        "configMap": {
+         "defaultMode": 420,
+         "name": "tsdb-mysql"
+        },
+        "name": "config-map"
+       }
+      ]
+     }
+    },
+    "updateStrategy": {
+     "rollingUpdate": {
+      "partition": 0
+     },
+     "type": "RollingUpdate"
+    },
+    "volumeClaimTemplates": [
+     {
+      "apiVersion": "v1",
+      "kind": "PersistentVolumeClaim",
+      "metadata": {
+       "name": "data"
+      },
+      "spec": {
+       "accessModes": [
+        "ReadWriteOnce"
+       ],
+       "resources": {
+        "requests": {
+         "storage": "1Gi"
+        }
+       },
+       "volumeMode": "Filesystem",
+       "storageClassName": "openebs-hostpath"
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

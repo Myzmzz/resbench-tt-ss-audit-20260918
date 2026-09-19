@@ -1,0 +1,132 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "v1",
+   "data": {
+    "nginx.conf": "events {}\nhttp {\n  server {\n    listen 8443 ssl;\n    ssl_certificate /etc/nginx/tls/tls.crt;\n    ssl_certificate_key /etc/nginx/tls/tls.key;\n\n    location / {\n      proxy_pass http://ts-gateway-service:18888;\n      proxy_set_header Host $host;\n      proxy_set_header X-Forwarded-Proto https;\n      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    }\n  }\n}\n"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "ischaos-tls-gateway"
+    },
+    "name": "ischaos-tls-gateway-nginx",
+    "namespace": "train-ticket"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "data": {
+    "root-cert.pem": "-----BEGIN CERTIFICATE-----\nMIIC/TCCAeWgAwIBAgIRAM5L/DeLas1v5Ew/FWVFjcowDQYJKoZIhvcNAQELBQAw\nGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNjAxMjAwOTA4MDJaFw0zNjAx\nMTgwOTA4MDJaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDG3t/ofg57VGrQK4I0MQhZPL9wjsn2fwF8DzkX\nEhXlsXfIRyft6mN7xaNHSw4stW4O50ercOGX+E7Ff9eD7zZZoWMbdEjBLCwXFuQC\nBnpjynso7atj6mW4qL94UTx3ncrKo1wNTu3Mb/YODDzKUL9RBiOB9AQP+arjeyJ8\nX3OlCOCgn+/2ElIW289C904a5bmbhMFLAtWyCmFV2QQ+hVtHH2e55nNjLxR/viQD\nTncXacBU6iskG/gAh2vjKir2h1mPUMiy7bPe53ZooAXwZA7Qxtsqch+Kj6zplQbn\nDwt/a9DgijXY+tKygk+7phqdrCcIOmBMciBoExZDtiN+0PdXAgMBAAGjQjBAMA4G\nA1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRdFmWIEDqg\nm+J3aDMp7dmlSAcjhjANBgkqhkiG9w0BAQsFAAOCAQEAUr1zQvEjyZdEauw0ICAD\nzEN7VPz8ifa12mw8d3FEgotbrdTV9f6WT4MeMDG1QY922Ey4rBARBDoLvRgHTBQI\n1l6NG5TQ2050f1Uj2mfFFzyKff78Gws3Vd7TM8Ht1VPvticVAXHSMnFSOlvbzArp\nNhEtRLuX3MTLPULrvEBZJqx4WbyVe4IYOfjxw4Uzy0G6wMPnryzo4NO+xRmHN23c\nj+w7ZjzTaLWykhPuEhv9K5LarHg6VjZrsSD2MxmkvExvdQdMN4XsR0L1zJs3GlTy\nIQ/q+F83xUU6T0A/NCYqDpEFy9jHOpvXQlsvbgqS9N7LwremunXvL8tdaG0z7FDA\niw==\n-----END CERTIFICATE-----\n"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "labels": {
+     "istio.io/config": "true"
+    },
+    "name": "istio-ca-root-cert",
+    "namespace": "train-ticket",
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    }
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "data": {
+    "NACOS_ADDRS": "nacos-0.nacos-headless.train-ticket.svc.cluster.local:8848,nacos-1.nacos-headless.train-ticket.svc.cluster.local:8848,nacos-2.nacos-headless.train-ticket.svc.cluster.local:8848"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "nacos",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "Helm"
+    },
+    "name": "nacos",
+    "namespace": "train-ticket"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "data": {
+    "create-peers.sh": "#!/bin/sh\nset -eu\ni=0\nwhile [ $i -lt 3 ]\ndo\n  if [ $i = 0 ]\n  then\n    echo -n \"nacosdb-mysql-${i}.nacosdb-mysql.train-ticket:8801\"\n  else\n    echo -n \",nacosdb-mysql-${i}.nacosdb-mysql.train-ticket:8801\"\n  fi\n  i=$((i+1))\ndone\n",
+    "leader-start.sh": "#!/usr/bin/env bash\ncurl -X PATCH -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" -H \"Content-Type: application/json-patch+json\" \\\n--cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_PORT_443_TCP_PORT/api/v1/namespaces/train-ticket/pods/$HOSTNAME \\\n-d '[{\"op\": \"replace\", \"path\": \"/metadata/labels/role\", \"value\": \"leader\"}]'\n",
+    "leader-stop.sh": "#!/usr/bin/env bash\ncurl -X PATCH -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" -H \"Content-Type: application/json-patch+json\" \\\n--cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_PORT_443_TCP_PORT/api/v1/namespaces/train-ticket/pods/$HOSTNAME \\\n-d '[{\"op\": \"replace\", \"path\": \"/metadata/labels/role\", \"value\": \"follower\"}]'\n",
+    "node.cnf": "[mysqld]\ndefault_storage_engine=InnoDB\nmax_connections=65535\n",
+    "server-id.cnf": "[mysqld]\nserver-id=@@SERVER_ID@@\n"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "nacosdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "nacosdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "nacosdb"
+    },
+    "name": "nacosdb-mysql",
+    "namespace": "train-ticket"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "data": {
+    "rabbitmq_host": "rabbitmq"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "rabbitmq",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "Helm"
+    },
+    "name": "rabbitmq",
+    "namespace": "train-ticket"
+   }
+  },
+  {
+   "apiVersion": "v1",
+   "data": {
+    "create-peers.sh": "#!/bin/sh\nset -eu\ni=0\nwhile [ $i -lt 3 ]\ndo\n  if [ $i = 0 ]\n  then\n    echo -n \"tsdb-mysql-${i}.tsdb-mysql.train-ticket:8801\"\n  else\n    echo -n \",tsdb-mysql-${i}.tsdb-mysql.train-ticket:8801\"\n  fi\n  i=$((i+1))\ndone\n",
+    "leader-start.sh": "#!/usr/bin/env bash\ncurl -X PATCH -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" -H \"Content-Type: application/json-patch+json\" \\\n--cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_PORT_443_TCP_PORT/api/v1/namespaces/train-ticket/pods/$HOSTNAME \\\n-d '[{\"op\": \"replace\", \"path\": \"/metadata/labels/role\", \"value\": \"leader\"}]'\n",
+    "leader-stop.sh": "#!/usr/bin/env bash\ncurl -X PATCH -H \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" -H \"Content-Type: application/json-patch+json\" \\\n--cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_PORT_443_TCP_PORT/api/v1/namespaces/train-ticket/pods/$HOSTNAME \\\n-d '[{\"op\": \"replace\", \"path\": \"/metadata/labels/role\", \"value\": \"follower\"}]'\n",
+    "node.cnf": "[mysqld]\ndefault_storage_engine=InnoDB\nmax_connections=65535\n",
+    "server-id.cnf": "[mysqld]\nserver-id=@@SERVER_ID@@\n"
+   },
+   "kind": "ConfigMap",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "tsdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "tsdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "tsdb"
+    },
+    "name": "tsdb-mysql",
+    "namespace": "train-ticket"
+   }
+  }
+ ]
+}

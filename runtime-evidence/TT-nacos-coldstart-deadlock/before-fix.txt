@@ -1,0 +1,25 @@
+# 采集时间 2026-09-18T08:33:54Z，新环境，命名空间 train-ticket
+## StatefulSet 关键字段
+podManagementPolicy: OrderedReady
+readinessProbe: {"failureThreshold": 3, "initialDelaySeconds": 60, "periodSeconds": 10, "successThreshold": 1, "tcpSocket": {"port": 8848}, "timeoutSeconds": 5}
+postStart: {"exec": {"command": ["/bin/sh", "-c", "until curl --connect-timeout 2 --max-time 5 -fsS -H 'User-Agent: Nacos-Server' -X PUT 'http://127.0.0.1:8848/nacos/v1/ns/operator/switches?debug=true&entry=doubleWriteEnabled&value=false' >/dev/null; do sleep 2; done"]}}
+env 名: ['NACOS_REPLICAS', 'NACOS_SERVER_PORT', 'NACOS_APPLICATION_PORT', 'PREFER_HOST_MODE', 'MODE', 'NACOS_SERVERS'] envFrom: [{'secretRef': {'name': 'nacos-mysql'}}]
+initContainers: ['initmysql']
+## nacos-mysql Secret 键名（无 SPRING_DATASOURCE_PLATFORM → 内嵌存储）
+['MYSQL_SERVICE_DB_NAME', 'MYSQL_SERVICE_HOST', 'MYSQL_SERVICE_PASSWORD', 'MYSQL_SERVICE_PORT', 'MYSQL_SERVICE_USER']
+## nacosdb 中 nacos 库的表数
+0
+## Pod 与事件
+NAME      READY   STATUS            RESTARTS   AGE   IP             NODE             NOMINATED NODE   READINESS GATES
+nacos-0   0/1     PodInitializing   0          10m   10.244.14.79   vm-0-10-ubuntu   <none>           <none>
+10m         Normal   Pulled      pod/nacos-0   Container image "1.94.151.57:85/train-ticket/busybox:1.32" already present on machine
+10m         Normal   Created     pod/nacos-0   Created container: initmysql
+10m         Normal   Started     pod/nacos-0   Started container initmysql
+10m         Normal   Pulled      pod/nacos-0   Container image "1.94.151.57:85/train-ticket/nacos-nacos-server:2.0.1" already present on machine
+10m         Normal   Created     pod/nacos-0   Created container: k8snacos
+10m         Normal   Started     pod/nacos-0   Started container k8snacos
+## 从旁路 Pod 探测 nacos-0:8848（只读 GET）
+/v1/console/health/liveness ERR URLError <urlopen error [Errno 111] Connection refused>
+/v1/console/health/readiness ERR URLError <urlopen error [Errno 111] Connection refused>
+/v1/core/cluster/nodes?withInstances=false&pageNo=1&pageSize=10 ERR URLError <urlopen error [Errno 111] Connection refused>
+/v1/ns/operator/switches ERR URLError <urlopen error [Errno 111] Connection refused>

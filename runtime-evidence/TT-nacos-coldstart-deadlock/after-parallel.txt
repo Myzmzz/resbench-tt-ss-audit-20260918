@@ -1,0 +1,22 @@
+# 采集时间 2026-09-18T08:40:43Z：改为 Parallel 后三成员同时存在，仍无法就绪
+## Pod
+nacos-0                                         0/1     PodInitializing     0                6m44s   10.244.14.17    vm-0-10-ubuntu   <none>           <none>
+nacos-1                                         0/1     PodInitializing     0                6m44s   10.244.14.12    vm-0-10-ubuntu   <none>           <none>
+nacos-2                                         0/1     PodInitializing     0                6m44s   10.244.14.36    vm-0-10-ubuntu   <none>           <none>
+resbench-audit-nacos-probe                      0/1     Completed           0                95s     10.244.14.35    vm-0-10-ubuntu   <none>           <none>
+## 旁路探测（7848 Raft 端口开、8848/9848 拒绝）
+nacos-0 10.244.14.17 {8848: 'ConnectionRefusedError', 7848: '开', 9848: 'ConnectionRefusedError', 9849: 'ConnectionRefusedError'}
+    /nacos/v1/console/health/readiness ERR URLError
+    /nacos/v1/core/cluster/nodes ERR URLError
+nacos-1 10.244.14.12 {8848: 'ConnectionRefusedError', 7848: '开', 9848: 'ConnectionRefusedError', 9849: 'ConnectionRefusedError'}
+    /nacos/v1/console/health/readiness ERR URLError
+    /nacos/v1/core/cluster/nodes ERR URLError
+nacos-2 10.244.14.36 {8848: 'ConnectionRefusedError', 7848: '开', 9848: 'ConnectionRefusedError', 9849: 'ConnectionRefusedError'}
+    /nacos/v1/console/health/readiness ERR URLError
+    /nacos/v1/core/cluster/nodes ERR URLError
+## nacos-headless Service
+clusterIP=10.97.84.75 publishNotReadyAddresses=
+## EndpointSlice 中的地址就绪状态
+nacos-2 ready=false
+nacos-0 ready=false
+nacos-1 ready=false

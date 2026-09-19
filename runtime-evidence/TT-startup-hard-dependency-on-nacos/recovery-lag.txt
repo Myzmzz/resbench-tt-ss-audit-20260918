@@ -1,0 +1,68 @@
+# train-ticket 业务服务在 Nacos 恢复后的回归时间线（新环境，2026-09-18）
+# 数据来源：kubectl get pods -o json 的 Ready 条件 lastTransitionTime 与 restartCount（采集于全部 47 个 Deployment 可用之后）
+# 注意：此段时间线与 DEVIATIONS #13（DB 连接上限 214，约 09:0x UTC 调到 400）重叠，
+#       故 '回归耗时' = Nacos fail-fast 重启退避 + Too many connections 失败 两者叠加，不能单独归因于 Nacos。
+
+## Nacos Ready 时刻
+  nacos-0  Ready@2026-09-18T08:55:23Z
+  nacos-1  Ready@2026-09-18T08:56:33Z
+  nacos-2  Ready@2026-09-18T08:57:44Z
+  => T0（最后一个 Nacos 副本就绪）= 08:57:44Z
+
+## 各服务（Pod 创建时刻 / Ready 时刻 / 距 T0 / 重启次数 / 上次退出原因）
+  ts-ui-dashboard                            created 08:23:34  ready 08:24:54  T0+-1970s  restarts=0   
+  ts-ui-dashboard                            created 08:24:54  ready 08:26:12  T0+-1892s  restarts=0   
+  ts-ui-dashboard                            created 08:26:12  ready 08:27:23  T0+-1821s  restarts=0   
+  ts-avatar-service                          created 08:23:26  ready 08:27:46  T0+-1798s  restarts=0   
+  ts-news-service                            created 08:23:29  ready 08:28:43  T0+-1741s  restarts=0   
+  ts-ticket-office-service                   created 08:23:33  ready 08:30:14  T0+-1650s  restarts=0   
+  ts-voucher-service                         created 08:23:35  ready 08:31:34  T0+-1570s  restarts=0   
+  ts-admin-order-service                     created 08:23:25  ready 08:52:25  T0+ -319s  restarts=8   Error/exit1
+  ts-food-service                            created 08:23:28  ready 08:52:49  T0+ -295s  restarts=8   Error/exit1
+  ts-consign-service                         created 08:23:27  ready 08:52:58  T0+ -286s  restarts=8   Error/exit1
+  ts-seat-service                            created 08:23:36  ready 08:53:07  T0+ -277s  restarts=7   Error/exit1
+  ts-rebook-service                          created 08:23:31  ready 08:53:31  T0+ -253s  restarts=7   Error/exit1
+  ts-auth-service                            created 08:39:48  ready 08:53:49  T0+ -235s  restarts=6   Error/exit1
+  ts-food-delivery-service                   created 08:23:28  ready 08:53:49  T0+ -235s  restarts=8   Error/exit1
+  ts-station-food-service                    created 08:23:30  ready 08:53:51  T0+ -233s  restarts=7   Error/exit1
+  ts-train-service                           created 08:23:33  ready 08:53:54  T0+ -230s  restarts=7   Error/exit1
+  ts-order-service                           created 08:23:35  ready 08:53:56  T0+ -228s  restarts=8   Error/exit1
+  ts-preserve-other-service                  created 08:23:36  ready 08:53:56  T0+ -228s  restarts=7   Error/exit1
+  ts-cancel-service                          created 08:23:26  ready 08:53:57  T0+ -227s  restarts=8   Error/exit1
+  ts-inside-payment-service                  created 08:23:29  ready 08:53:57  T0+ -227s  restarts=8   Error/exit1
+  ts-notification-service                    created 08:23:30  ready 08:54:00  T0+ -224s  restarts=8   Error/exit1
+  ts-route-service                           created 08:23:32  ready 08:54:03  T0+ -221s  restarts=7   Error/exit1
+  ts-delivery-service                        created 08:23:27  ready 08:54:08  T0+ -216s  restarts=8   Error/exit1
+  ts-gateway-service                         created 08:23:32  ready 08:54:13  T0+ -211s  restarts=7   Error/exit1
+  ts-user-service                            created 08:23:35  ready 08:54:14  T0+ -210s  restarts=7   Error/exit1
+  ts-contacts-service                        created 08:23:27  ready 08:56:05  T0+  -99s  restarts=8   Error/exit1
+  ts-consign-price-service                   created 08:23:27  ready 08:56:07  T0+  -97s  restarts=8   Error/exit1
+  ts-price-service                           created 08:23:31  ready 08:56:11  T0+  -93s  restarts=8   Error/exit1
+  ts-gateway-service                         created 08:54:13  ready 08:56:13  T0+  -91s  restarts=1   Error/exit1
+  ts-admin-basic-info-service                created 08:23:25  ready 08:56:25  T0+  -79s  restarts=9   Error/exit1
+  ts-admin-route-service                     created 08:23:25  ready 08:56:25  T0+  -79s  restarts=9   Error/exit1
+  ts-admin-user-service                      created 08:23:27  ready 08:56:27  T0+  -77s  restarts=9   Error/exit1
+  ts-execute-service                         created 08:23:31  ready 08:56:42  T0+  -62s  restarts=9   Error/exit1
+  ts-gateway-service                         created 08:56:14  ready 08:57:24  T0+  -20s  restarts=0   
+  ts-admin-travel-service                    created 08:23:25  ready 08:57:35  T0+   -9s  restarts=9   Error/exit1
+  ts-basic-service                           created 08:23:28  ready 08:57:48  T0+    4s  restarts=9   Error/exit1
+  ts-travel-plan-service                     created 08:23:37  ready 08:57:57  T0+   13s  restarts=8   Error/exit1
+  ts-preserve-service                        created 08:27:42  ready 08:58:12  T0+   28s  restarts=8   Error/exit1
+  ts-travel2-service                         created 08:23:37  ready 08:58:17  T0+   33s  restarts=7   Error/exit1
+  ts-config-service                          created 08:23:27  ready 08:58:27  T0+   43s  restarts=9   Error/exit1
+  ts-verification-code-service               created 08:23:37  ready 08:58:28  T0+   44s  restarts=9   Error/exit1
+  ts-route-plan-service                      created 08:23:36  ready 09:00:56  T0+  192s  restarts=8   Error/exit1
+  ts-preserve-service                        created 08:23:36  ready 09:02:06  T0+  262s  restarts=9   Error/exit1
+  ts-payment-service                         created 08:23:30  ready 09:06:30  T0+  526s  restarts=10  Error/exit1
+  ts-wait-order-service                      created 08:23:35  ready 09:06:36  T0+  532s  restarts=10  Error/exit1
+  ts-order-other-service                     created 08:23:30  ready 09:07:00  T0+  556s  restarts=10  Error/exit1
+  ts-order-service                           created 08:25:09  ready 09:07:10  T0+  566s  restarts=10  Error/exit1
+  ts-security-service                        created 08:23:32  ready 09:07:12  T0+  568s  restarts=9   Error/exit1
+  ts-train-food-service                      created 08:23:33  ready 09:07:23  T0+  579s  restarts=9   Error/exit1
+  ts-station-service                         created 08:23:33  ready 09:07:33  T0+  589s  restarts=9   Error/exit1
+  ts-travel-service                          created 08:23:37  ready 09:08:27  T0+  643s  restarts=9   Error/exit1
+  ts-assurance-service                       created 08:23:25  ready 09:10:26  T0+  762s  restarts=11  Error/exit1
+  ts-auth-service                            created 08:23:28  ready 09:10:28  T0+  764s  restarts=11  Error/exit1
+
+## 汇总：53 个 Pod；T0 之后就绪：中位 -97s，最慢 764s；重启 ≥5 次的 Pod 44 个
+  负值 = 该 Pod 在 T0 之前已就绪（即重启发生在 Nacos 之前或与之无关）。

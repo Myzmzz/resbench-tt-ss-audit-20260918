@@ -1,0 +1,52 @@
+# 采集时间 2026-09-18T06:51:43Z，新环境（腾讯云），命名空间 train-ticket
+## leader Service 后端
+NAME                   ENDPOINTS   AGE
+nacosdb-mysql-leader   <none>      8m40s
+tsdb-mysql-leader      <none>      8m32s
+## MySQL Pod 角色标签
+nacosdb-mysql-0   3/3     Running   0          8m31s   follower
+nacosdb-mysql-1   3/3     Running   0          7m7s    follower
+nacosdb-mysql-2   3/3     Running   0          5m32s   follower
+tsdb-mysql-0      3/3     Running   0          8m31s   follower
+tsdb-mysql-1      3/3     Running   0          6m35s   follower
+tsdb-mysql-2      3/3     Running   0          4m50s   follower
+## nacosdb-mysql-0 /etc/hosts 与 IPv6
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+disable_ipv6=0
+## nacosdb-mysql-0 mysql.user（只列账号@来源）
+mysql.sys@localhost
+nacos@%
+qc_repl@%
+root@127.0.0.1
+root@localhost
+## nacosdb-mysql-0 经 ::1 登录 root
+ERROR 1045 (28000): Access denied for user 'root'@'::1' (using password: NO)
+command terminated with exit code 1
+## nacosdb-mysql-0 xenon 日志尾部
+ 2026/09/18 06:51:44.579498 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:720,downslimits:3
+ 2026/09/18 06:51:44.579515 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:720,downslimits:3
+ 2026/09/18 06:51:45.582283 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:721,downslimits:3
+ 2026/09/18 06:51:45.582301 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:721,downslimits:3
+ 2026/09/18 06:51:45.803686 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:722,downslimits:3
+ 2026/09/18 06:51:45.803705 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:722,downslimits:3
+## tsdb-mysql-0 /etc/hosts 与 IPv6
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+disable_ipv6=0
+## tsdb-mysql-0 mysql.user（只列账号@来源）
+mysql.sys@localhost
+qc_repl@%
+root@127.0.0.1
+root@localhost
+ts@%
+## tsdb-mysql-0 经 ::1 登录 root
+ERROR 1045 (28000): Access denied for user 'root'@'::1' (using password: NO)
+command terminated with exit code 1
+## tsdb-mysql-0 xenon 日志尾部
+ 2026/09/18 06:51:46.033449 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:668,downslimits:3
+ 2026/09/18 06:51:46.033474 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:668,downslimits:3
+ 2026/09/18 06:51:46.636410 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:669,downslimits:3
+ 2026/09/18 06:51:46.636429 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:669,downslimits:3
+ 2026/09/18 06:51:47.638864 mysql.go:95:    	 [ERROR] 	mysql[localhost:3306].ping.error[Error 1045: Access denied for user 'root'@'::1' (using password: NO)].downs:670,downslimits:3
+ 2026/09/18 06:51:47.638882 mysql.go:97:    	 [ERROR] 	mysql.dead.downs:670,downslimits:3

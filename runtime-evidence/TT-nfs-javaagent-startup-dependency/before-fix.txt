@@ -1,0 +1,14 @@
+# 采集时间 2026-09-18T07:06:06Z，新环境，命名空间 train-ticket
+## 卡在 ContainerCreating 的 Pod 数:       46
+## 挂载失败事件计数（按原因）
+      46
+## 样例 Pod ts-admin-basic-info-service-58dcd65b98-7s62n 的事件
+  Type     Reason       Age                From               Message
+  ----     ------       ----               ----               -------
+  Normal   Scheduled    10m                default-scheduler  Successfully assigned train-ticket/ts-admin-basic-info-service-58dcd65b98-7s62n to vm-0-10-ubuntu
+  Warning  FailedMount  2s (x13 over 10m)  kubelet            MountVolume.SetUp failed for volume "opentelemetry-javaagent" : mount failed: exit status 32
+Mounting command: mount
+Mounting arguments: -t nfs 1.94.151.57:/data/share /var/lib/kubelet/pods/632dd9da-6691-47e6-b6dc-bdfcfdd4f141/volumes/kubernetes.io~nfs/opentelemetry-javaagent
+Output: mount: /var/lib/kubelet/pods/632dd9da-6691-47e6-b6dc-bdfcfdd4f141/volumes/kubernetes.io~nfs/opentelemetry-javaagent: bad option; for several filesystems (e.g. nfs, cifs) you might need a /sbin/mount.<type> helper program.
+       dmesg(1) may have more information after failed mount system call.
+## 60 秒内两台节点的拉镜像计数不变（说明卡在挂载而非拉取），见会话记录

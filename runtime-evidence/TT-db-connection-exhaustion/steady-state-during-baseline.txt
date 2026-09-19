@@ -1,0 +1,14 @@
+# tsdb 主库（tsdb-mysql-2）稳态连接数——第二次 train-ticket 基线进行中（2026-09-18 09:24 UTC）只读采集
+# 命令：SHOW GLOBAL STATUS（mysql 容器内以 root@127.0.0.1 执行）
+Threads_connected                  276
+Max_used_connections               286     # 自 MySQL 启动（Uptime 9407 s）以来的峰值
+Connection_errors_max_connections  127     # 均发生在 09:0x 把 max_connections 从 214 调到 400（DEVIATIONS #13）之前
+Aborted_connects                   470
+Questions                          117499
+Slow_queries                       0
+
+# 与 Hikari 配置对照（OTel db.client.connections.max，见 ../RES-resource-pool-metrics/during-baseline-0918.txt）：
+#   25 个使用 tsdb 的服务 × 每实例 maximumPoolSize=10（auth、order 各 2 副本）= 270 条池上限，
+#   再加 xenon/运维等其它会话，稳态 276、峰值 286 > 默认 max_connections=214（新环境 open_files_limit=1024 时 MySQL 自动压到 214）。
+# 结论：不做 #13，train-ticket 在"全部服务就绪"的稳态下就放不下全部连接池——最后就绪的几个服务会一直 Too many connections 崩溃重启
+#       （09:04 仍有 assurance/auth 因此失败，见 crashloop-too-many-connections.txt）。

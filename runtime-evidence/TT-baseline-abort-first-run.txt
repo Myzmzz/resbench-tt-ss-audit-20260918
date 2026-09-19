@@ -1,0 +1,15 @@
+rows 20 fields ['timeStamp', 'elapsed', 'label', 'responseCode', 'responseMessage', 'threadName', 'dataType', 'success', 'failureMessage', 'bytes', 'sentBytes', 'grpThreads', 'allThreads', 'URL', 'Latency', 'IdleTime', 'Connect']
+label | n | fail | p50 | p95 | max | first5_elapsed
+cleanup-order | 2 | 0 | 234 | 3830 | 3830 | [3830, 234]
+contacts | 3 | 0 | 30 | 42 | 42 | [42, 30, 25]
+login | 3 | 0 | 258 | 923 | 923 | [923, 211, 258]
+preserve-order | 3 | 1 | 5208 | 10011 | 10011 | [10011, 5208, 1364]
+query-order | 2 | 0 | 60 | 282 | 282 | [282, 60]
+search-trips | 7 | 0 | 199 | 9712 | 9712 | [9712, 423, 199, 311, 173]
+failures by (label, code): {('preserve-order', '000'): 1}
+timeline (10s buckets): bucket_start_s n p95 max fails
+0 2 9712 9712 0
+10 2 10011 10011 1
+20 6 5208 5208 0
+30 10 1364 1364 0
+slowest: [('preserve-order', 10011, '000', 10), ('search-trips', 9712, '200', 0), ('preserve-order', 5208, '200', 21), ('cleanup-order', 3830, '200', 26), ('preserve-order', 1364, '200', 31), ('login', 923, '200', 0), ('search-trips', 423, '200', 20), ('search-trips', 311, '200', 30), ('query-order', 282, '200', 26), ('login', 258, '200', 31), ('cleanup-order', 234, '200', 33), ('login', 211, '200', 20)]

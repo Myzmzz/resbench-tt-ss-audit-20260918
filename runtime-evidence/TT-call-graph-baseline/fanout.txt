@@ -1,0 +1,26 @@
+# 基线期间的调用扇出（Jaeger，lookback 1h；每条 trace 统计 CLIENT span 按目标服务计数）
+
+## 搜索车次 search-trips（网关 POST travel）: 40 条 trace
+  每条 span 数 中位 63.0，HTTP 出站调用 中位 12.0（最少 9 / 最多 12），DB 调用 中位 19.0
+  端到端耗时 ms：中位 95，最大 121；带 error 标记的 trace 0
+  各服务发出的 HTTP 调用（平均每条 trace）：{'ts-basic-service': 4.0, 'ts-seat-service': 4.0, 'ts-travel-service': 2.9, 'ts-gateway-service': 1.0}
+
+## 下单 preserve-order（网关 POST preserve）: 40 条 trace
+  每条 span 数 中位 141.0，HTTP 出站调用 中位 28.0（最少 8 / 最多 28），DB 调用 中位 30.0
+  端到端耗时 ms：中位 270，最大 1447；带 error 标记的 trace 0
+  各服务发出的 HTTP 调用（平均每条 trace）：{'ts-basic-service': 9.8, 'ts-preserve-service': 6.8, 'ts-seat-service': 5.0, 'ts-travel-service': 2.9, 'ts-security-service': 2.0, 'ts-gateway-service': 1.0}
+
+## 查订单 query-order（网关 POST order）: 40 条 trace
+  每条 span 数 中位 6.0，HTTP 出站调用 中位 1.0（最少 1 / 最多 1），DB 调用 中位 1.0
+  端到端耗时 ms：中位 15，最大 27；带 error 标记的 trace 0
+  各服务发出的 HTTP 调用（平均每条 trace）：{'ts-gateway-service': 1.0}
+
+## 取消 cancel: 40 条 trace
+  每条 span 数 中位 33.0，HTTP 出站调用 中位 5.0（最少 5 / 最多 5），DB 调用 中位 6.0
+  端到端耗时 ms：中位 73，最大 1318；带 error 标记的 trace 0
+  各服务发出的 HTTP 调用（平均每条 trace）：{'ts-cancel-service': 4.0, 'ts-gateway-service': 1.0}
+
+## 登录 login: 40 条 trace
+  每条 span 数 中位 10.0，HTTP 出站调用 中位 1.0（最少 1 / 最多 1），DB 调用 中位 3.0
+  端到端耗时 ms：中位 102，最大 108；带 error 标记的 trace 0
+  各服务发出的 HTTP 调用（平均每条 trace）：{'ts-gateway-service': 1.0}

@@ -1,0 +1,31 @@
+# 采集时间 2026-09-18T08:23:21Z。Nacos 0/3 期间业务服务的表现
+## CrashLoopBackOff 的 Pod 数:       37
+## 重启次数分布
+   1 4
+   1 10
+   3 14
+  21 15
+  17 16
+   1 17
+## 样例 ts-admin-basic-info-service-784868b47f-88pkg 上一次崩溃前的关键日志
+Defaulted container "ts-admin-basic-info-service" out of: ts-admin-basic-info-service, copy-otel-javaagent (init)
+Caused by: java.net.UnknownHostException: nacos-0.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$JdkAddressResolver.resolveAddress(DnsNameResolver.java:640)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:388)
+2026-09-18 16:19:10.564  WARN 1 --- [ault-executor-0] c.a.n.s.i.g.internal.ManagedChannelImpl  : [Channel<25>: (nacos-1.nacos-headless.train-ticket.svc.cluster.local:9848)] Failed to resolve name. status=Status{code=UNAVAILABLE, description=Unable to resolve host nacos-1.nacos-headless.train-ticket.svc.cluster.local, cause=java.lang.RuntimeException: java.net.UnknownHostException: nacos-1.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:420)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$Resolve.resolveInternal(DnsNameResolver.java:256)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$Resolve.run(DnsNameResolver.java:213)
+Caused by: java.net.UnknownHostException: nacos-1.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$JdkAddressResolver.resolveAddress(DnsNameResolver.java:640)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:388)
+2026-09-18 16:19:10.971  WARN 1 --- [ault-executor-0] c.a.n.s.i.g.internal.ManagedChannelImpl  : [Channel<27>: (nacos-2.nacos-headless.train-ticket.svc.cluster.local:9848)] Failed to resolve name. status=Status{code=UNAVAILABLE, description=Unable to resolve host nacos-2.nacos-headless.train-ticket.svc.cluster.local, cause=java.lang.RuntimeException: java.net.UnknownHostException: nacos-2.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:420)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$Resolve.resolveInternal(DnsNameResolver.java:256)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$Resolve.run(DnsNameResolver.java:213)
+Caused by: java.net.UnknownHostException: nacos-2.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$JdkAddressResolver.resolveAddress(DnsNameResolver.java:640)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:388)
+2026-09-18 16:19:11.466  WARN 1 --- [ault-executor-0] c.a.n.s.i.g.internal.ManagedChannelImpl  : [Channel<29>: (nacos-0.nacos-headless.train-ticket.svc.cluster.local:9848)] Failed to resolve name. status=Status{code=UNAVAILABLE, description=Unable to resolve host nacos-0.nacos-headless.train-ticket.svc.cluster.local, cause=java.lang.RuntimeException: java.net.UnknownHostException: nacos-0.nacos-headless.train-ticket.svc.cluster.local
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver.resolveAll(DnsNameResolver.java:420)
+	at com.alibaba.nacos.shaded.io.grpc.internal.DnsNameResolver$Resolve.resolveInternal(DnsNameResolver.java:256)

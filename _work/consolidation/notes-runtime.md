@@ -1,0 +1,23 @@
+# 运行时证据要点（自读，供终稿引用；证据/ = R/runtime-evidence/）
+
+- xenon IPv6：证据/TT-xenon-ipv6-localhost/before-fix.txt（06:51Z）两个 leader Service 无端点，6 个 MySQL 全 follower；/etc/hosts ::1 localhost、disable_ipv6=0；mysql.user 只有 root@127.0.0.1/root@localhost；root@'::1' 1045；xenon ping 失败 downs:720，downslimits:3
+- NFS：证据/TT-nfs-javaagent-startup-dependency/before-fix.txt（07:06Z）46 Pod ContainerCreating，FailedMount x13/10m，mount -t nfs 1.94.151.57:/data/share bad option（节点无 mount.nfs）
+- Nacos 崩溃：证据/TT-startup-hard-dependency-on-nacos/crashloop.txt（08:23Z，Nacos 0/3）37 Pod CrashLoopBackOff，重启 14–17 次为主；UnknownHostException nacos-N.nacos-headless
+- 恢复时间线：…/recovery-lag.txt：T0=08:57:44Z（nacos-2 Ready）；53 Pod；T0 后就绪中位 -97s，最慢 +764s（auth、assurance）；重启≥5 次 44 个；与 DB 连接上限叠加，不能单独归因
+- Nacos 缺表：证据/TT-nacos-coldstart-deadlock/root-cause-no-datasource.txt（08:49Z）Table 'nacos.config_info' doesn't exist → No DataSource set → Nacos failed to start；README.md：冷启动死锁作废；补表后原配置 08:57:23Z 依次就绪
+- postStart 卡死：证据/ENV-pod-status-stuck-after-start/nacos-0.txt（07:06Z）Started 但 waiting/PodInitializing；README 附带确认：钩子无总超时，容器停在 PodInitializing、拿不到日志、需强删；after-parallel.txt 三成员 PodInitializing，8848/9848 拒绝、7848 开
+- DB 连接：证据/TT-db-connection-exhaustion/crashloop-too-many-connections.txt（09:04Z）assurance/order-other/security 等 Too many connections；processlist-by-pod.txt（09:04Z）业务连接 213，Threads_connected 215 / max 214，旧副本集（vm-0-13）与新副本集并存各占 10；steady-state-during-baseline.txt（09:24Z）Threads_connected 276、Max_used 286、Connection_errors_max_connections 127；25 服务 27 实例 × 10 = 270
+- tsdb 配置：证据/TT-tsdb-runtime-config/tsdb-leader.txt（08:59Z）32 张 MyISAM（3 张 InnoDB：office/station/voucher）；default_storage_engine=InnoDB；max_connections 214；open_files_limit 1024；expire_logs_days 0；myisam_recover_options OFF；semi-sync timeout 1e18、wait_no_slave ON、wait_point AFTER_SYNC、wait_for_slave_count 1；27 个 Secret HOST=tsdb-mysql-leader；Table_locks_waited 0
+- MyISAM 基线：…/myisam-locks-during-baseline.txt（09:24Z）Table_locks_immediate 13454、waited 0；orders 92 行、inside_money 89 行
+- 网络/健康：证据/TT-network-and-health/probe.txt（09:01Z，travel Pod）Temurin 1.8.0_482；otel agent 2.23.0；actuator/health 403；tcp_syn_retries=6 tcp_retries2=15 keepalive_time=7200；连不存在 IP 30 s 内不返回（按 syn_retries 约 127 s）；kube-proxy mode ""
+- CLOSE_WAIT：…/close-wait-during-baseline.txt（09:24Z）order×2、gateway×1 CLOSE_WAIT=0
+- Nacos 一致性：…/nacos-vs-pods.txt 陈旧 0、登记未就绪 0（文件头 $(date) 未展开，无采集时间）
+- 扇出：证据/TT-call-graph-baseline/fanout.txt 搜索 HTTP 中位 12（9–12）DB 19，basic 4.0/seat 4.0/travel 2.9/gateway 1.0；下单 HTTP 28（8–28）DB 30，basic 9.8/preserve 6.8/seat 5.0/travel 2.9/security 2.0/gateway 1；取消 HTTP 5 DB 6（cancel 4.0）；登录 HTTP 1（仅 gateway→auth）DB 3；查单 1
+- 首跑中止：证据/TT-baseline-abort-first-run.txt 20 行；preserve 首请求 10011 ms 码 000 失败；search 首请求 9712 ms；前 10 s 桶 p95 9712
+- 第二次基线：证据/TT-baseline-r2.txt 09:19–09:29Z，1500 请求 0 失败；search p50 84 p95 139；preserve p50 211 p95 333 max 1449；login p95 111；cleanup max 1320
+- 资源：证据/RES-resource-pool-metrics/during-baseline-0918.txt：ts-* 堆上限 192–196Mi（网关 999Mi），req 100Mi、lim 1500Mi，wss 465–848Mi；Hikari 25 服务 27 实例×10=270；15m 内无排队等连接；TT 节流 >1%：travel 26% assurance 22% auth 22% train-food 20%…（窗口含 09:07–09:10 重启期）；SS 内存：carts 74% orders 78% queue-master 64% shipping 69%（500Mi）；DB/rabbitmq/session-db 无 limit；补充：ts-* req 10m / lim 1.5 核，tsdb mysql req 100m/lim 500m 256Mi/1Gi，xenon lim 100m/256Mi；基线 tsdb CPU≈0.01 核、网关≈0.03 核
+- 稳态：…/steady-state-0916-0931.txt（09:16–09:31）TT 无 Pod 节流 >1%；wss 490–859Mi；SS carts 10% orders 6%
+- SS 节流：…/ss-throttle-load-vs-idle.txt 压测中 09:11–09:20 carts 33.3%（0.061 核，lim 300m）orders 23.9%（0.054，lim 500m）shipping 9.8% queue-master 5.1% front-end 1.9%；空闲 09:21–09:30 全部约 0%
+- SS 基线：证据/SS-baseline/locust-summary.txt 09:10:26–09:20:26，5 用户，1955 请求 0 失败；GET /cart 中位 9 P99 600 max 701；POST /cart P99 460；checkout 225 次 P99 250
+- SS 配置：证据/SS-runtime-config/versions-and-config.txt（08:59Z）express-session 1.15.1、connect-redis 3.2.0、redis(client) 2.7.1、request 2.81.0；session-db save 空、appendonly no；*-db/rabbitmq/session-db 为 BestEffort；Java 服务 openjdk 1.8.0_111；两个命名空间都无 PDB
+- queue-master：证据/SS-queue-master-swallowed-failures/baseline-0918.txt（09:23Z）shipping-task durable=false，messages 0，unacked 0，consumers 1；15 分钟收到 433，DockerSpawner 报错 351+81=432（/var/run/docker.sock 不存在）；同期 checkout 225 次 0 失败

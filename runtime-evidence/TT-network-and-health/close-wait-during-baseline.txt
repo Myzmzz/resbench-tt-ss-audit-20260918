@@ -1,0 +1,5 @@
+# order-service / gateway 的 TCP 状态（/proc/net/tcp + tcp6，基线进行中 2026-09-18 09:24 UTC）
+ts-order-service-75589bf6cc-7pbcp  ESTAB=22 CLOSE_WAIT=0 TIME_WAIT=0 LISTEN=1
+ts-order-service-75589bf6cc-bswss  ESTAB=22 CLOSE_WAIT=0 TIME_WAIT=7 LISTEN=1
+ts-gateway-service-7657c97c7d-jm5dn ESTAB=13 CLOSE_WAIT=0 TIME_WAIT=0 LISTEN=1
+# 结论：基线下没有 CLOSE_WAIT 堆积；"下游关闭连接后客户端不回收"类候选在此负载下未复现。

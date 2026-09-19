@@ -1,0 +1,560 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jaeger
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: jaeger
+spec:
+  type: ExternalName
+  externalName: jaeger-query.observability.svc.cluster.local
+  ports:
+  - name: zipkin
+    port: 9411
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jaeger-badger
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        resiliencebenchmark.io/owner: resbench-audit-20260918
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: 1.94.151.57:85/train-ticket/jaeger-all-in-one:1.57
+        ports:
+        - containerPort: 16686
+        - containerPort: 4317
+        - containerPort: 4318
+        - containerPort: 14268
+        - containerPort: 9411
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: '2'
+            memory: 8Gi
+        command:
+        - /go/bin/all-in-one-linux
+        env:
+        - name: COLLECTOR_OTLP_ENABLED
+          value: 'true'
+        - name: COLLECTOR_ZIPKIN_HOST_PORT
+          value: :9411
+        - name: SPAN_STORAGE_TYPE
+          value: badger
+        - name: BADGER_EPHEMERAL
+          value: 'false'
+        - name: BADGER_DIRECTORY_KEY
+          value: /badger/key
+        - name: BADGER_DIRECTORY_VALUE
+          value: /badger/data
+        - name: BADGER_SPAN_STORE_TTL
+          value: 24h
+        - name: BADGER_MAINTENANCE_INTERVAL
+          value: 5m
+        volumeMounts:
+        - name: badger
+          mountPath: /badger
+      volumes:
+      - name: badger
+        persistentVolumeClaim:
+          claimName: jaeger-badger
+      securityContext:
+        fsGroup: 10001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  selector:
+    app: jaeger
+  ports:
+  - name: query
+    port: 16686
+    targetPort: 16686
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: thrift-http
+    port: 14268
+    targetPort: 14268
+  - name: zipkin
+    port: 9411
+    targetPort: 9411
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+data:
+  config.yaml: "receivers:\n  otlp:\n    protocols:\n      grpc:\n        endpoint:\
+    \ 0.0.0.0:4317\n      http:\n        endpoint: 0.0.0.0:4318\nprocessors:\n  batch:\n\
+    \    timeout: 5s\n  resource:\n    attributes:\n    - key: deployment.environment\n\
+    \      value: train-ticket\n      action: upsert\nexporters:\n  otlp/jaeger:\n\
+    \    endpoint: jaeger-query.observability.svc.cluster.local:4317\n    tls:\n \
+    \     insecure: true\n  prometheus:\n    endpoint: 0.0.0.0:8889\n    namespace:\
+    \ train_ticket\n    const_labels:\n      source: otel-collector\n  debug:\n  \
+    \  verbosity: basic\nextensions:\n  health_check:\n    endpoint: 0.0.0.0:13133\n\
+    service:\n  extensions:\n  - health_check\n  pipelines:\n    traces:\n      receivers:\n\
+    \      - otlp\n      processors:\n      - resource\n      - batch\n      exporters:\n\
+    \      - otlp/jaeger\n    metrics:\n      receivers:\n      - otlp\n      processors:\n\
+    \      - resource\n      - batch\n      exporters:\n      - prometheus\n    logs:\n\
+    \      receivers:\n      - otlp\n      processors:\n      - resource\n      -\
+    \ batch\n      exporters:\n      - debug\n"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        resiliencebenchmark.io/owner: resbench-audit-20260918
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: 1.94.151.57:85/train-ticket/otel-collector-contrib:0.102.1
+        ports:
+        - containerPort: 4317
+        - containerPort: 4318
+        - containerPort: 8889
+        - containerPort: 13133
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: '2'
+            memory: 2Gi
+        command:
+        - /otelcol-contrib
+        args:
+        - --config=/conf/config.yaml
+        volumeMounts:
+        - name: conf
+          mountPath: /conf
+      volumes:
+      - name: conf
+        configMap:
+          name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: prom
+    port: 8889
+    targetPort: 8889
+  - name: health
+    port: 13133
+    targetPort: 13133
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: resbench-audit-prometheus
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  - nodes/proxy
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: resbench-audit-prometheus
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: resbench-audit-prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: observability
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+data:
+  prometheus.yml: "global:\n  scrape_interval: 15s\n  evaluation_interval: 15s\nscrape_configs:\n\
+    - job_name: prometheus\n  static_configs:\n  - targets:\n    - localhost:9090\n\
+    - job_name: kubernetes-nodes\n  scheme: https\n  tls_config:\n    insecure_skip_verify:\
+    \ true\n  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n\
+    \  kubernetes_sd_configs:\n  - role: node\n  relabel_configs:\n  - action: labelmap\n\
+    \    regex: __meta_kubernetes_node_label_(.+)\n  - target_label: __address__\n\
+    \    replacement: kubernetes.default.svc:443\n  - source_labels:\n    - __meta_kubernetes_node_name\n\
+    \    regex: (.+)\n    target_label: __metrics_path__\n    replacement: /api/v1/nodes/$1/proxy/metrics\n\
+    - job_name: kubernetes-cadvisor\n  scheme: https\n  tls_config:\n    insecure_skip_verify:\
+    \ true\n  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n\
+    \  kubernetes_sd_configs:\n  - role: node\n  relabel_configs:\n  - action: labelmap\n\
+    \    regex: __meta_kubernetes_node_label_(.+)\n  - target_label: __address__\n\
+    \    replacement: kubernetes.default.svc:443\n  - source_labels:\n    - __meta_kubernetes_node_name\n\
+    \    regex: (.+)\n    target_label: __metrics_path__\n    replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor\n\
+    \  metric_relabel_configs:\n  - source_labels:\n    - namespace\n    action: keep\n\
+    \    regex: (train-ticket|sock-shop|observability|)\n- job_name: kube-state-metrics\n\
+    \  static_configs:\n  - targets:\n    - kube-state-metrics.observability.svc:8080\n\
+    - job_name: otel-collector\n  static_configs:\n  - targets:\n    - otel-collector.observability.svc:8889\n\
+    - job_name: kubernetes-pods-annotated\n  kubernetes_sd_configs:\n  - role: pod\n\
+    \    namespaces:\n      names:\n      - train-ticket\n      - sock-shop\n    \
+    \  - observability\n  relabel_configs:\n  - source_labels:\n    - __meta_kubernetes_pod_annotation_prometheus_io_scrape\n\
+    \    action: keep\n    regex: true\n  - source_labels:\n    - __meta_kubernetes_pod_annotation_prometheus_io_scheme\n\
+    \    action: replace\n    regex: (https?)\n    target_label: __scheme__\n  - source_labels:\n\
+    \    - __meta_kubernetes_pod_annotation_prometheus_io_path\n    action: replace\n\
+    \    target_label: __metrics_path__\n    regex: (.+)\n  - source_labels:\n   \
+    \ - __address__\n    - __meta_kubernetes_pod_annotation_prometheus_io_port\n \
+    \   action: replace\n    regex: ([^:]+)(?::\\d+)?;(\\d+)\n    replacement: $1:$2\n\
+    \    target_label: __address__\n  - action: labelmap\n    regex: __meta_kubernetes_pod_label_(.+)\n\
+    \  - source_labels:\n    - __meta_kubernetes_namespace\n    action: replace\n\
+    \    target_label: namespace\n  - source_labels:\n    - __meta_kubernetes_pod_name\n\
+    \    action: replace\n    target_label: pod\n- job_name: sock-shop-service-endpoints\n\
+    \  kubernetes_sd_configs:\n  - role: endpoints\n    namespaces:\n      names:\n\
+    \      - sock-shop\n  relabel_configs:\n  - source_labels:\n    - __meta_kubernetes_service_annotation_prometheus_io_scrape\n\
+    \    action: keep\n    regex: 'true'\n  - source_labels:\n    - __address__\n\
+    \    - __meta_kubernetes_service_annotation_prometheus_io_port\n    action: replace\n\
+    \    regex: ([^:]+)(?::\\d+)?;(\\d+)\n    replacement: $1:$2\n    target_label:\
+    \ __address__\n  - source_labels:\n    - __meta_kubernetes_namespace\n    target_label:\
+    \ namespace\n  - source_labels:\n    - __meta_kubernetes_service_name\n    target_label:\
+    \ service\n  - source_labels:\n    - __meta_kubernetes_pod_name\n    target_label:\
+    \ pod\n"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        resiliencebenchmark.io/owner: resbench-audit-20260918
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: 1.94.151.57:85/train-ticket/prometheus:v2.52.0
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: '2'
+            memory: 4Gi
+        command:
+        - /bin/prometheus
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        - --storage.tsdb.retention.time=7d
+        - --web.enable-lifecycle
+        volumeMounts:
+        - name: conf
+          mountPath: /etc/prometheus
+        - name: data
+          mountPath: /prometheus
+      volumes:
+      - name: conf
+        configMap:
+          name: prometheus-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: prometheus-data
+      serviceAccountName: prometheus
+      securityContext:
+        fsGroup: 65534
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - name: web
+    port: 9090
+    targetPort: 9090
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: resbench-audit-kube-state-metrics
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  - endpoints
+  - limitranges
+  - namespaces
+  - nodes
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods
+  - replicationcontrollers
+  - resourcequotas
+  - secrets
+  - services
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: resbench-audit-kube-state-metrics
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: resbench-audit-kube-state-metrics
+subjects:
+- kind: ServiceAccount
+  name: kube-state-metrics
+  namespace: observability
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        resiliencebenchmark.io/owner: resbench-audit-20260918
+        app: kube-state-metrics
+    spec:
+      containers:
+      - name: kube-state-metrics
+        image: 1.94.151.57:85/train-ticket/kube-state-metrics:v2.12.0
+        ports:
+        - containerPort: 8080
+        - containerPort: 8081
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        command:
+        - /kube-state-metrics
+        args:
+        - --namespaces=train-ticket,sock-shop,observability
+      serviceAccountName: kube-state-metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  labels:
+    resiliencebenchmark.io/owner: resbench-audit-20260918
+  namespace: observability
+spec:
+  selector:
+    app: kube-state-metrics
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080

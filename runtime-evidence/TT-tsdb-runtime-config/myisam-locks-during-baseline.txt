@@ -1,0 +1,6 @@
+# MyISAM 表锁在基线负载（1 QPS 闭环、1 并发）下的表现（2026-09-18 09:24 UTC，tsdb-mysql-2，只读）
+Table_locks_immediate  13454
+Table_locks_waited     0          # 基线下没有出现表锁等待——MyISAM 的整表锁风险在此负载下不显现，需要并发/慢查询/备份类扰动才能激活
+Innodb_row_lock_waits  0
+# 行数最多的 MyISAM 业务表：orders 92、inside_money 89、route_stations 31、route_distances 31、station_food_list 19、train_food_list 14
+# 结论：MyISAM 属静态已证（引擎事实），"表锁放大"在基线下未复现，列为"需加压验证"。

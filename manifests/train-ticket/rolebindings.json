@@ -1,0 +1,145 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "name": "bladeai-benchmark-exec",
+    "namespace": "train-ticket",
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    }
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "Role",
+    "name": "bladeai-benchmark-exec"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "bladeai-benchmark",
+     "namespace": "train-ticket"
+    }
+   ]
+  },
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "nacosdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "nacosdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "nacosdb"
+    },
+    "name": "nacosdb-mysql",
+    "namespace": "train-ticket"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "Role",
+    "name": "nacosdb-mysql"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "nacosdb-mysql"
+    }
+   ]
+  },
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "resiliencebenchmark-preparation",
+     "app.kubernetes.io/part-of": "resiliencebenchmark"
+    },
+    "name": "resbench-mcp-chaos-target-read",
+    "namespace": "train-ticket"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "ClusterRole",
+    "name": "resbench-mcp-chaos-target-read"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "resbench-chaos-control-train-ticket",
+     "namespace": "resiliencebenchmark-system"
+    }
+   ]
+  },
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app.kubernetes.io/managed-by": "resiliencebenchmark-preparation",
+     "app.kubernetes.io/part-of": "resiliencebenchmark"
+    },
+    "name": "resbench-mcp-k8s-ro",
+    "namespace": "train-ticket"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "ClusterRole",
+    "name": "resbench-mcp-k8s-namespaced-read"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "resbench-k8s-ro-train-ticket",
+     "namespace": "resiliencebenchmark-system"
+    }
+   ]
+  },
+  {
+   "apiVersion": "rbac.authorization.k8s.io/v1",
+   "kind": "RoleBinding",
+   "metadata": {
+    "annotations": {
+     "meta.helm.sh/release-name": "tsdb",
+     "meta.helm.sh/release-namespace": "train-ticket",
+     "resiliencebenchmark.io/copied-from": "old-cluster tcse-v100 (2026-09-18)"
+    },
+    "labels": {
+     "app": "tsdb-mysql",
+     "app.kubernetes.io/managed-by": "Helm",
+     "chart": "mysql-1.0.0",
+     "heritage": "Helm",
+     "release": "tsdb"
+    },
+    "name": "tsdb-mysql",
+    "namespace": "train-ticket"
+   },
+   "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "Role",
+    "name": "tsdb-mysql"
+   },
+   "subjects": [
+    {
+     "kind": "ServiceAccount",
+     "name": "tsdb-mysql"
+    }
+   ]
+  }
+ ]
+}

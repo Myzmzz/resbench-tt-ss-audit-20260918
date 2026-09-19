@@ -1,0 +1,1579 @@
+[
+{
+"id": "TT-A1",
+"title": "网关遇到死实例时，不主动探活、不被动剔除、不换实例重试，只能等 Ribbon 每 30 s 重读一次 Nacos（08-22 事故的网关侧根因）",
+"file": "TT-A-entry-auth.md",
+"line": 28,
+"f": {
+"family": "replica_disruption（摘除/故障转移）+ circuit_isolation（被动剔除）。主 D2：Ribbon 的被动熔断存在，但网关路径不给它输入。次 D4：30 s 轮询加 DummyPing，不适合入口。另有 D1 成分：入口没有重试。",
+"loc": "ts-gateway-service 全部 39 条 `lb://` 路由（本组关心 auth、auth-user、contacts、user、verification-code）。链路是 SCG `LoadBalancerClientFilter` → Ribbon `ZoneAwareLoadBalancer` → `NacosServerList`。 / **E1 负载均衡**——成立。 / `SRC/ts-gateway-service/src/main/resources/application.yml:16–209` 的 39 条路由全是 `uri: lb://…`。 / 根 `pom.xml:70–72` 把 nacos-discovery 2.2.7 加进所有模块；它的 pom（`~/.m2/…/spring-cloud-starter-alibaba-nacos-discovery-2.2.7.RELEASE.pom:150–155`）以 compile 引入 spring-cloud-starter-netflix-ribbon 2.2.9。 / javap：SCG 2.2.9 的 `GatewayLoadBalancerClientAutoConfiguration` 以 `@ConditionalOnClass(RibbonAutoConfiguration)` 注册 `LoadBalancerClientFilter`。 / **E2 实例缓存刷新**——成立。javap `PollingServerListUpdater`：首次延迟 1000 ms，之后每 `30000` ms 一次。网关 yml 里没有任何 ribbon/loadbalancer 键。 / **E3 失败实例剔除**——成立。 / javap `RibbonClientConfiguration` 的默认值是 `DummyPing`、`ZoneAvoidanceRule`；`NacosRibbonClientConfiguration` 只覆盖 `ribbonServerList`。 / javap `LoadBalancerClientFilter` 只调 `LoadBalancerClient.choose(String)`，不经 `execute`，也不记 `ServerStats`，所以 `AvailabilityPredicate` 永远不会跳闸。 / 对照：服务间 `@LoadBalanced RestTemplate` 经 `RibbonLoadBalancerClient.execute` 会记录失败。这一点按库设计推断，未反编译。 / **E4 重试与切换实例**——成立。 / yml 里没有 `filters`、`default-filters`、`httpclient`。 / javap `HttpClientProperties.connectTimeout=null`，落到 Netty `DEFAULT_CONNECT_TIMEOUT=30000`，比负载的 10 s 还长。 / **E5 已实际发生**——成立。 / 修复记录:8–22：网关和服务选中了\"stale Nacos replicas still marked healthy\"的不存在 IP，例如 order 10.0.2.124:12031、preserve 10.0.2.194:14568。 / 修复记录:27：滚动重启 3 个网关，\"so every Ribbon cache starts from the repaired registry\"。 / `MAN/deployments.json` ts-gateway-service 的 `.spec.template.metadata.annotations[\"kubectl.kubernetes.io/restartedAt\"]=\"2026-08-22T01:48:16+08:00\"`；档案:143–144。 / (a) 对 ts-auth-service 两副本之一做 pod-kill（grace 0，避开优雅退出口径）。Nacos 随 gRPC 断连摘除实例后，网关还要再等 0–30 s。 / 期间约一半登录打到死 IP。按每秒约 0.4 次登录估算，一次注入约 6 个流程失败，约占 5 min 窗口流程数的 2%。 / 死 IP 如果被丢包，这些请求会各挂满 10 s。 / (b) 单副本的 ts-contacts-service 被 kill。新 Pod 已 Ready 并已注册后，网关可能还要再等 ≤30 s 才会用它。 / (c) 复现 08-22：只要网关所连的 Nacos 副本把旧 IP 标成健康，每次轮询都会把它读回来，失败会无限期持续。 / 例如 3 个登记里有 1 个死实例，约 1/3 的 preserve 会失败，占全部流程约 10%，超过 5%。 / 失败目标 IP 已不在任何 Pod 或 Endpoints 中。 / 网关日志出现 `AnnotatedConnectException … Connection refused: /<旧IP>`、`No route to host`，或 CLIENT span 超时。 / 网关容器 `/root/logs/nacos/naming.log` 已出现 `removed ips` 之后，失败仍持续（≤30 s）。 / 和 TT-A4 的区别：这里目标 Pod 已经不存在。",
+"impact": "登录、下单前查联系人、下单（preserve）。违反错误率 ≤5%、p95 ≤2500 ms（档案:66–78）。 / 1. 网关 jar 内容（核对清单 2）。 / 2. 网关日志 `DynamicServerListLoadBalancer for client ts-auth-service initialized … current list of Servers=`，和 Pod IP 对比。这一行同时能证实网关用的是 Ribbon。 / 3. 按 (a) 注入后，取三个时间点：`naming.log` 的 `removed ips` 时间 T1；网关日志里最后一次打到旧 IP 的时间 T2；Jaeger 中 ts-gateway-service CLIENT span 目标（`net.peer.name` 或 `server.address`）最后一次是旧 IP 的时间。T2−T1 应 ≤30 s。",
+"conf": "高。库版本与默认值已反编译核实，而且已经发生过。"
+},
+"end": 66,
+"_k": "conf"
+},
+{
+"id": "TT-A2",
+"title": "路由是否正确，取决于网关恰好连上的那个 Nacos 副本；副本分歧、空推送、Distro 未就绪都会直接变成错误路由",
+"file": "TT-A-entry-auth.md",
+"line": 67,
+"f": {
+"family": "replica_disruption（服务发现）。主 D6。次 D5（Distro 不一致叠加\"每个网关只连一个 Nacos 节点\"）、D4（空推送保护关闭）。",
+"loc": "ts-gateway-service，以及 auth/user/contacts 的出站调用 → Nacos 2.0.1 集群。 / **E1 只信 Nacos 的健康标记**——成立。javap `NacosServerList` 调 `selectInstances(serviceId, group, true)`，不与 K8s Endpoints 交叉核对（网关代码全文里没有 Endpoints 访问）。 / **E2 每个网关只经一个节点订阅**——成立（设计层面）。`MAN/configmaps.json` `nacos.data.NACOS_ADDRS` 列了 3 个 headless FQDN，网关 yml:13 只配了这一项。实际连哪个节点：存疑。 / **E3 空推送无保护**——成立。 / javap nacos-client 2.0.3 `ServiceInfoHolder.isPushEmptyProtect` 默认 false；SCA 2.2.7 `NacosDiscoveryProperties` 没有对应字段。 / 空列表会让 Ribbon 选不到实例，进而触发 `NotFoundException(\"Unable to find instance for …\")`，返回 503（javap 已核实）。 / **E4 Nacos 的 K8s 就绪 ≠ 数据就绪**——成立。 / `MAN/statefulsets.json` nacos 只有 `readinessProbe.tcpSocket 8848`，没有 liveness。 / 修复记录:25 写明\"Wait for Nacos Distro snapshot initialization, not Kubernetes readiness alone\"。 / `MAN/services.json` `nacos-headless.publishNotReadyAddresses=false`。 / **E5 分歧已发生**——成立。修复记录:8–9、:24–27；档案:151 把\"自动核对 Nacos 副本一致性\"列为待办。 / **E6 Nacos 修好后网关能否不重启自愈**——存疑。nacos-client 2.0.3 有 `NamingGrpcRedoService`（3000 ms，javap 已核实），重连后会重做订阅。按设计网关应在 ≤30 s 内收敛，08-22 的网关重启可能只是预防性操作。 / (a) 隔离一个 Nacos Pod，期间 kill 一个 auth 或 contacts Pod。解除后逐副本比对实例列表。只有连到坏节点的那个网关副本出错；负载每请求随机落到 3 个网关之一，所以约 1/3 请求受影响（估算）。 / (b) Nacos 滚动重启时，网关连到尚未加载完快照的节点，可能收到空列表，对应服务 503 最长持续到下一次 30 s 轮询。 / 错误按网关 Pod 分簇。 / 三个 Nacos 副本对同一服务返回的实例不一致；或者网关报 `Unable to find instance for`，而 K8s Endpoints 并不为空。",
+"impact": "所有经网关的流程。",
+"conf": "高（已发生，默认值已核实）。E6 为低。"
+},
+"end": 91,
+"_k": "conf"
+},
+{
+"id": "TT-A3",
+"title": "注册 fail-fast 把\"Nacos 不可用\"放大成\"服务起不来\"，再叠加 CrashLoopBackOff 拖慢恢复；网关自己也要注册",
+"file": "TT-A-entry-auth.md",
+"line": 92,
+"f": {
+"family": "replica_disruption（重启恢复），对应 N-04。主 D3：fail-fast 被触发后退出进程，这个动作本身造成宕机，还绕过了客户端自带的补注册。次 D5（叠加 kubelet 指数退避）、D6（启动依赖 Nacos）。",
+"loc": "gateway、auth、user、contacts、verification-code 的启动路径。其他业务服务同理。 / **E1 只有 discovery、没有 config/bootstrap，fail-fast 未显式设置**——成立。 / resources 下都只有 application.yml/yaml：网关 :10–13；auth application.yaml:3–7；user :4–8；contacts :4–8；verification :4–8。 / 所有 pom 都没有 nacos-config 依赖。 / **E2 SCA 2.2.7 默认 fail-fast 且会抛出**——成立。javap `NacosDiscoveryProperties` 中 `failFast=true`；`NacosServiceRegistry.register` 在 `isFailFast()` 时调用 `ReflectionUtils.rethrowRuntimeException`（日志 \"nacos registry, {} register failed...{},\"）。 / **E3 报错来源**——成立。javap nacos-client 2.0.3 `RpcClient` 含 \"Client not connected,current status:\"，也含 \"Fail to connect to server on start up … retry times left\"，和主会话实测的报错一致。 / **E4 本可自动补注册**——成立。javap `NamingGrpcClientProxy.registerService` 先 `cacheInstanceForRedo` 再 `doRegisterService`，重做任务每 3000 ms 跑一次。 / 如果 fail-fast=false，服务会带着\"待重做\"的注册正常起来，Nacos 恢复后约 3 s 自动登记。 / 默认 fail-fast=true 时进程直接退出，只能等 kubelet 重启。 / **E5 没有 liveness/startup 探针**——成立（`MAN/deployments.json` 上述 5 个 Deployment），恢复完全依赖重启退避。 / **E6 网关注册自己毫无收益**——成立。代码里没有任何按 Nacos 查找网关的调用方；只有部署清单引用 `ts-gateway-service`。负载、nginx、TLS 网关都用 K8s Service 名。网关却同样受 E2 约束，入口会因 Nacos 故障而无法重启。",
+"trigger": "让 Nacos 全部不可用，同时删除一个 auth Pod，或滚动重启网关。 / 实测约 76 min 内重启 16 次，约 4.75 min 一次，符合 kubelet 退避封顶 300 s 加上 JVM 启动时间。 / Nacos 恢复后，该 Pod 最坏还要等：≤300 s 退避 + 启动 + 就绪 initialDelay 60 s + Ribbon ≤30 s。 / 日志 `register failed` + `Client not connected,current status: STARTING`，随后 Spring 上下文关闭，`restartCount` 递增。 / Nacos 恢复时刻和服务恢复时刻之间有数分钟空档。 / 和 TT-A12 的区别看异常栈：这里是 `NacosException`，那边是 `CommunicationsException`。",
+"impact": "auth 掉线 = 登录全部失败；网关掉副本 = 入口容量下降；恢复时间指标会系统性偏大。",
+"conf": "高。"
+},
+"end": 116,
+"_k": "conf"
+},
+{
+"id": "TT-A4",
+"title": "网关按 Nacos 选实例，完全绕开 K8s 就绪；Nacos 的\"健康\"只表示 gRPC 连接还活着",
+"file": "TT-A-entry-auth.md",
+"line": 117,
+"f": {
+"family": "health_probe（readiness + lb_healthcheck）。主 D2：就绪探针存在，但覆盖不到网关→服务这条路径。次 D4：用连接存活来判断健康，判错了对象。",
+"loc": "网关 → auth/user/contacts/verification。服务间调用同样如此：auth `AuthApplication.java:21–25`、user `UserApplication.java:28–32`、preserve/cancel `*Application.java:30–34` 都是 `@LoadBalanced`。 / **E1 网关不经 Endpoints**——成立（见 TT-A1 E1）。整个集群里只有\"负载 → 网关\"这一跳受 K8s 就绪控制。 / **E2 Nacos 2.x 临时实例随 gRPC 连接存亡**——成立（Nacos 2.x 设计）。实际摘除时限存疑。 / **E3 类似事件**——部分成立。档案:137–138 记录 ts-order-service 因 accept 队列不再排空而 0/2 Ready。静态推断此时网关仍会按 Nacos 继续转发；当时是否真的继续转发，存疑。",
+"trigger": "让 contacts 进程和 Nacos 连接都活着、但无法服务，例如注入 JVM 方法延迟 ≥10 s，或占满 Tomcat 默认 200 线程。每个请求挂到负载的 10 s 超时。",
+"impact": "查联系人、登录、下单第 8 步。p95 和错误率都会恶化。",
+"conf": "结构判断为高，量级为中。"
+},
+"end": 129,
+"_k": "conf"
+},
+{
+"id": "TT-A5",
+"title": "user-service 出故障，会把已经提交的下单或取消报成失败：查用户信息被放在副作用之后，结果还被丢弃，且没有降级",
+"file": "TT-A-entry-auth.md",
+"line": 130,
+"f": {
+"family": "fallback_degradation + idempotency_compensation。主 D1（CODEBOOK 边界案例\"扣款后订单中止、无补偿 → D1\"）。与下单组交叉：调用方属下单链路，注入点 ts-user-service 属本组。",
+"loc": "preserve、cancel → `GET /api/v1/userservice/users/id/{id}`。 / **E1 调用发生在下单之后**——成立。`SRC/ts-preserve-service/…/PreserveServiceImpl.java:170` 调 `createOrder`，:245 才调 `getAccount`（第 8 步）。 / **E2 结果只用于一封不会发送的通知**——成立。:247–258 组装 NotifyInfo，:261 的 `// sendEmail(...)` 已被注释。 / **E3 无降级**——成立。:301–314 没有 try/catch，直接 `result.getData()`；:250 用 `getUser.getEmail()`，查不到用户时会 NPE。 / **E4 取消路径结构相同**——成立。`SRC/ts-cancel-service/…/CancelServiceImpl.java:57` 取消、:64 退款；:70–73 查不到用户就返回失败；:87 通知同样被注释。 / **E5 user 单副本**——成立（`MAN/deployments.json`）。",
+"trigger": "对 ts-user-service 做 pod-kill，或注入 5xx/延迟。 / 基线里 30% 的流程是 order，它们都会在订单已落库后得到 5xx。 / 负载的 cleanup 取消同样依赖 user-service，订单可能既没报成功、也没被取消。",
+"impact": "下单、取消。违反错误率 SLO，还会产生孤儿订单和\"已取消却报失败\"的正确性问题。",
+"conf": "高。"
+},
+"end": 146,
+"_k": "conf"
+},
+{
+"id": "TT-A6",
+"title": "JWT 在每一跳都用本 Pod 时钟做零容忍过期校验；过期异常还漏过了过滤器，连 permitAll 接口也会被拦",
+"file": "TT-A-entry-auth.md",
+"line": 147,
+"f": {
+"family": "不属于 CODEBOOK 的 11 个机制族（凭证有效期 / 时钟假设），最接近 deadline_timeout，按 CODEBOOK 记 candidate-other 待人工复核。主 D4：零时钟容差，并且捕获了错误的异常类型。次 D6：token 是否有效取决于各 Pod 的本地时钟。",
+"loc": "ts-common 的 `JWTFilter`/`JWTUtil`（所有业务服务共用）；签发在 auth `JWTProvider`。 / **E1 有效期与密钥**——成立。`JWTProvider.java:20` 硬编码 `secretKey=\"secret\"`；:22 有效期 3600000 ms；`JWTUtil.java:31` 用同一密钥。 / **E2 零容差**——成立。`JWTUtil.java:100` 用 `getExpiration().before(new Date())`；:119–121 的解析器没有设置时钟容差（jjwt 0.8.0，ts-common `pom.xml:17–18`）。 / **E3 过期异常逃出过滤器**——成立。 / `JWTUtil.java:101–103` 把过期异常转成 `TokenException`。 / `TokenException.java:6` 继承 `BaseException`，`BaseException.java:6` 继承 `RuntimeException`，都不是 `JwtException`。 / `JWTFilter.java:28` 只 `catch (JwtException)`，所以接不住。最终返回 403 还是 500，存疑。 / **E4 permitAll 接口也受影响**——成立。过滤器对所有请求先执行（auth `WebSecurityConfig.java:96`）；user 的 `/api/v1/userservice/users/**` 是 permitAll（`SecurityConfig.java:72`），但 preserve 会转发客户端的 token（`PreserveServiceImpl.java:304`）。 / **E5 基线不会自然过期**——成立（负载:346–347 每流程重新登录），只有时钟偏移能触发。 / 把 contacts 或 user 的时钟调快 ≥61 min：所有带 token 的请求在该 Pod 上都判过期。 / 把 auth 某副本的时钟调慢 ≥61 min：它签发的 token 一出生就已过期，登录显示成功，后续请求全部失败；只影响约一半登录。 / 阈值由 :22 的 3600000 ms 推出。",
+"impact": "下单全链路。\"登录成功\"会误导恢复判断。",
+"conf": "代码层面为高；能否触发取决于平台是否提供时间类故障。"
+},
+"end": 167,
+"_k": "conf"
+},
+{
+"id": "TT-A7",
+"title": "入口没有时限，取消只传到网关为止：客户端放弃后，后端和下游仍把活干完",
+"file": "TT-A-entry-auth.md",
+"line": 168,
+"f": {
+"family": "cancellation + deadline_timeout。主 D2（CODEBOOK 边界案例\"gateway timeout 有，但 backend 不接收 cancellation\"），次 D1（网关自身没有响应超时）。对应 T-01/T-02。",
+"loc": "负载 → 网关 → auth/user/contacts（及 preserve）→ MySQL/下游。 / **E1 网关超时配置**——成立。javap：`responseTimeout=null`，`connectTimeout=null`（落到 Netty 默认 30 s）；连接池为 ELASTIC，`maxIdleTime`/`maxLifeTime` 为 null。 / **E2 唯一生效的时限在客户端**——成立。负载:585 是 10 s；UI 路径的 `ts-ui-dashboard/nginx.conf:40–42` 没配超时（nginx 默认 60 s）；TLS 网关同样没配。 / **E3 后端收不到取消**——成立。后端是 Servlet 阻塞栈（根 `pom.xml:77–79` 的 starter-web），出站调用和 JDBC 都没有读超时（见 TT-A8、TT-A12）。 / **E4 网关在客户端断开时是否取消上游**——存疑。",
+"trigger": "给 contacts 或其 MySQL 注入 15 s 延迟。负载 10 s 放弃后，后端的 Tomcat 线程继续工作；在 preserve 上则表现为\"客户端判失败、订单照样落库\"。",
+"impact": "登录、查联系人、下单。",
+"conf": "高。"
+},
+"end": 181,
+"_k": "conf"
+},
+{
+"id": "TT-A8",
+"title": "服务间 RestTemplate 全用默认值：无读超时、无 keepalive、连接池每路由 5/总 10 且取连接无限等待；节点级故障后，调用方会被半开连接一直卡住",
+"file": "TT-A-entry-auth.md",
+"line": 182,
+"f": {
+"family": "deadline_timeout + circuit_isolation + retry_backoff。按 CODEBOOK 决策顺序，主 D1（读超时不存在）。次 D5：只有和小连接池、无 keepalive 组合起来，才会出现\"依赖恢复后调用方仍不自愈\"，这是 T-01 没覆盖的部分。次 D4：连接池上限相当于隐式舱壁，但取连接没有超时，参数不对。",
+"loc": "auth → verification-code；user → auth（POST 创建、DELETE 删除）；本组服务作为被调方：preserve/cancel → user、preserve → contacts。 / **E1 全用 `builder.build()`**——成立。`AuthApplication.java:21–25`、`UserApplication.java:28–32`、`ContactsApplication.java:30–34`、`VerifyCodeApplication.java:22`、`PreserveApplication.java`/`CancelApplication.java:30–34`；全仓没有任何超时配置。 / **E2 连接池**——成立。 / ribbon-httpclient pom:27–30 引入 httpclient。 / javap：Boot 2.3.12 优先选 `HttpComponentsClientHttpRequestFactory`；它的默认构造调用 `HttpClients.createSystem()`；`HttpClientBuilder` 读 `http.maxConnections`，默认 \"5\"，即每路由 5。 / 总数 10 按 4.5.x 源码推断；三类超时默认 −1（无限）按库默认值推断。 / **E3 重试**——成立。spring-integration-core 5.3.8 pom:82–85 以 compile 引入 spring-retry，于是启用 Ribbon 重试拦截器：GET 立即换实例重试 1 次，POST/DELETE 不重试（Ribbon 默认值，未反编译）。单副本被调方的\"下一个实例\"仍是同一个死地址。 / **E4 远程调用占着数据库连接**——成立。user `UserServiceImpl.java:133` 的 `@Transactional` 方法在 :139 调 `deleteUserAuth`（:183 远程 DELETE）。",
+"trigger": "user（单副本）所在节点断网或宕机，对端不会发 FIN/RST。 / 已发出的请求永远等不到响应，连接永不归还。 / 每个 preserve Pod 在该路由上最多卡 5 个连接；如果 contacts 同时出事，总数 10 被占满，preserve 对所有下游的调用都卡在取连接上。 / 节点恢复后依然卡住，直到 preserve 重启。",
+"impact": "下单与取消无法自愈。",
+"conf": "中高。\"永久卡住\"依赖对端不回 RST，需要实测。"
+},
+"end": 201,
+"_k": "conf"
+},
+{
+"id": "TT-A9",
+"title": "入口与认证组件的健康判定都只看 TCP 端口，没有存活探针；能反映真实状态的 health 端点又被 Spring Security 挡住",
+"file": "TT-A-entry-auth.md",
+"line": 202,
+"f": {
+"family": "health_probe（readiness；liveness 缺失）。主 D4（CODEBOOK：\"probe 检查了错误的本地状态\"），次 D1。对应 T-05。",
+"loc": "gateway、auth、user、contacts、verification、ui-dashboard。 / **E1 只有 TCP readiness**——成立。`MAN/deployments.json` 中端口依次为 18888/12340/12342/12347/15678/8080，initialDelay 60，都没有 liveness/startup。 / **E2 TCP 通 ≠ 能服务**——成立（机制层面）。Tomcat 占满、Hikari 耗尽、网关拿到空列表时，端口照样是开着的。 / **E3 health 端点被挡**——成立。根 `pom.xml:91` 引入了 actuator，但 auth `WebSecurityConfig.java:94`、contacts `SecurityConfig.java:74`、user `SecurityConfig.java:76` 都写了 `anyRequest().authenticated()`，httpGet 探针会拿到 401/403。",
+"trigger": "对 tsdb-mysql-leader 注入延迟，耗尽 auth 的 Hikari 连接池（10 个连接，取连接超时 30 s）。Pod 始终 Ready，也不会被重启。",
+"impact": "登录、查联系人；恢复阶段没有自动重启兜底。",
+"conf": "高。"
+},
+"end": 214,
+"_k": "conf"
+},
+{
+"id": "TT-A10",
+"title": "网关唯一的准入保护（Sentinel）只覆盖 39 条路由中的 1 条；登录每次都做 BCrypt，却完全不限流",
+"file": "TT-A-entry-auth.md",
+"line": 215,
+"f": {
+"family": "load_shedding_admission。主 D2，次 D4（阈值按网关实例计算，会随副本数漂移）。",
+"loc": "网关 SentinelGatewayFilter → auth `/api/v1/users/login`。 / **E1 只有一条规则**——成立。`GatewayConfiguration.java:107–119` 只给 `admin-basic-info` 设了 QPS 20（:112–116）；:77 的自定义处理器被注释。 / **E2 规则只在进程内生效**——成立（:118）。3 个网关副本合计约 60 QPS，会随副本数变化。 / **E3 登录成本高**——成立。auth `WebSecurityConfig.java:75` 用 `new BCryptPasswordEncoder()`（强度 10）；`TokenServiceImpl.java:84` 每次登录都校验；auth CPU request 只有 10m。",
+"trigger": "把 login 流量从 0.2 QPS（`profiles.yaml:66`）提高到 20–40 QPS，或叠加节点 CPU 压力。登录时延会超过 1500 ms（`profiles.yaml:77`），直至超过 10 s。",
+"impact": "登录，影响 p95 和吞吐比。",
+"conf": "代码层面为高，影响量级为中。"
+},
+"end": 227,
+"_k": "conf"
+},
+{
+"id": "TT-A11",
+"title": "资源配额和 JVM 运行时对不上，网关最严重：CPU request 10m、内存 request 100Mi，对应 -Xmx1024m，且基础镜像很可能不识别容器限额",
+"file": "TT-A-entry-auth.md",
+"line": 228,
+"f": {
+"family": "resource_limit。主 D4，对应 T-08。",
+"loc": "网关（全部流量都经过它），以及 auth/user/contacts/verification。 / **E1 request 远低于实际用量**——成立。6 个 Deployment 都是 requests 10m/100Mi、limits 1500m/1500Mi。 / **E2 堆上限与容器限额**——成立。网关 `Dockerfile:6` 是 `-Xmx1024m`，占限额 68%，还要加上 Netty 直接内存、元空间和 OTel agent；其他服务 `Dockerfile:6` 是 `-Xmx200m`，OTel agent 与业务共用这 200m。 / **E3 JVM 可能不认容器 CPU 限额**——存疑。`Dockerfile:1` 都是 `FROM java:8-jre`，早于 8u191 的容器感知。若如此，事件循环和 GC 线程会按宿主机核数创建，在 1.5 核限额下被 CFS 节流，停顿被放大。 / 节点 CPU 争用：网关只能按 10m 的份额拿 CPU，所有路由同时变慢。 / 节点内存压力：网关实际占用远超 request，会最先被驱逐。 / 另有冷启动：Ribbon 各路由懒加载，加上 JIT 冷启动。",
+"impact": "所有流程。",
+"conf": "中（E3 取决于实际镜像）。"
+},
+"end": 243,
+"_k": "conf"
+},
+{
+"id": "TT-A12",
+"title": "认证和用户数据访问没有 socket 超时，三个服务共用一个 MySQL 主节点；数据库不可用时服务连启动都起不来",
+"file": "TT-A-entry-auth.md",
+"line": 244,
+"f": {
+"family": "deadline_timeout。主 D1，次 D6。与基础设施组交叉。",
+"loc": "auth、user、contacts → `*_MYSQL_HOST`。 / **E1 JDBC URL 没有超时参数**——成立。auth yaml:11、user :12、contacts :12 只带 `useSSL=false`。驱动 8.0.25 默认 connectTimeout 和 socketTimeout 都是 0（无限，按库文档默认值）。 / **E2 Hikari 用默认值**——成立。三个配置文件都没有 hikari 配置，HikariCP 3.4.5 默认池 10、取连接超时 30 s。 / **E3 共用主节点**——存疑（Secret 已脱敏）。上游 `hack/deploy/utils.sh:59–66` 给所有服务都生成 `tsdb-mysql-leader`；`MAN/services.json` 里也没有各服务独立的 MySQL Service。 / **E4 启动强依赖 DB**——成立。`ddl-auto: update` 在 auth :17、user :18、contacts :18；auth `InitUser.java:29–49` 启动时写库。 / 对 leader 注入丢包：进行中的查询会一直挂起；10 个连接耗尽后，新请求等满 30 s 再失败；K8s 和 Nacos 都不会摘除这个实例。 / 数据库主从切换：旧连接上的在途查询可能要等 TCP 重传放弃（约 15 min）。 / 数据库不可用时重启服务：启动失败，进入 CrashLoopBackOff。",
+"impact": "登录、查联系人、下单第 8 步。",
+"conf": "中。"
+},
+"end": 260,
+"_k": "conf"
+},
+{
+"id": "TT-A13",
+"title": "有副本却不分散：网关 3 副本、auth 2 副本没有反亲和也没有 PDB；user、contacts、verification-code 都是单副本",
+"file": "TT-A-entry-auth.md",
+"line": 261,
+"f": {
+"family": "replica_disruption。多副本部分为 D2，单副本部分为 D1。对应 T-06。",
+"loc": "见标题。 / **E1 副本数**——成立（见前提 3）。 / **E2 没有任何分散或保护配置**——成立。所有 Deployment 都没有 `podAntiAffinity`/`topologySpreadConstraints`（jq 查询结果为空）；团队 `static-manifests.yaml` 和 `live-export.yaml` 里 PDB、HPA 数量都是 0；唯一的亲和规则是 `nodeAffinity NotIn tcse-v100-01`。 / **E3 发现机制拉长单副本的恢复**——成立（见 TT-A1、TT-A3）。 / 网关副本如果集中在同一节点，该节点宕机时入口全断。 / kill 单副本的 contacts：在 JVM 启动 + 就绪等待 60 s + Ribbon ≤30 s 这段时间里，下单 100% 失败。",
+"impact": "下单、登录、所有流程。",
+"conf": "清单层面为高。"
+},
+"end": 275,
+"_k": "conf"
+},
+{
+"id": "TT-A14",
+"title": "登录同步依赖一个\"永远返回 true\"的验证码服务：校验结果毫无意义，但它一出故障登录就失败",
+"file": "TT-A-entry-auth.md",
+"line": 276,
+"f": {
+"family": "fallback_degradation。主 D1，对应 T-09。",
+"loc": "auth → verification-code（只在请求带验证码时发生，即 UI 登录）。 / **E1 恒返回 true**——成立。`VerifyCodeController.java:55` 是 `return true;`。 / **E2 无降级**——成立。`TokenServiceImpl.java:65–79`（:72 对返回值拆箱）；`UserController.java:44–50` 和 `GlobalExceptionHandler.java:15–18` 只处理 `UserOperationException`，其他异常一律变成 500。 / **E3 UI 必须带验证码**——成立。`client_login.js:38–42`。 / **E4 压测负载不带**——成立（负载:302–309），所以当前 SLO 看不到这个问题。",
+"trigger": "kill 验证码服务，或注入延迟，同时发起带验证码的登录。延迟情况下，每个 auth Pod 只有 5 个连接的池，挂住后会连带拖慢不带验证码的登录。",
+"impact": "UI 登录。",
+"conf": "代码层面为高，对 benchmark 相关性低。"
+},
+"end": 289,
+"_k": "conf"
+},
+{
+"id": "TT-A15",
+"title": "注册是跨库双写、没有补偿，用户名也没有唯一约束：一次部分失败加一次重试，该用户就永久登录不了",
+"file": "TT-A-entry-auth.md",
+"line": 290,
+"f": {
+"family": "idempotency_compensation。主 D1。",
+"loc": "user register → auth `POST /api/v1/auth`；auth 启动时的 InitUser。 / **E1 先远程写、再本地写，没有补偿**——成立。user `UserServiceImpl.java:63` 查重、:66–68 远程建 auth 用户、:70 本地保存。 / **E2 重试会生成新 id**——成立。:49–51 每次新建 UUID；auth `UserServiceImpl.java:52–65` 不查重就保存，校验异常还被吞掉（:60–64）。 / **E3 用户名无唯一约束**——成立。auth `User.java:32–33`；user `User.java:28`。 / **E4 重复后登录必失败**——成立。`UserDetailsServiceImpl.java:29` 和 `TokenServiceImpl.java:90` 都调用返回单值的 `findByUsername`（auth `UserRepository.java:20`），遇到两行会抛异常。 / **E5 InitUser 并发写入**——成立。auth 有 2 副本；`InitUser.java:40–49` 对 admin 先查后插，且 userId 随机（:43）。",
+"trigger": "在 :66 之后 kill user，客户端重试注册；或者在空库上让两个 auth 副本同时启动。",
+"impact": "注册与特定用户的登录。当前负载用预置用户，影响有限。",
+"conf": "代码层面为高，对 benchmark 相关性低。"
+},
+"end": 304,
+"_k": "conf"
+},
+{
+"id": "TT-A16",
+"title": "UI 入口 nginx 是单 worker、1024 连接、默认 60 s 超时，只有 TCP 探针：网关一变慢，nginx 就会饱和并被逐个摘除；上游地址只在启动时解析一次",
+"file": "TT-A-entry-auth.md",
+"line": 305,
+"f": {
+"family": "load_shedding_admission + health_probe。主 D5，次 D4。",
+"loc": "ts-ui-dashboard → 网关。不在压测负载路径上。 / **E1 并发上限低**——成立。`nginx.conf:1` 单 worker、:4 `worker_connections 1024`，约 512 个代理并发；:21 的客户端 keepalive 65 s 还会占用连接。 / **E2 超时与上游连接**——成立。:40–42 没配超时，也没有 `upstream keepalive`。 / **E3 上游地址只解析一次**——成立。:41 写的是主机名，没配 resolver；网关 Service 如果被重建，nginx 仍连旧 IP，而且没有 liveness 探针把它重启。 / **E4 openresty 版本**——存疑（`Dockerfile:1` 是 `trusty` tag，未固定版本）。",
+"trigger": "网关变慢到 60 s，UI 侧每个 Pod 每秒 10 个请求 → 约 600 个并发，超过 512 → nginx 停止 accept → TCP 探针失败 → Pod 被摘除 → 剩下两个 Pod 被连锁压垮。",
+"impact": "浏览器端的全部访问。",
+"conf": "中。"
+},
+"end": 318,
+"_k": "conf"
+},
+{
+"id": "TT-A17",
+"title": "ischaos-tls-gateway 的镜像 tag 就叫 `tls-cert-expire`，证书只在启动时加载，单副本且没有任何探针",
+"file": "TT-A-entry-auth.md",
+"line": 319,
+"f": {
+"family": "不属于 CODEBOOK 机制族（证书到期），附带 health_probe。主 D4，次 D6。",
+"loc": "ischaos-tls-gateway → 网关。不在压测路径上。 / **E1 部署形态**——成立。`MAN/deployments.json` 中镜像是 `…/ischaos/frontend:v1.3.1-tls-cert-expire`，1 副本，没有探针，`resources: {}`。 / **E2 证书加载方式**——成立。`MAN/configmaps.json` 的 `ischaos-tls-gateway-nginx` 写的是 `ssl_certificate`；nginx 不会自动重读已更新的 Secret。 / **E3 证书是否已过期**——存疑。 / **E4 上游地址与超时**——成立，同 TT-A16。",
+"trigger": "证书过期或被更换时 TLS 握手全部失败，但 TCP 层一切正常。",
+"impact": "经过该 TLS 入口的访问。",
+"conf": "低到中，很可能是旧实验遗留。"
+},
+"end": 332,
+"_k": "conf"
+},
+{
+"id": "TT-A18",
+"title": "验证码服务的匿名接口每次都新建 HttpSession（保留 30 min），堆只有 200m，也没有限流",
+"file": "TT-A-entry-auth.md",
+"line": 333,
+"f": {
+"family": "load_shedding_admission + resource_limit。主 D1。",
+"loc": "`GET /api/v1/verifycode/generate`。 / **E1 每次都建会话**——成立。`VerifyCodeController.java:37–38`；`SecurityConfig.java:68` 的 STATELESS 只管 Spring Security 自己，挡不住应用建会话。 / **E2 匿名可访问**——成立。`SecurityConfig.java:71` 是 permitAll；网关 yml:206–209 直接转发；Sentinel 没有覆盖这条路由。 / **E3 堆小**——成立。`Dockerfile:6` 是 `-Xmx200m`。",
+"trigger": "以 50 QPS 持续请求 30 min，会累积约 9 万个会话，最终 Full GC/OOM；TCP 探针仍然通过。",
+"impact": "UI 登录。",
+"conf": "中，对 benchmark 相关性低。"
+},
+"end": 347,
+"_k": "conf"
+},
+{
+"id": "TT-B01",
+"title": "隐性连接池舱壁配错：每个目标 5 条、每个进程共 10 条连接，拿连接无限等待",
+"file": "TT-B-search-path.md",
+"line": 48,
+"f": {
+"family": "circuit_isolation / 主 D4，次 D5（与\"无超时、无取消\"叠加）。模板 T-04 实例。",
+"loc": "travel（→basic、seat）、seat（→order、config）、basic（→4 个下游）各自的 RestTemplate。 / E1 成立：RestTemplate 只做了 `builder.build()`（`TravelApplication.java:30-34`，其余服务同）。类路径上有 Apache HttpClient（nacos-discovery 2.2.7 → ribbon 2.2.9 → ribbon-httpclient 2.3.0 传递引入），Boot 2.3.12 因此选用 `HttpComponentsClientHttpRequestFactory`。它的默认构造调用 `HttpClients.createSystem()`，`http.maxConnections` 默认 \"5\"，于是每个路由 5 条、总共 10 条（lib）。 / E2 成立：连接、读、租约（从池里拿连接）三类超时都没设，拿不到连接的线程会一直等。 / E3 成立：同一个池同时承载查询和下单两条业务。下单路径是 preserve→travel `/trip_detail`（`PreserveServiceImpl.java:366`）和 preserve→seat 分座（`SeatServiceImpl.java:40-116`）。 / E4 成立：全仓只有网关用了 Sentinel，服务里没有熔断、舱壁或限流。Tomcat 为 200 线程（lib）。 / E5 存疑：部署 jar 里是否真的有 httpclient 和 spring-retry，进程是否设了 `-Dhttp.maxConnections`。 / 对 seat 注入挂起型故障（100% 丢包或 pod pause）。默认负载并发 1，客户端 10s 超时后放弃，但服务端请求继续占着连接：大约每 10s 多一个。约 50s 后 travel→seat 这个路由的 5 个槽位占满；再加上 travel→basic 的 5 条，全进程 10 条用尽，连新 seat IP 都拿不到连接。 / 小延迟需要 2N·d ≳ 50s 才能占满，所以单纯加延迟很难触发。 / 清除故障后，被卡住的连接要等下一次 TCP 重传（重传间隔上限 120s），因此恢复最多滞后约 120s，超过 T-07 模板\"清理后 60s 恢复\"的反驳线。",
+"impact": "search-trips 与 preserve-order 同时违反 p95≤2500ms 和成功率≥0.95（P:67-78）。",
+"conf": "中高。库行为已逐条核实；部署 jar 内容和实际重传间隔待测。"
+},
+"end": 65,
+"_k": "conf"
+},
+{
+"id": "TT-B02",
+"title": "全链路没有截止时间；看得见的 Ribbon 5s/2s 超时对这条路径不生效",
+"file": "TT-B-search-path.md",
+"line": 66,
+"f": {
+"family": "deadline_timeout / 主 D1，次 D4。T-01 实例。",
+"loc": "9 条 HTTP 边和 7 个数据库。 / E1 成立：HTTP 客户端没有任何超时（同 TT-B01 的 E1、E2）。 / E2 成立：Ribbon 默认值里有 ReadTimeout=5000、ConnectTimeout=2000（lib），但只作用于 Ribbon 自带的客户端，不作用于 RestTemplate 的 request factory。这是一个\"以为有超时\"的陷阱。 / E3 成立：JDBC URL 里没有 connectTimeout / socketTimeout（例如 travel 的 `application.yml:13`），11 个服务的 yml 里都搜不到 hikari 配置。 / E4 成立：网关 yml 没有 timeout 键；UI 的 nginx 只写了 `proxy_pass`（`S/ts-ui-dashboard/nginx.conf:40-41`），走默认 60s。整条链路唯一的截止是负载客户端的 10s。 / SLO 越界的最小延迟 d* ≈ (2500 − 280) / (k·n_rtt)，基线 p95 取 280ms（P:142）。 / seat、order、config 这三条边 n_rtt=2N，N=1 时 d* ≈ 1.1s/k；basic 的 4 个下游 n_rtt=1，d* ≈ 2.2s/k。 / 超过客户端截止的点：d ≈ 10s/n_rtt。没有库常量，所以不存在内层饱和点。",
+"impact": "查询只会慢失败，不会快速失败。",
+"conf": "高。"
+},
+"end": 82,
+"_k": "conf"
+},
+{
+"id": "TT-B03",
+"title": "服务间路由的健康判断完全来自 Nacos：陈旧副本把死 IP 标成健康后，失败率随扇出放大（运行时事实 2）",
+"file": "TT-B-search-path.md",
+"line": 83,
+"f": {
+"family": "health_probe（负载均衡层健康判定）/ 主 D6，次 D5。",
+"loc": "所有 `http://<服务名>` 调用（`TravelServiceImpl.java:51-53` 等）和网关的 `lb://` 路由。 / E1 成立：地址列表只来自 Nacos。`NacosServerList` 调 `selectInstances(…, healthy=true)`；Ribbon 用 DummyPing（不主动探活），按规则轮询，服务器列表每 30s 刷新一次（lib）。 / E2 成立：Nacos 2.0.1 三副本，没有持久卷（`M/statefulsets.json`）。nacos-client 2.0.3 的 gRPC 连接只挂在其中一个副本上，调用方看到的实例列表来自这个副本。 / E3 成立（运行时已查实）：陈旧副本把不存在的 Pod IP 标为健康。P:144 也记录过 order、preserve、网关的陈旧注册；P:132、P:151 说明副本一致性还没有成为门禁。 / E4 成立：没有连接超时。如果死 IP 直接丢 SYN，每次连接会挂约 127s（Linux 默认值，待测）。 / E5 部分成立：Ribbon 有服务器级跳闸：连续 3 次连接类异常后跳过该地址 10s，之后每次失败翻倍、上限 30s；只有成功才清零，所以死 IP 永远不会清零（lib：`ServerStats`、`RibbonLoadBalancedRetryPolicy`）。 / 一次查询：网关→travel 1、travel→basic 1、basic→4 个下游各 1、seat 2N、order 2N、config 2N（GET，有重试）。 / 合计 6+6N 次，经过 4 个调用方进程、9 个目标服务。 / 公式：单次调用挑中死地址的概率 q=死/(活+死)。POST 不重试时，P(查询失败) = 1 − Π(1−q_e)^{n_e}。同一进程连续调用时轮询是严格交替的，实际值不低于公式值。 / 调用方侧还有一层放大：4 个调用方进程各自随机连到 3 个副本之一时，至少有一个连在陈旧副本上的概率是 1 − (2/3)^4 ≈ 80%。 / 跳闸之后的稳态分两种情况： / 死 IP 能快速失败时：每个\"调用方进程 + 死地址\"组合约每 30s 失败 1 次。默认每 30s 约 18 次查询，所以一个组合就造成约 5.6% 的查询失败，已经超过 5% 的错误率 SLO；9 个组合约 50%。 / 死 IP 丢 SYN 时：失败要约 127s 才记账，而跳闸窗口最多 30s，所以约 80% 的时间不在跳闸期。挂起的连接很快占满该路由的 5 个槽位。basic 只要 4 个下游里有 2 个陈旧，就会占满全进程 10 条连接，查询 100% 失败（与 TT-B01 叠加）。",
+"trigger": "让一个 Nacos 副本保留旧实例（旧环境已自然出现过）。强度由死条目数与活实例数之比决定。",
+"impact": "查询成功率随扇出迅速坍塌，下单链路也同样经过 seat 和 order。",
+"conf": "机制成立为高；数值为中，取决于死 IP 是快速失败还是丢 SYN。"
+},
+"end": 114,
+"_k": "conf"
+},
+{
+"id": "TT-B04",
+"title": "K8s 探针与真实路由脱节：readiness 摘不掉 Nacos 流量，TCP 探针测错对象，没有 liveness",
+"file": "TT-B-search-path.md",
+"line": 115,
+"f": {
+"family": "health_probe（readiness 与 liveness）/ 主 D2，次 D4、D1。对应 T-05、T-07。",
+"loc": "查询链路上全部 Java Deployment。 / E1 成立：只有 tcpSocket 类型的 readiness（initialDelay 60 / period 10 / timeout 5 / failure 3），没有 liveness 和 startup 探针（`M/deployments.json`，14 个服务配置相同）。 / E2 成立：服务间调用走 Nacos，不走 K8s Service（见 TT-B03 E1）。NotReady 只会把 Pod 从 K8s Endpoints 摘掉；Nacos 2.x 下实例是否存活由 gRPC 连接维持，与 Tomcat 线程能不能干活无关。 / E3 成立：TCP 探针只有在 Tomcat 连接数达到 8192 且 backlog 100 也满了才会失败（lib）；200 个工作线程全部阻塞时它照样通过。 / E4 成立：旧环境出现过 order 的 accept 队列停止排空、0/2 Ready，最后靠人工滚动重启才恢复（P:137-138）。 / E5 存疑：pom 里有 actuator（`pom.xml:90-91`），但安全配置对非业务路径要求认证（travel 的 `SecurityConfig.java:75-78`），所以健康端点大概率返回 401/403，探针用不了。",
+"trigger": "让 order 的一个副本挂住但不退出，或者让 seat 的 200 个线程全部阻塞（见 TT-B01）。",
+"impact": "order 两副本时约 50% 的余票查询会挂住，而且不会自愈。",
+"conf": "高。"
+},
+"end": 129,
+"_k": "conf"
+},
+{
+"id": "TT-B05",
+"title": "入口放弃后下游继续干活（取消不传播）",
+"file": "TT-B-search-path.md",
+"line": 130,
+"f": {
+"family": "cancellation / D2。T-02 实例。",
+"loc": "网关与 travel 的边界，以及 travel 内部 2N 次串行 seat 调用。 / E1 成立：截止时间只在边缘：负载客户端 10s，UI 经 nginx 是默认 60s。 / E2 成立：travel 是阻塞式 servlet，`queryByBatch` 全程不检查取消（`TravelServiceImpl.java:203-217, :322-377`）。 / E3 成立：下游调用把入站请求头丢掉了（`HttpEntity(infos, null)`，`:345` 和 `:550`），截止时间传不下去。 / E4 存疑：网关在客户端断开后会不会关闭到 travel 的连接。",
+"trigger": "给 seat 注入 6–10s 延迟。客户端 10s 就放弃，服务端还会继续做完最多 6N 次下游调用。",
+"impact": "过载时白白消耗容量，放大 TT-B01 的排队。",
+"conf": "中高。"
+},
+"end": 143,
+"_k": "conf"
+},
+{
+"id": "TT-B06",
+"title": "Nacos 不可用时服务启动即退出，进入 CrashLoopBackOff；Nacos 恢复后要等退避计时器（运行时事实 1）",
+"file": "TT-B-search-path.md",
+"line": 144,
+"f": {
+"family": "retry_backoff / D5（启动快速失败 × kubelet 指数退避）。T-07 / N-04 形态。",
+"loc": "所有 ts-* Java 服务的启动阶段。 / E1 成立（运行时已查实）：启动时报 `NacosException: Client not connected, current status: STARTING` 后退出。 / E2 成立（配置根因）：yml 里只配了 server-addr（travel 的 `application.yml:5-9`），没有配置 fail-fast。`NacosDiscoveryProperties.failFast` 默认为 true；`NacosServiceRegistry.register` 捕获异常后，如果 `isFailFast()` 为真就重新抛出（lib，SCA 2.2.7 反汇编），导致应用上下文启动失败。 / E3 成立（部署根因）：没有 initContainer 或 startupProbe 等待 Nacos（`M/deployments.json` 中 initContainers 为 0）。kubelet 的退避从 10s 开始翻倍，300s 封顶。 / E4 成立：已经在运行的进程靠本地缓存继续路由，不受影响；受害的是 Nacos 故障期间被重启的 Pod。环境 reset 流程里有 `restart-application-deployments`（P:103-108），如果 reset 时 Nacos 没就绪，48 个服务会一起进入退避。",
+"trigger": "Nacos 宕机超过约 5 分钟，期间有 Pod 被重启。若查询路径上的 10 个服务（网关 + 9 个）都在退避中，每个服务在 Nacos 恢复后的下一次重启时刻约在 [0, 300s] 内均匀分布，整条路径要等最慢的那个，期望约 300×10/11 ≈ 273s，再加 JVM 启动时间。扇出越多，恢复越慢。",
+"impact": "Nacos 恢复后几分钟内查询全部 5xx，违反\"清理后 60s 恢复\"线。",
+"conf": "高。"
+},
+"end": 157,
+"_k": "conf"
+},
+{
+"id": "TT-B07",
+"title": "单副本 Pod 重建后，调用方的 30s 地址缓存、无连接超时和 GET 重试叠加，恢复晚于 Pod Ready",
+"file": "TT-B-search-path.md",
+"line": 158,
+"f": {
+"family": "replica_disruption / D5。对应 T-06、T-07。 / E1 成立：查询链路上 9 个服务都是单副本（replicas=1），没有 PDB 或 HPA（团队导出的清单里没有这两类资源）。 / E2 成立：Ribbon 地址列表 30s 才刷新一次（lib）。 / E3 成立：没有连接超时。旧 IP 如果丢 SYN，每次连接挂约 127s，还占着连接池槽位（见 TT-B01）。 / E4 成立：GET 请求会换\"下一台\"再试 1 次（lib）；单实例时下一台还是同一个陈旧 IP，挂起时间翻倍。 / E5 存疑：CPU request 只有 10m、堆 `-Xmx200m`、OTel agent 要从 NFS（1.94.151.57）挂载，这些决定了 Pod 重建本身要多久。",
+"trigger": "删除 ts-seat-service 的 Pod。",
+"impact": "每次单副本中断，查询不可用时间 = 重建时间 + 最多 30s（最坏再加 127s×2）。",
+"conf": "中高。"
+},
+"end": 171,
+"_k": "conf"
+},
+{
+"id": "TT-B08",
+"title": "seat→config：一个常量配置每次都远程读取，每次查询读 2N 次，没有缓存也没有默认值",
+"file": "TT-B-search-path.md",
+"line": 172,
+"f": {
+"family": "fallback_degradation / 主 D1，次 D6。T-09 实例。 / E1 成立：每次 `left_tickets` 都 GET 一次该配置（`SeatServiceImpl.java:190, :205-215`），而它的值是常量 0.5（config 的 `InitData.java:22-23`）。 / E2 成立：配置缺失时 `getData().toString()` 直接 NPE（`:217`），没有 try，也没有默认值。 / E3 成立：这一行配置只在 config 服务启动时写入（`InitData.java:18-26`）。表被清空以后，只要 config 进程不重启，查询就一直 500，属于\"恢复后回不来\"的形态。",
+"trigger": "config 服务 pod-fail，或者它的数据库不可用。",
+"impact": "一个非关键常量拖垮全部余票查询，下单的 `trip_detail` 也一起失败。",
+"conf": "高。"
+},
+"end": 183,
+"_k": "conf"
+},
+{
+"id": "TT-B09",
+"title": "basic→price：默认价格只兜住\"缺配置\"，兜不住\"调用失败\"",
+"file": "TT-B-search-path.md",
+"line": 184,
+"f": {
+"family": "fallback_degradation / D2。T-09 实例。 / E1 成立：降级是有的：缺配置时用 0.75/1.0（`BasicServiceImpl.java:284-290`），距离计算出错时用 95/120（`:293-306`）。 / E2 成立：调用本身没有 try（`:461-465`）。 / E3 成立：如果价格结果为 null（反序列化失败，`:476-478`），在 try 外面的 `:286` 会抛 NPE。",
+"trigger": "price 服务 pod-fail 或网络丢包。",
+"impact": "非关键的价格服务故障导致查询 100% 失败。",
+"conf": "高。"
+},
+"end": 194,
+"_k": "conf"
+},
+{
+"id": "TT-B10",
+"title": "按车次隔离失败的写法只存在于没人调用的 left_parallel 路径；线上的 /trips/left 要么全成功要么全失败",
+"file": "TT-B-search-path.md",
+"line": 195,
+"f": {
+"family": "fallback_degradation / D2。 / E1 成立：`queryInParallel` 对每个车次单独捕获异常（`TravelServiceImpl.java:277-286`）。 / E2 成立：`/trips/left` 的逐车次循环没有 try（`:367-375`）。 / E3 成立：UI 和负载只用 `/trips/left`（`W/profiles.yaml:57`，UI 里从没引用 left_parallel）。 / E4 附带问题：left_parallel 自己用的是全局固定 20 线程池、无界队列，`future.get()` 也没有超时（`:49, :272, :279`），而且经网关可以访问到。",
+"conf": "高。"
+},
+"end": 205,
+"_k": "conf"
+},
+{
+"id": "TT-B11",
+"title": "扇出 5+6N 次全部串行，还有 N+1 查询：注入的延迟被放大 2N 倍，而 N 随数据增长",
+"file": "TT-B-search-path.md",
+"line": 206,
+"f": {
+"family": "deadline_timeout（放大系数 n_rtt）/ D1。 / E1 成立：调用图第 4、4a、4b 条都在循环里串行执行。 / E2 成立：basic 收到的是全部 T 个车次（`:332-341`）；route 端对每条线路还要额外执行 2 条 SQL，共 1+2R 条（`Route.java:28-34`，集合是懒加载）。 / E3 成立：N=1 时 11 次 HTTP、19 条 SQL；N=3 时 23 次 HTTP、27 条 SQL。管理员新增车次后线性增长。",
+"trigger": "给 seat、order 或 config 加延迟 d，入口延迟约增加 2N·d。",
+"impact": "p95 对 N 线性敏感；这也是 TT-B03 失败概率放大的根源。",
+"conf": "高。"
+},
+"end": 216,
+"_k": "conf"
+},
+{
+"id": "TT-B12",
+"title": "余票计算的成本随历史订单线性增长，而负载和 reset 都让订单只增不减",
+"file": "TT-B-search-path.md",
+"line": 217,
+"f": {
+"family": "resource_limit（数据无界增长）/ D1。 / E1 成立：orders 表只有主键，没有 (日期, 车次) 索引（`Order.java:19-55`），查询是全表扫描。 / E2 成立：查询不过滤订单状态和座位等级（`OrderServiceImpl.java:54-62`），已取消的订单也被当成已售，一等、二等两次调用拉的是同一个全集。 / E3 成立：这个全集整包回传给 seat，order 端（`:65`）和 seat 端（`SeatServiceImpl.java:151`）都在 INFO 日志里整包打印。 / E4 成立：负载的出发日期是固定值（`W/runtime-fixture.example.yaml:19`）；负载\"清理\"订单用的是取消，而取消只改状态（`CancelServiceImpl.java:240-247`）；reset 不清库（P:103-110）。",
+"impact": "基线漂移，各 episode 之间不可比。",
+"conf": "中高。线上 order 跑的是 1.0.1 镜像，与上游代码的差异待确认。"
+},
+"end": 229,
+"_k": "conf"
+},
+{
+"id": "TT-B13",
+"title": "业务库切主：只指向主库的 Service 可能短暂没有后端，客户端没有读超时，已有连接还粘在旧主库上（运行时事实 3）",
+"file": "TT-B-search-path.md",
+"line": 230,
+"f": {
+"family": "deadline_timeout / 主 D2，次 D5、D6。 / E1 静态核实：上游 all-in-one 部署把所有服务的库主机都写成 `tsdb-mysql-leader`（`S/hack/deploy/utils.sh:61,66`、`gen-mysql-secret.sh:47-60`）。该 Service 的 selector 包含 `role=leader`（`M/services.json`）；这个标签由 xenon 在选主时调用 K8s API 打上（`M/configmaps.json` 里的 tsdb-mysql `leader-start.sh`/`leader-stop.sh`，`M/roles.json` 授予了 pods patch 权限）。Secret 的实际值没有导出，**需要运行时核对**。 / E2 成立：JDBC 没有 failover 配置，没有读超时；连接池用 Hikari 默认值：10 个连接、取连接最多等 30s、连接最长存活 30min。 / E3 成立：一次查询在同一个主库上执行约 15+4N 条 SQL，分布在 7 个服务里。 / E4 存疑：kube-proxy 按连接做地址转换，已有连接会粘在旧主库的 Pod IP 上。 / 旧主库的 IP 如果静默消失，执行中的语句会一直挂到 TCP 重传放弃（约 15 分钟）。 / 旧主库如果还活着、只是被降为从库，已有连接可能继续从它读陈旧数据，最长 30 分钟。",
+"conf": "中。"
+},
+"end": 250,
+"_k": "conf"
+},
+{
+"id": "TT-B14",
+"title": "依赖失败被翻译成\"成功，但没有车次\"（灰色故障）",
+"file": "TT-B-search-path.md",
+"line": 251,
+"f": {
+"family": "fallback_degradation / D3。 / E1 成立：basic 返回 status 0 或结果反序列化失败时，travel 返回 HTTP 200，内容是 `status=1` 加空列表（`TravelServiceImpl.java:353-365`）。 / E2 成立：basic 在 station、train 或 route 查不到数据时返回 status 0（`BasicServiceImpl.java:185-189, :210-214, :233-237`），分不清是真的没车次，还是数据被清空或读到了空副本。 / E3 存疑：按 HTTP 状态码计算的 SLO 会把这种情况算成成功。",
+"conf": "中低。"
+},
+"end": 259,
+"_k": "conf"
+},
+{
+"id": "TT-B15",
+"title": "JVM 堆固定 200MB，与 1500Mi 的容器配额脱钩；堆内 OOM 后进程不退出，又没有 liveness，服务僵死不重启",
+"file": "TT-B-search-path.md",
+"line": 260,
+"f": {
+"family": "resource_limit / 主 D2，次 D1。T-08 的变体。 / E1 成立：各 Dockerfile 都是 `java -Xmx200m`（例如 travel `Dockerfile:6`）；JAVA_TOOL_OPTIONS 里没有 `ExitOnOutOfMemoryError`。 / E2 成立：容器内存上限 1500Mi，所以容器级 OOMKill 重启永远轮不到，堆会先在 JVM 内部溢出。 / E3 成立：没有 liveness 探针。 / E4 存疑：线上镜像的实际启动参数，以及查询链路上哪个服务最先逼近 200MB。",
+"conf": "中低。"
+},
+"end": 269,
+"_k": "conf"
+},
+{
+"id": "TT-B16",
+"title": "route-plan 和 travel-plan 串行放大，一个车次失败拖垮整个规划",
+"file": "TT-B-search-path.md",
+"line": 270,
+"f": {
+"family": "deadline_timeout / 主 D1，次 D2。 / E1 成立：各规划接口的调用构成（全部串行、无超时）： / E2 成立：trip_detail 返回 status 0 时，`:261` 直接 NPE，整个规划 500。",
+"impact": "影响 UI 的高级查询，不在默认负载里。",
+"conf": "代码成立为高；对 SLO 的影响为低。"
+},
+"end": 285,
+"_k": "conf"
+},
+{
+"id": "TT-B17",
+"title": "ticket-office：一条 SQL 出错就打崩整个进程，靠 CrashLoopBackOff 恢复；每次重启还会重复插入种子数据",
+"file": "TT-B-search-path.md",
+"line": 286,
+"f": {
+"family": "fallback_degradation（错误处理）/ 主 D3，次 D4。 / E1 成立：全进程只有一个数据库连接，不是连接池，没有错误监听也不会重连（`bin/db.js:10-15`）。 / E2 成立：查询回调里写的是 `if (err) throw err`（`:23-24` 等），SQL 还是字符串拼接的（`:44-45`）。 / E3 成立：启动时无条件插入种子数据（`:30`），连不上库的错误被忽略（`:98-100`）。 / E4 成立：读取了端口环境变量，但没有传给数据库连接（`:5, :10-15`）。",
+"impact": "影响售票点页面，不在查询车次路径上。",
+"conf": "代码成立为高；对 SLO 的影响为低。"
+},
+"end": 297,
+"_k": "conf"
+},
+{
+"id": "TT-C1",
+"title": "ts-order-service 接收队列停止排空、句柄与 CLOSE_WAIT 堆积：每次请求的工作量随数据无上限增长，叠加表级锁、全链路无上限等待、没有自愈（根因推断）",
+"file": "TT-C-order-path.md",
+"line": 74,
+"f": {
+"family": "准入与过载保护（主）+ 超时 + 资源配额与 OOM + 健康探针（liveness）。**D5 为主**，次要为 D1（没有分页、没有 JDBC 超时、没有 liveness）和 D4（堆上限、存储引擎配错）。对应模板 T-05、T-07、T-08。",
+"loc": "ts-order-service 两个副本。调用方是 seat（`/order/tickets`）、security（`/order/security`）、preserve（POST `/order`）、网关（`/order/refresh`）、cancel（PUT `/order`）。下游是 tsdb-mysql 主库的 `orders` 表。",
+"trigger": " / (a) 老化：预置或累计该账户、该（日期，车次）的订单到 10^4～10^5 行，跑 10 分钟基线，观察 `/order/tickets` 和 `/order/security` 的 p95 是否随行数上升。 / (b) 在 (a) 的基础上，对 tsdb 主库注入 CPU 压力或 200ms 网络延迟，使单次查询耗时 ≥ 20/λ 秒。 / (c) 撤除注入后 5 分钟内仍不恢复，就是 T-07（故障后不自愈）的信号。",
+"impact": "下单（写单、分座、安检都经过 order）、查单，以及搜索（seat 查余票也经过 order）一起超时或失败，违反 p95≤2500ms 和错误率≤5%（Profile:66-82），只能人工重启。",
+"conf": "中。机制链的静态证据是完整的，但 H1/H2/H3 要靠运行时判别，存储引擎是不是 MyISAM 也要一条 SQL 确认。"
+},
+"end": 141,
+"_k": "conf"
+},
+{
+"id": "TT-C2",
+"title": "写订单之后的 4 个后置调用只把\"业务失败\"当软失败，一旦出现传输异常或 5xx，就把已经写入的订单变成 500，而且没有补偿",
+"file": "TT-C-order-path.md",
+"line": 142,
+"f": {
+"family": "降级回退 + 补偿。**D2 为主**（降级只覆盖了 status≠1 这种情况），次要为 D1（没有补偿）。对应模板 T-09。",
+"loc": "preserve 和 preserve-other，调用 assurance、food、consign（再调 consign-price）、user。",
+"trigger": "对 ts-user-service 做 pod-kill（重启窗口不少于 readiness 的 60s），或对 12342 端口丢包、返回 5xx。按 0.3 笔下单/秒算，每分钟约 18 笔订单已落库却返回 500。",
+"impact": "下单显示失败，但订单、座位（以及保险、餐食、托运）其实都已生效。用户重试就会重复下单（见 TT-C3）。",
+"conf": "高。"
+},
+"end": 162,
+"_k": "conf"
+},
+{
+"id": "TT-C3",
+"title": "重复提交必然重复下单：没有幂等键，order 的去重比较写错了永远不会命中，订单号被服务端重新生成，下单响应也不带订单号",
+"file": "TT-C-order-path.md",
+"line": 163,
+"f": {
+"family": "幂等与去重。**D4 为主**（去重逻辑存在但写错了），次要为 D1（没有幂等键）。",
+"loc": "preserve 到 order；preserve-other 到 order-other 相同。",
+"trigger": "用 TT-C2 或 TT-C5 的注入制造模糊失败，再让调用方（自定义压测，或模拟用户）重试一次。每次模糊失败多出一笔重复单。",
+"impact": "产生重复订单，可能重复扣款，座位被浪费。",
+"conf": "高。"
+},
+"end": 184,
+"_k": "conf"
+},
+{
+"id": "TT-C4",
+"title": "摘除和实际路由脱节：readiness 只管 K8s Endpoints，而服务之间和网关都经 Nacos+Ribbon 选实例；陈旧或卡死的实例会持续收到流量，而且因为没有超时，Ribbon 按失败剔除的机制永远等不到信号",
+"file": "TT-C-order-path.md",
+"line": 185,
+"f": {
+"family": "健康探针（readiness）+ 摘除。**D2 为主**，次要为 D6（摘除依赖 Nacos 副本之间的一致性）和 D5（按失败剔除 × 没有超时）。对应模板 T-05、N-04。",
+"loc": "所有东西向调用：preserve、seat、security、cancel、网关调用 order、preserve 等。",
+"trigger": "只对一个 order Pod 的入站 12031 丢包（保留它到 9848 的出站，这样 Nacos 连接不断），或者对它做 JVM 方法延迟注入。30s 后它会变成 NotReady，然后观察 5 分钟内 Nacos 是否仍把它列为健康，以及下单成功率是否按 E6 的比例下降。",
+"impact": "下单和搜索成功率骤降，延迟拉长，要靠人工修复。",
+"conf": "高。"
+},
+"end": 206,
+"_k": "conf"
+},
+{
+"id": "TT-C5",
+"title": "上游已经放弃了，preserve 仍然把整条链跑完并写单（取消不传播）；恢复时积压的\"僵尸请求\"会集中落库",
+"file": "TT-C-order-path.md",
+"line": 207,
+"f": {
+"family": "取消传播。**D2 为主**（对应编码手册里的边界案例），次要为 D5（和没有超时、排队叠加）。对应模板 T-02。",
+"loc": "压测（10s 超时）到网关，再到 preserve，再到下游各服务。",
+"trigger": "对 seat 或 basic 注入 3-5s 的延迟（第 3 步和第 4b 步合计要经过 seat 3 次），让 preserve 的总耗时超过 10s。撤除注入时，排在连接池和线程上的请求会一起完成写单。",
+"impact": "产生幽灵订单；用户一重试就重复下单；恢复期出现写入尖峰，叠加 TT-C1。",
+"conf": "高（E2 存疑）。"
+},
+"end": 223,
+"_k": "conf"
+},
+{
+"id": "TT-C6",
+"title": "所有出站调用都没有超时，而且（推断）共用一个很小的连接池：单个慢依赖可以钉死 preserve 的全部出站能力，对端消失后连接被永久占住",
+"file": "TT-C-order-path.md",
+"line": 224,
+"f": {
+"family": "超时（主）+ 熔断与隔离。**D1 为主**，次要为 D5（小连接池 × 取连接无限等待）。对应模板 T-01、T-04、T-07。",
+"loc": "preserve 的 RestTemplate；范围内其他服务的写法相同。",
+"trigger": "对 ts-user-service（第 8 步，非关键）做黑洞注入。每笔下单都会先写单、再挂在第 8 步。发往 user 的 5 个连接被钉死之后，新请求在取连接上无限等待；Tomcat 的 200 个线程耗尽后，preserve 整体不可用。撤除注入后，如果对端从没发 RST，这些连接不会释放，只能重启。",
+"impact": "一个非关键依赖就能拖垮整个下单入口；和 TT-C2、TT-C5 叠加会产生幽灵单。",
+"conf": "中。没有超时这一点是高置信，连接池大小存疑。"
+},
+"end": 246,
+"_k": "conf"
+},
+{
+"id": "TT-C7",
+"title": "业务表很可能被 Hibernate 建成了 MyISAM：表级锁；崩溃后表损坏不会自动修复；写入不参与两阶段提交",
+"file": "TT-C-order-path.md",
+"line": 247,
+"f": {
+"family": "故障转移与持久性。**D4 为主**（方言的默认值选错了存储引擎），次要为 D6（恢复依赖人工 REPAIR）。",
+"loc": "tsdb-mysql 库 `ts` 里的 orders、orders_other、assurance、food_order、consign_record、security_config 等表。",
+"trigger": "在下单压测期间 kill -9 主库的 mysqld，然后执行 `CHECK TABLE`；或者触发 xenon 切主，比较新旧主的行数。",
+"impact": "MySQL 崩溃后下单、查单持续失败，订单丢失或多出；它同时也是 TT-C1 里锁争用的来源。",
+"conf": "中。静态证据强，一条 SQL 就能定案。"
+},
+"end": 264,
+"_k": "conf"
+},
+{
+"id": "TT-C8",
+"title": "补偿覆盖不全、没人回收：取消只改订单状态，不回收保险、餐食、托运，也不释放座位；下单中途失败或压测异常退出留下的 NOTPAID 订单没有任何自动回收",
+"file": "TT-C-order-path.md",
+"line": 265,
+"f": {
+"family": "补偿。**D2 为主**（有补偿但覆盖不全），次要为 D1（没有定时回收）。",
+"loc": "cancel、order（已售座位的统计口径）、preserve 的失败路径。",
+"trigger": "在下单和清理之间杀掉压测 Pod，或用 TT-C2、TT-C5 的注入制造失败；一轮结束后统计遗留的订单和孤儿附属记录。",
+"impact": "订单列表被污染；数据无限增长，进一步加重 TT-C1；跨轮的基线被污染。",
+"conf": "高。"
+},
+"end": 282,
+"_k": "conf"
+},
+{
+"id": "TT-C9",
+"title": "主从切换后连接池还粘在旧主上：旧主活着时，写入会报只读错误，直到连接寿命到期；旧主失联时，在用的连接因为没有 socketTimeout 而半开挂死",
+"file": "TT-C-order-path.md",
+"line": 283,
+"f": {
+"family": "故障转移。**D2 为主**（切主没有传递到已有连接），次要为 D1（没有 socketTimeout）。对应模板 T-07。",
+"loc": "order 以及所有写 tsdb 的服务，连到 tsdb-mysql-leader。",
+"trigger": "在压测期间让主库发生 xenon 切主，但不删 Pod。只读错误最多持续 30 分钟，半开挂死约 2 小时。",
+"impact": "切主本应在秒级完成，下单却持续失败几十分钟甚至几小时。",
+"conf": "中。"
+},
+"end": 297,
+"_k": "conf"
+},
+{
+"id": "TT-C10",
+"title": "安检把 G/D 车次的下单硬绑到 order-other（单副本、1.0.2 镜像）上，每次还要全量扫描两个库的账户订单；而阈值默认无限大，安检只剩成本和脆弱性",
+"file": "TT-C-order-path.md",
+"line": 298,
+"f": {
+"family": "降级回退。**D1**。对应模板 T-09。",
+"trigger": "对 order-other 做 pod-kill。在它恢复的 60s 以上窗口里，G/D 车次的下单 100% 在第 1 步失败（不写单，失败是干净的）。",
+"impact": "另一种车次的存储出故障，就让主下单路径全挂。",
+"conf": "高。"
+},
+"end": 311,
+"_k": "conf"
+},
+{
+"id": "TT-C11",
+"title": "下单关键路径上有 6 个单副本依赖，没有 PDB 也没有反亲和；恢复动作（重启、每轮重置）又依赖 Nacos 和 NFS",
+"file": "TT-C-order-path.md",
+"line": 312,
+"f": {
+"family": "副本与中断预算。**D1 为主**，次要为 D2（order 的两个副本可能在同一节点）和 D6（重启依赖脆弱的外部对象）。对应模板 T-06。",
+"trigger": "对 seat 做 pod-kill，下单会中断 60s 以上；如果同时 Nacos 全部不可用，被杀的服务就起不来。",
+"impact": "任何一个单点重启都会中断下单；Nacos 或 NFS 故障期间既不能自愈，也做不了每轮重置。",
+"conf": "高。"
+},
+"end": 330,
+"_k": "conf"
+},
+{
+"id": "TT-C12",
+"title": "资源配额与运行时参数错配：堆写死 200MB 而 limit 是 1500Mi，CPU 请求只有 10m，基础镜像 java:8-jre 很可能不感知容器",
+"file": "TT-C-order-path.md",
+"line": 331,
+"f": {
+"family": "资源配额与 OOM。**D4**。对应模板 T-08。",
+"trigger": "对同一节点施加 CPU 压力，或者直接用 TT-C1 里的大数据量。",
+"impact": "order 和 preserve 延迟抖动，放大 TT-C1。",
+"conf": "中。"
+},
+"end": 342,
+"_k": "conf"
+},
+{
+"id": "TT-C13",
+"title": "买保险是一个带副作用的 GET，而 preserve 的客户端栈会自动重试 GET：模糊失败之后，要么误报\"买保险失败\"，要么并发写出两条保险",
+"file": "TT-C-order-path.md",
+"line": 343,
+"f": {
+"family": "重试与退避。**D3 为主**，次要为 D4（用 GET 做写入）。对应模板 T-03（弱实例）。",
+"trigger": "下单时 assurance=1，同时对 assurance 服务的响应注入 TCP RST，或在它提交后立刻 kill 掉它。",
+"impact": "用户看到错误的状态；产生重复的保险记录；后续查询报错。",
+"conf": "低到中。"
+},
+"end": 359,
+"_k": "conf"
+},
+{
+"id": "TT-C14",
+"title": "餐食下单在请求线程里同步投递 RabbitMQ：建连最长等 60s，没有发布确认，失败被吞掉",
+"file": "TT-C-order-path.md",
+"line": 360,
+"f": {
+"family": "超时。**D1 为主**，次要为 D4（没有确认，对应 N-02）。这一条和\"消息链路\"组有交叉，这里只写与下单相关的部分。",
+"trigger": "对 food 到 5672 端口的流量丢包（丢包而不是拒绝），foodType≠0 的下单每笔会多出约 60s，就转成 TT-C5 或 TT-C2 里的幽灵单。",
+"impact": "配送信息静默丢失；下单变慢并出现模糊失败。",
+"conf": "中。默认压测覆盖不到这一步。"
+},
+"end": 372,
+"_k": "conf"
+},
+{
+"id": "TT-C15",
+"title": "占座没有预留也没有唯一约束，并发时会超卖；余票校验写错了；售罄时 seat 服务死循环。但默认数据下每种车型的座位数都是 Integer.MAX_VALUE，这些问题难以触发",
+"file": "TT-C-order-path.md",
+"line": 373,
+"f": {
+"family": "准入与过载保护 + 幂等。**D4 为主**（校验存在但写错了），次要为 D1（没有预留、没有唯一约束）。",
+"trigger": "先把某个车型的座位数改小（这是一次数据变更），再以 2 个以上的并发对同一（日期，车次）下单，直到售罄。",
+"impact": "超卖；seat 服务被占满后，搜索和下单一起挂掉。",
+"conf": "低。代码缺陷是确定的，但默认数据下很难触发。"
+},
+"end": 405,
+"_k": null
+},
+{
+"id": "TT-D1",
+"title": "取消接口把任何异常包装成 status=1「成功」，压测成功率看不到取消链路的故障",
+"file": "TT-D-payment-messaging.md",
+"line": 23,
+"f": {
+"family": "fallback_degradation；主 D3（兜底被触发了，但返回「成功」这个动作本身造成错误），次 D4（状态码写错）。",
+"loc": "ts-cancel-service 入口的 catch 块。受波及的调用边：cancel→order（PUT）、cancel→inside-payment（drawback）、cancel→user。",
+"trigger": "默认负载约 0.3 次取消/秒，10 分钟约 180 次。对 ts-inside-payment-service 做 pod-kill 或端口拒连（单副本），或对 order-service 的 PUT /order 注入 abort。注入期间 cleanup-order 成功率仍接近 100%。",
+"impact": " / PUT 失败时，订单仍是 0（未支付），接口却报成功。 / drawback 失败时，订单已是 4（已取消），退款缺失。 / SLO 对「注入在取消链路下游」的故障失明，直接影响评测的可观测性。",
+"conf": "高。E1–E4 都有直接静态证据；E5 只影响能看见的比例。"
+},
+"end": 44,
+"_k": "conf"
+},
+{
+"id": "TT-D2",
+"title": "取消是「先改为已取消、再退款」，退款失败只记日志仍报成功，没有补偿也没有对账（回应主会话事实 3）",
+"file": "TT-D-payment-messaging.md",
+"line": 45,
+"f": {
+"family": "idempotency_compensation；主 D1（按手册 §10「扣款后订单中止、无补偿」口径），次 D2（失败不回传给调用方，状态守卫还挡住了补救性重试）。",
+"loc": "ts-cancel-service → ts-order-service（PUT）→ ts-inside-payment-service（drawback）。",
+"trigger": "自定义 preserve→pay→cancel 流。取消进行中对 inside-payment 注入 abort 或 pod-kill，或让 inside-payment 到 tsdb-mysql:3306 丢包。",
+"impact": "取消退款丢失，用户看到的是成功。",
+"conf": "高（机制）；9 个遗留单的成因：低，需 R5。"
+},
+"end": 64,
+"_k": "conf"
+},
+{
+"id": "TT-D3",
+"title": "改签先动钱后改单、失败不回滚；「只能改一次」的守卫最后才落地，部分失败后可以反复退差价；跨类改签必然失败",
+"file": "TT-D-payment-messaging.md",
+"line": 65,
+"f": {
+"family": "idempotency_compensation；主 D1，次 D2。",
+"loc": "ts-rebook-service → ts-inside-payment-service → order / order-other。",
+"trigger": "自定义 preserve→pay→rebook 流。 / 确定性触发：把 G/D 车次改签成更便宜的 Z/K/T 车次，每调用一次就退一次差价，订单不变。 / 故障触发：同类改签时让 route 返回 status 0，或对 seat / order 的 PUT 注入 abort。",
+"impact": "多退差价、重复补差价、订单丢失。",
+"conf": "高。E4 依赖 1.0.1/1.0.2 镜像没有改过删除接口。"
+},
+"end": 81,
+"_k": "conf"
+},
+{
+"id": "TT-D4",
+"title": "支付部分失败后，重试被 ts-payment-service 的订单号去重以「失败」拒绝，订单永远付不了而用户已被记账；余额分支先改为已支付、后记账",
+"file": "TT-D-payment-messaging.md",
+"line": 82,
+"f": {
+"family": "idempotency_compensation；主 D3（去重被触发了，却用「失败」回应合法重试），次 D4（先查后插、没有唯一约束）、D5（与 inside-payment 的非原子多步组合）、D1（无补偿）。",
+"loc": "inside-payment → payment（POST /payment）→ order（GET status）。以上游为准，线上 payment 是 1.0.2。",
+"trigger": "自定义支付负载，并让余额不足。初始只有 4d2a46c7… 账户的 10000（inside-payment 的 InitData）。pay 期间对 order 的 GET /order/status 注入 abort，然后客户端重试 pay。",
+"impact": "钱已扣、订单未支付、且无法再支付；E5 导致运营方损失。",
+"conf": "中。路径需要余额不足加自定义负载，1.0.2 也可能改过。"
+},
+"end": 97,
+"_k": "conf"
+},
+{
+"id": "TT-D5",
+"title": "资金与状态守卫全都是「跨服务先读后写」，order-service 无条件覆盖：慢写加重复请求时会重复退款、重复扣款，已检票的票也能被退",
+"file": "TT-D-payment-messaging.md",
+"line": 98,
+"f": {
+"family": "idempotency_compensation；主 D4（守卫非原子，写端既没有版本号也不校验状态机），次 D5（与「无超时 + 客户端放弃后重试」组合）。",
+"loc": "cancel / rebook / pay / execute → ts-order-service。",
+"trigger": "对 order-service 的 PUT /order 注入 ≥10 s 延迟，客户端超时后重发取消（已付订单）。两个请求都读到已支付，于是两次退款；pay 同理。execute 与 cancel 并发时，已检票（2）的订单会被改为 4 并退 80%。",
+"impact": "重复退款或扣款；cancel 的整单 PUT 还会回滚并发改签刚写入的车次和座位。",
+"conf": "中。机制确定，触发取决于重复请求来源。"
+},
+"end": 111,
+"_k": "conf"
+},
+{
+"id": "TT-D6",
+"title": "取消路径上挂着非关键依赖：0 元退款也同步调 inside-payment，已注释掉的通知仍同步查 user-service，order-other 回退只认逻辑失败",
+"file": "TT-D-payment-messaging.md",
+"line": 112,
+"f": {
+"family": "fallback_degradation；主 D1（T-09 实例，与模板口径一致），次 D2（回退不覆盖传输异常）。",
+"loc": "ts-cancel-service → inside-payment / user / order。",
+"trigger": " / 对 ts-user-service 注入延迟 d，取消 p95 会增加约 d；SLO 上限 2500 ms，d≈2.3 s 越线。 / 让 user-service 返回 status 0，会产生「假失败」。 / 异常类注入会被 TT-D1 掩盖。",
+"impact": "取消路径的时延和可用性被两个非必需依赖拖累。",
+"conf": "高。"
+},
+"end": 128,
+"_k": "conf"
+},
+{
+"id": "TT-D7",
+"title": "每次取消都往 inside_money 追加一行，而 drawBack 的「账户存在」检查每次全量加载该用户全部记录：随压测单调老化",
+"file": "TT-D-payment-messaging.md",
+"line": 129,
+"f": {
+"family": "resource_limit；主 D4（存在性检查实现成全量加载，而且永远为真），次 D5（与 -Xmx200m、仅 TCP 就绪、TT-D1 掩盖三者组合）。",
+"loc": "ts-inside-payment-service 的 drawBack 与 pay；tsdb-mysql。",
+"trigger": "长时间默认负载即可，不需要注入。粗估 10 万行时，每次请求要载入约 50–100 MB，在 200 MB 堆上会出现 GC 抖动甚至 OOM（估算值，以 R7 实测为准）。",
+"impact": "取消 p95 随运行时长漂移，各 episode 的基线不可比。",
+"conf": "中。机制确定，严重程度取决于实际行数。"
+},
+"end": 143,
+"_k": "conf"
+},
+{
+"id": "TT-D8",
+"title": "餐食配送消息的生产端：落库后才发布，发布异常被吞，没有 confirm / outbox，而且在请求线程里同步发布",
+"file": "TT-D-payment-messaging.md",
+"line": 144,
+"f": {
+"family": "投递语义，暂归 idempotency_compensation（若 wave2 建议的 delivery_ack 族被采纳，则归该族）；主 D1（N-02 实例：生产者无确认），次 D2（失败不回传）、D5（同步发布 × 默认建连超时 × preserve 的餐食降级只看 status）。",
+"loc": "ts-food-service → rabbitmq → delivery；上游是 preserve 的第 6 步。",
+"trigger": "负载改成带餐。 / pod-delete rabbitmq：新 Pod 就绪前的配送消息全部丢失，下单仍然成功。 / 对 rabbitmq 做 ≥120 s 的 100% 丢包：旧连接里缓冲的消息在心跳判死时丢失，此后每次重连阻塞约 60 s。短时丢包因 TCP 重传不会丢，只能作负控制。",
+"impact": "订餐成功但配送记录静默缺失；带餐下单变慢。",
+"conf": "中高。"
+},
+"end": 160,
+"_k": "conf"
+},
+{
+"id": "TT-D9",
+"title": "配送消费端吞掉落库异常，AUTO ack 照常确认，消息静默丢失；也没有去重",
+"file": "TT-D-payment-messaging.md",
+"line": 161,
+"f": {
+"family": "投递语义；主 D2（失败没有传到确认机制），次 D1（无死信、无去重）。",
+"loc": "ts-delivery-service → delivery 库。",
+"trigger": "带餐负载下，让 delivery 到 tsdb-mysql:3306 不通（或 tsdb 切主期间），期间的消息全部被确认后丢弃，恢复后也不会补。",
+"impact": "配送记录丢失。",
+"conf": "高。"
+},
+"end": 173,
+"_k": "conf"
+},
+{
+"id": "TT-D10",
+"title": "rabbitmq 单实例（主会话已查实）：没有卷，没有内存 limit，只有 TCP readiness，没有 liveness；以及事实 2 的判断",
+"file": "TT-D-payment-messaging.md",
+"line": 174,
+"f": {
+"family": "replica_disruption / resource_limit / health_probe(readiness)；主 D1（T-10、T-06 实例），次 D4（内存高水位的计算基线错了）。",
+"loc": "rabbitmq Deployment，以及所有 AMQP 客户端。",
+"trigger": "带餐负载下 pod-delete rabbitmq。",
+"conf": "中。机制确定，但业务影响受限于默认负载不带餐。"
+},
+"end": 194,
+"_k": "conf"
+},
+{
+"id": "TT-D11",
+"title": "voucher：单线程 Tornado 里做没有超时的阻塞调用，一个慢依赖就冻结全部请求",
+"file": "TT-D-payment-messaging.md",
+"line": 195,
+"f": {
+"family": "deadline_timeout / circuit_isolation；主 D1（T-01 实例），次 D4（异步框架的并发能力被阻塞调用抵消）。",
+"loc": "ts-voucher-service → order / order-other（K8s DNS）、MySQL。",
+"trigger": "并发调用 /getVoucher，同时给 order-service 注入延迟 d，第 k 个请求约等待 k×d。",
+"impact": "凭证功能不可用，不影响主链路。",
+"conf": "高。"
+},
+"end": 208,
+"_k": "conf"
+},
+{
+"id": "TT-D12",
+"title": "（存疑）用 GET 暴露的非幂等退款接口，叠加 Ribbon 对 GET 的自动重试，可能重复退款",
+"file": "TT-D-payment-messaging.md",
+"line": 209,
+"f": {
+"family": "retry_backoff；主 D3（手册边界案例「含糊超时后重试非幂等操作」）。",
+"loc": "cancel / rebook → inside-payment 的 GET drawback。",
+"trigger": "drawback 已提交、响应尚未返回时 kill 掉 inside-payment。",
+"conf": "低。"
+},
+"end": 220,
+"_k": "conf"
+},
+{
+"id": "TT-D13",
+"title": "本范围的共性问题（T-01/T-02/T-05/T-06 实例），以及 Nacos 启动硬依赖（事实 1 的根因）",
+"file": "TT-D-payment-messaging.md",
+"line": 221,
+"f": {
+"family": "replica_disruption / health_probe / deadline_timeout；启动依赖部分为 D6，与 CrashLoopBackOff 退避叠加为 D5。",
+"loc": "本范围 15 个 Java 服务，以及 voucher。",
+"trigger": "pod-kill ts-cancel-service；或让 Nacos 全停后重启任一业务 Pod。",
+"conf": "配置层高；库行为中。"
+},
+"end": 239,
+"_k": "conf"
+},
+{
+"id": "TT-D14",
+"title": "admin-order 无分页地全量拉取两张订单表，而订单只增不删",
+"file": "TT-D-payment-messaging.md",
+"line": 240,
+"f": {
+"family": "load_shedding_admission；主 D1，次 D5（与 order-service 的 -Xmx200m 小堆、仅 TCP 就绪组合）。",
+"loc": "admin-order → order / order-other。",
+"trigger": "长时间负载后调用 admin 的订单列表。",
+"impact": "非关键的管理查询可能拖垮关键服务的副本，order-service 三副本时约 1/3 请求受影响。",
+"conf": "低。"
+},
+"end": 253,
+"_k": "conf"
+},
+{
+"id": "TT-E01",
+"title": "（即 TT-RT-01）xenon 探活依赖“localhost=IPv4 + 免密 root”，K8s 探针走 Unix socket，两者判定分叉，出现“全绿但无主”",
+"file": "TT-E-infra-k8s.md",
+"line": 59,
+"f": {
+"family": "健康探针；故障转移 / D6（高可用依赖环境假设）+ D2（K8s 探针覆盖不到高可用的判定路径）",
+"loc": "tsdb-mysql 和 nacosdb-mysql 中 xenon 的探活配置，以及 mysql 容器的探针",
+"trigger": "让 Pod 启用 IPv6 回环的任何环境变化，比如容器运行时、CNI 或内核升级。xenon 约 1 秒探活一次，连续 3 次失败就判死（before-fix.txt:27-32），所以约 3 秒后永久无法选主。主会话实测补上 `root@'::1'` 后 10 秒内选出主库。",
+"impact": " / nacosdb 无主时，Nacos 的 initmysql 永久等待，Nacos 起不来，接着就是 TT-E02 的全体 CrashLoop。 / tsdb 无主时，27 个用库服务（其中 25 个 Java）全部失败。三条关键路径全断。",
+"oldenv": "配置缺陷同样存在，但触发条件 E4 不成立，属于潜伏。新环境已被偏差 #5 掩盖。",
+"conf": "高。已在运行时复现；账号来源和 skip_name_resolve 两个细节存疑。"
+},
+"end": 95,
+"_k": "conf"
+},
+{
+"id": "TT-E02",
+"title": "（即 TT-RT-03）业务服务启动强依赖“Nacos 已 Ready”，注册失败就退出，随后的指数退避让恢复滞后数分钟",
+"file": "TT-E-infra-k8s.md",
+"line": 96,
+"f": {
+"family": "降级回退；恢复 / D6 + N-04",
+"loc": "41 个 Java 服务的 Nacos 注册；configmap `nacos` 里的 `NACOS_ADDRS`；`nacos-headless` Service",
+"trigger": "Nacos 三个副本同时未 Ready 时，任意业务 Pod 发生启动或重启。 / Nacos 未 Ready 的场景：全量重启、nacosdb 无主、或 TT-E12 的有序启动卡住。 / 业务 Pod 重启的场景：OOM、驱逐、或平台重置流程执行 `restart-application-deployments`（`D0/applications/train-ticket.yaml:106`）。 / Nacos 恢复后，每个服务平均还要再等约 2.5 分钟，最坏约 5 分钟，再加上 JVM 启动时间，才会重新注册。",
+"impact": "Nacos 恢复后数分钟内三条关键路径仍不可用。已经在运行的 Pod 不受影响（见 N6、N7）。",
+"oldenv": "同样成立，代码与配置和环境无关。新环境里让 Nacos 不可用的诱因是 TT-E01 和一个 cri-dockerd 环境问题（`RE/ENV-pod-status-stuck-after-start/nacos-0.txt`），但缺陷本身在代码和配置层。",
+"conf": "高。"
+},
+"end": 130,
+"_k": "conf"
+},
+{
+"id": "TT-E03",
+"title": "（即 TT-RT-02）41 个 Java 服务的每次启动都依赖集群外主机 1.94.151.57 的 NFS，这台主机同时是 Harbor",
+"file": "TT-E-infra-k8s.md",
+"line": 131,
+"f": {
+"family": "依赖；重新调度 / D6",
+"loc": "`volumes[opentelemetry-javaagent].nfs` 与 `JAVA_TOOL_OPTIONS` 里的 `-javaagent`",
+"trigger": "这台主机或其 NFS 服务不可用之后，任何重启或重新调度都无法完成，恢复时间等于主机恢复时间。",
+"impact": "与 TT-E09 叠加时，一次节点排空就能让大量单副本服务长期下线。",
+"oldenv": "依赖同样存在，是潜伏单点。新环境已被偏差 #7 掩盖，而且 agent 换成了 otel-demo 2.2.0 自带的版本。",
+"conf": "高。"
+},
+"end": 150,
+"_k": "conf"
+},
+{
+"id": "TT-E04",
+"title": "两套健康判定互不相通：readiness 只管 K8s Service 端点，服务间流量走 Nacos 加 Ribbon，并且所有服务都没有 liveness",
+"file": "TT-E-infra-k8s.md",
+"line": 151,
+"f": {
+"family": "健康探针；摘除 / D2（包含模板 T-05 与 T-07 的实例）",
+"loc": "46 个 ts-* 的探针；40 个服务的 `@LoadBalanced RestTemplate`",
+"trigger": "让 order 的一个副本线程耗尽。K8s 大约 30–45 秒后把它标为 NotReady，但 Ribbon 仍会把约一半请求发给它。调用方没有超时，于是一起挂住。因为没有 liveness，它永远不会自动重启。",
+"impact": "preserve 和 query-order 路径的 p95 与成功率同时恶化，而且不会自愈。",
+"oldenv": "同样成立。",
+"conf": "高（配置和框架层确定；影响有多大需要演练）。"
+},
+"end": 169,
+"_k": "conf"
+},
+{
+"id": "TT-E05",
+"title": "40 个服务的 RestTemplate 实际是 Apache HttpClient 的系统默认：没有任何超时，每个目标 5 条连接，全服务合计 10 条，借不到连接时无限等待",
+"file": "TT-E-infra-k8s.md",
+"line": 170,
+"f": {
+"family": "超时；熔断与隔离 / D1 + D4（共享的小连接池加无限排队）+ D5（一个下游挂住，会拖死对其他健康下游的调用）",
+"loc": "各服务的 `RestTemplateBuilder.build()`。ts-common 里没有公共 HTTP 配置，只有实体、工具类、JWT 和 Swagger。",
+"trigger": " / 1. 让 ts-seat-service 延迟 60 秒，preserve 到 seat 的 5 条连接挂住。 / 2. 再让 ts-security-service 也延迟，preserve 的总连接池 10 条耗尽。 / 3. 此后 preserve 对 ts-contacts-service 等健康下游的调用也会无限排队，Tomcat 的 200 个线程逐步耗尽。",
+"impact": "search 和 preserve 的长尾延迟没有上限。任何一个下游变慢，p95 ≤2500ms 的 SLO 就会违约。",
+"oldenv": "同样成立。",
+"conf": "高。"
+},
+"end": 195,
+"_k": "conf"
+},
+{
+"id": "TT-E06",
+"title": "ts-order-service“接收队列不排空、FD 与 CLOSE_WAIT 堆积”的配置层根因推断",
+"file": "TT-E-infra-k8s.md",
+"line": 196,
+"f": {
+"family": "超时；取消传播 / D5（模板 T-02 的实例）",
+"trigger": "订单表增长到一定规模后稳态加压；或者 tsdb 切主、网络闪断时，在途查询卡在半开连接上。",
+"impact": "query-order、preserve 和 search 三条路径都受影响。",
+"oldenv": "事件本身发生在旧环境（08-21），残余风险也有记录（train-ticket.yaml:138）。",
+"conf": "中。"
+},
+"end": 224,
+"_k": "conf"
+},
+{
+"id": "TT-E07",
+"title": "数据库切主不覆盖已建立的连接：旧主变成只读后，池里的连接仍能通过校验，写入最长失败约 30 分钟",
+"file": "TT-E-infra-k8s.md",
+"line": 225,
+"f": {
+"family": "故障转移 / D2 + D4",
+"trigger": "做一次切主演练。27 个 Pod 各 10 条连接，约 270 条连接留在旧主上，按 30 分钟的生命周期逐步轮换掉。",
+"impact": "preserve 和 cancel 的写入失败，最长约 30 分钟。",
+"oldenv": "同样成立。",
+"conf": "中。"
+},
+"end": 240,
+"_k": "conf"
+},
+{
+"id": "TT-E08",
+"title": "旧环境 Nacos 三副本注册表分歧、把已不存在的 Pod IP 标为健康：Nacos 集群配置层的根因",
+"file": "TT-E-infra-k8s.md",
+"line": 241,
+"f": {
+"family": "服务发现；摘除 / D4 + D5",
+"trigger": "在某个 Nacos 副本未 Ready 的窗口里，业务 Pod 重建并换了 IP。旧环境实际出现的陈旧实例是：order `10.0.2.124:12031`、preserve `10.0.2.194:14568`、gateway `10.0.2.1` 和 `10.0.2.93:18888`（修复记录:10-22）。",
+"impact": "一部分调用打到不存在的 IP 并挂住约 2 分钟；入口流量也可能被转给陈旧的网关实例。",
+"oldenv": "事件发生在旧环境。新环境按偏差 #8 全部部署在单节点上，跨节点触发变少，但 E2 和 E3 的机制仍在。副本一致性仍未做成自动闸门（train-ticket.yaml:130-132）。",
+"conf": "中。"
+},
+"end": 268,
+"_k": "conf"
+},
+{
+"id": "TT-E09",
+"title": "没有 PDB，46 个 ts-* 里 41 个单副本，多副本服务和三成员仲裁组都没有反亲和，本地盘还把 MySQL 钉在节点上",
+"file": "TT-E-infra-k8s.md",
+"line": 269,
+"f": {
+"family": "副本与中断预算 / D1 + D2（模板 T-06 的实例）",
+"trigger": "排空一个承载 2 个 tsdb 成员的节点。xenon 失去多数派，所有写入中断；被驱逐的成员因为本地盘只能等原节点回来。",
+"impact": "27 个用库服务的写入全部中断，直到被驱逐的成员所在的原节点恢复；单副本服务每次排空都要等重建和 JVM 启动。",
+"oldenv": "配置相同，旧环境有 2 个可调度节点。新环境被偏差 #8 全部固定到 vm-0-10-ubuntu，这类结论在新环境不代表旧环境。",
+"conf": "配置层高，实际放置待核。"
+},
+"end": 283,
+"_k": "conf"
+},
+{
+"id": "TT-E10",
+"title": "切主的“通告”靠 leader-start/stop.sh 用 curl 改 Pod 标签：不检查返回状态，没有超时和重试，异常失主会留下陈旧的 leader 标签",
+"file": "TT-E-infra-k8s.md",
+"line": 284,
+"f": {
+"family": "故障转移 / D4 + D6",
+"loc": "`CH/mysql/templates/configmap.yaml:29-38`；`MF/configmaps.json`",
+"trigger": "切主时 API Server 抖动；或者 leader 所在容器被 kill -9 后原地重启。结果是 Endpoints 地址数为 0 或 2。",
+"impact": "地址数为 0 时与 TT-E01 一样全局中断；为 2 时约一半新连接落到只读从库，表现同 TT-E07。",
+"oldenv": "同样成立。",
+"conf": "中低。"
+},
+"end": 298,
+"_k": "conf"
+},
+{
+"id": "TT-E11",
+"title": "JVM 内存与容器上限错配：40 个服务的堆只有 200MB 而上限是 1500Mi，堆内 OOM 对 K8s 不可见；网关 1024MB 堆加默认直接内存可能超出上限",
+"file": "TT-E-infra-k8s.md",
+"line": 299,
+"f": {
+"family": "资源配额 / D4（模板 T-08；相当于 N-03 的 JVM 版本）",
+"trigger": "大响应或全量订单查询（`getAllOrders` 调用 `findAll`）；入口压测。",
+"impact": "堆耗尽的僵尸实例继续接收流量；网关三个副本是同一配置，压测时可能相继被杀，导致入口中断。",
+"oldenv": "同样成立。",
+"conf": "中。"
+},
+"end": 312,
+"_k": "conf"
+},
+{
+"id": "TT-E12",
+"title": "StatefulSet 按序启动，再加上多处没有超时的循环：一个成员卡住，就挡住其余成员的重建",
+"file": "TT-E-infra-k8s.md",
+"line": 313,
+"f": {
+"family": "恢复 / D6 + D5",
+"trigger": "nacosdb 无主时重建全部 Nacos 成员。nacos-0 停在 Init，nacos-1/2 不会被创建。数据库恢复后，Nacos 至少还需要 3 ×（启动时间 + 60 秒）。",
+"impact": "服务发现的中断时间被放大，接着触发 TT-E02。",
+"oldenv": "同样成立。",
+"conf": "中。"
+},
+"end": 326,
+"_k": "conf"
+},
+{
+"id": "TT-E13",
+"title": "资源请求严重失真（CPU 10m、内存 100Mi），全量重启时 41 个 JVM 加 agent 同时冷启动，形成恢复风暴",
+"file": "TT-E-infra-k8s.md",
+"line": 327,
+"f": {
+"family": "资源与准入 / D5",
+"trigger": "节点故障后重新调度，或者平台执行重置。",
+"impact": "恢复时间变长，qualify 窗口失败；与 TT-E02 的退避叠加。",
+"oldenv": "同样成立，但旧环境分布在 2 个节点上，程度较轻。",
+"conf": "中。"
+},
+"end": 340,
+"_k": "conf"
+},
+{
+"id": "TT-E14",
+"title": "网关没有连接和响应超时、连接池不设上限，Sentinel 只给一条管理路由限了流（与入口组有重叠）",
+"file": "TT-E-infra-k8s.md",
+"line": 341,
+"f": {
+"family": "超时与准入 / D1 + D2",
+"trigger": "后端变慢时网关无限等待，连接数和直接内存持续增长；突发流量不会被限流。",
+"impact": "入口 p95 没有上限，过载时入口先垮。",
+"oldenv": "同样成立。",
+"conf": "中高。"
+},
+"end": 353,
+"_k": "conf"
+},
+{
+"id": "TT-E15",
+"title": "RabbitMQ 单实例，没有持久卷，没有内存上限，也没有 liveness（消息语义交给消息链路组）",
+"file": "TT-E-infra-k8s.md",
+"line": 354,
+"f": {
+"family": "副本、持久化、资源 / D1（模板 T-06、T-10、T-08）",
+"trigger": "删除 rabbitmq Pod 后，所有未消费的消息丢失；消费者停摆时内存无限增长。",
+"impact": "preserve 之后的通知和配送链路。",
+"oldenv": "同样成立。",
+"conf": "中。"
+},
+"end": 368,
+"_k": "conf"
+},
+{
+"id": "TT-E16",
+"title": "（仅旧环境）三个 MySQL 副本的数据卷都在同一个 NFS 供给器上，副本不是独立的故障域",
+"file": "TT-E-infra-k8s.md",
+"line": 369,
+"f": {
+"family": "故障转移 / D6",
+"impact": "“三副本高可用”在存储层退化成了单点。",
+"conf": "中低。"
+},
+"end": 380,
+"_k": "conf"
+},
+{
+"id": "TT-E17",
+"title": "`FROM java:8-jre` 很可能不感知容器，按宿主机核数设 GC、JIT 和 Netty 的线程数，在 1.5 核限额下被节流",
+"file": "TT-E-infra-k8s.md",
+"line": 381,
+"f": {
+"family": "资源 / D4（模板 T-08）",
+"impact": "长尾延迟变差，并放大 TT-E13 的冷启动风暴。",
+"oldenv": "同样成立。5 个自建镜像的基础镜像未知。",
+"conf": "中低。"
+},
+"end": 392,
+"_k": "conf"
+},
+{
+"id": "TT-E18",
+"title": "27 个服务共用一个 tsdb 主库；`max_connections=65535` 远超 1Gi 内存能承受的量；1 秒超时的 exec 就绪探针在 500m 限额下可能把主库误摘",
+"file": "TT-E-infra-k8s.md",
+"line": 393,
+"f": {
+"family": "准入；探针 / D4",
+"impact": "主库被摘期间所有新连接被拒；连接风暴时 mysqld 可能被 OOMKill，从而触发切主。",
+"oldenv": "同样成立。",
+"conf": "低到中。"
+},
+"end": 404,
+"_k": "conf"
+},
+{
+"id": "TT-E19",
+"title": "xenon 判死太灵敏（约 1 秒一次，连续 3 次失败即判死），CPU 限额又小：负载尖峰可能误切主，进而引发 TT-E07 和 TT-E10",
+"file": "TT-E-infra-k8s.md",
+"line": 405,
+"f": {
+"family": "故障转移 / D3",
+"impact": "一次误切主会带出 TT-E07 的只读写失败和 TT-E10 的标签风险。",
+"conf": "低到中。"
+},
+"end": 415,
+"_k": "conf"
+},
+{
+"id": "TT-E20",
+"title": "xenon 半同步复制可能被设为无限等待：从库都不能 ACK 时，主库提交一直挂着，叠加客户端没有超时，形成全局悬挂",
+"file": "TT-E-infra-k8s.md",
+"line": 416,
+"f": {
+"family": "D3",
+"impact": "全局悬挂，而不是快速失败。",
+"conf": "低。"
+},
+"end": 425,
+"_k": "conf"
+},
+{
+"id": "TT-E21",
+"title": "1Gi 数据卷与 binlog 增长：MySQL 5.7 默认不过期 binlog，写满后写入挂起",
+"file": "TT-E-infra-k8s.md",
+"line": 426,
+"f": {
+"family": "资源 / D1",
+"impact": "所有写入挂起。",
+"conf": "低。"
+},
+"end": 437,
+"_k": "conf"
+},
+{
+"id": "SS-01",
+"title": "session-db 一旦重建，仍持 `logged_in` cookie 的会话会被当成 customerId=undefined：购物车串单，结账让 front-end 进入崩溃循环，故障消失后也不恢复",
+"file": "SS-sock-shop.md",
+"line": 28,
+"f": {
+"family": "fallback_degradation（会话丢失后的降级）＋ replica_disruption（会话无持久化）；primary D2——登录态校验只看 cookie，没覆盖\"服务端会话已丢、cookie 仍有效\"这个边界；secondary D5——无持久化、崩溃重启退避、客户端残留状态三者叠加，形成一种自己维持下去的失效。",
+"loc": "front-end ↔ session-db；front-end → carts（`/carts/undefined/…`）；front-end → user（`/customers/undefined`）。",
+"trigger": "删 session-db Pod；或它作为 BestEffort 被 OOM 杀掉、被驱逐。session-db 恢复后，约 1–2 秒内的第一次结账就会让 front-end 崩溃。front-end 重启后有 30 秒就绪延迟（`DEP front-end.readinessProbe.initialDelaySeconds=30`），一就绪又会在 1–2 秒内被结账打崩，重启退避按 10→20→40…→300 秒递增。只有 cookie 到期（登录后 3600 秒）或压测重启才会结束，在 10–20 分钟的试验窗口里不会自己恢复。",
+"impact": "全站中断（浏览随进程一起挂），且恢复后回不来；多用户场景下购物车串单。违反 success-rate 和 throughput-ratio 两项 SLO。",
+"conf": "高。每一环都有代码或配置证据，只剩 express-session 的实际版本待核（该行为在 1.x 中一致）。"
+},
+"end": 42,
+"_k": "conf"
+},
+{
+"id": "SS-02",
+"title": "catalogue 不可达时，加购回调先执行 `JSON.parse(undefined)` 再判错，导致整个 front-end 进程崩溃；叠加 catalogue 180 秒就绪延迟和重启退避，一次 catalogue 重启会放大成 3–7 分钟的全站中断",
+"file": "SS-sock-shop.md",
+"line": 43,
+"f": {
+"family": "circuit_isolation（进程级故障隔离）＋ fallback_degradation；primary D4——错误传递的写法本身错了；secondary D5——与就绪延迟、重启退避叠加。",
+"loc": "front-end → catalogue（`POST /cart` 和 `POST /cart/update` 都要先查价格）。",
+"trigger": "删 catalogue Pod，或对 front-end 注入 DNS 故障。`POST /cart` 约 1.5 次/秒，front-end 每次就绪后不到 1 秒就会崩。按退避 10/20/40/80 秒加 30 秒就绪延迟推算，catalogue 在约 180 秒恢复后，front-end 要到约 190–430 秒之间才回来（取决于退避相位）。",
+"impact": "本应只有加购失败，实际浏览、看车、登录、结账全部中断；违反 success-rate、p95、throughput。",
+"conf": "高。代码行为确定，影响量级取决于 E4。"
+},
+"end": 56,
+"_k": "conf"
+},
+{
+"id": "SS-03",
+"title": "结账路径的错误守卫写错或漏了：\"user 回 500 JSON\"和\"有地址/卡但属性查询失败时回 200 却缺 `_links`\"两种情况，都会让 front-end 在回调里崩溃（含第 5 点的判定）",
+"file": "SS-sock-shop.md",
+"line": 57,
+"f": {
+"family": "fallback_degradation；primary D4——守卫实现错误；secondary D2——守卫没覆盖\"返回 200 但数据残缺\"的情况。",
+"loc": "front-end `POST /orders` → user（customers/{id}、addresses、cards）；front-end `GET /orders` 和 `GET /orders/*` → orders。",
+"trigger": " / user-db 不可达（命中 E1）：user 在被探针摘除前的约 6–9 秒内仍接流量，GetUser 等满 mgo 的 5 秒超时后回 500，结账（0.75 次/秒）随即把 front-end 打崩。 / user-db 有 30–50% 丢包，或刚重启、连接池里还有死 socket（命中 E3）：会出现\"第一个查询成功、第二个查询失败\"的组合。",
+"impact": "一次 user-db 抖动就打掉整个 front-end 进程，全站中断。",
+"conf": "高。E3 的触发窗口需要实测。"
+},
+"end": 73,
+"_k": "conf"
+},
+{
+"id": "SS-04",
+"title": "catalogue、user 的存活/就绪探针在处理函数里同步探测远程数据库：数据库中断约 9 秒就触发重启，重启后又被初始化循环和 180 秒就绪延迟拖成至少 3 分钟不可用（含第 3 点）",
+"file": "SS-sock-shop.md",
+"line": 74,
+"f": {
+"family": "health_probe（liveness＋readiness＋app_healthcheck）；primary D6——正是 codebook 的边界案例\"liveness handler 同步请求远程数据库\"；secondary D4（探针超时 1 秒对驱动超时 5 秒；用固定 180 秒延迟代替 startupProbe）和 D5。",
+"loc": "kubelet → user `/health` → user-db；kubelet → catalogue `/health` → catalogue-db。",
+"trigger": "user-db 黑洞 30 秒，或注入让 Ping 超过 1 秒的延迟；catalogue-db 延迟 ≥1 秒。只要故障持续 ≥9 秒，user 就会重启，登录和结账中断约 9＋180≈190 秒——10 秒的数据库抖动变成约 3 分钟中断。catalogue 同理，还会经 SS-02 放大成全站中断。",
+"impact": "登录、结账（user）；浏览、加购（catalogue）；恢复滞后至少 3 分钟。",
+"conf": "高。"
+},
+"end": 88,
+"_k": "conf"
+},
+{
+"id": "SS-05",
+"title": "session-db 挂起（连接没断）时，除静态文件外的全站请求都会挂住；会话降级只在\"连接断开\"时才生效，而 front-end 的探针打的是静态页，始终为绿",
+"file": "SS-sock-shop.md",
+"line": 89,
+"f": {
+"family": "fallback_degradation ＋ health_probe(readiness)；primary D2；secondary D4——探针检查的不是真实服务路径。",
+"loc": "front-end 的全部 API 路由 → session-db。",
+"trigger": "对 session-db 注入 100% 丢包或黑洞，或暂停 redis-server 进程。所有非静态请求挂满 120 秒，5 个用户全部卡住，throughput 接近 0，而 `GET /` 一直返回 200。",
+"impact": "全站，包括本不需要会话的浏览；违反 p95 和 throughput。",
+"conf": "中。E2 依赖库版本。"
+},
+"end": 102,
+"_k": "conf"
+},
+{
+"id": "SS-06",
+"title": "启动只需不到一秒的 Go 服务配了 180 秒固定就绪延迟、又没有 startupProbe：payment、catalogue、user 任何一次重启，都意味着该服务至少 3 分钟完全不可用",
+"file": "SS-sock-shop.md",
+"line": 103,
+"f": {
+"family": "health_probe(readiness)；D4。",
+"loc": "payment、catalogue、user 的 readinessProbe。",
+"trigger": "删 payment Pod 后，orders 调 payment 连接被拒，结账 500 持续至少 180 秒，约 0.75×180≈135 次失败。catalogue 同理，还会触发 SS-02。",
+"impact": "结账、浏览/加购、登录。",
+"conf": "高。"
+},
+"end": 115,
+"_k": "conf"
+},
+{
+"id": "SS-07",
+"title": "RabbitMQ 不可用时，shipping 吞掉发布异常仍回 201；既没有发布确认，队列也不持久，Broker 还没有卷——订单显示成功，发货消息却静默丢失（N-02 实例）",
+"file": "SS-sock-shop.md",
+"line": 116,
+"f": {
+"family": "fallback_degradation ＋ idempotency_compensation；primary D3——\"照单全收\"这个降级动作本身造成了丢失；secondary D1。",
+"loc": "orders → shipping → rabbitmq → queue-master。",
+"trigger": "删 rabbitmq Pod。新容器开始监听 5672 之前（没有 readiness，端点已加入），shipping 连接被拒，异常被吞，回 201。按 Broker 重启 5–15 秒、0.75 单/秒估算，约 4–11 单没有发货，队列里还没消费的消息全部丢失。若是黑洞：shipping 的连接超时是 5 秒（`SHPJ/configuration/RabbitMqConfiguration.java:27`），正好等于 orders 的等待时间，常见结果是 orders 先回 500，shipping 随后仍回 201。",
+"impact": "已付款未发货（正确性问题），现有四项 SLO 都看不到。",
+"conf": "高。"
+},
+"end": 129,
+"_k": "conf"
+},
+{
+"id": "SS-08",
+"title": "orders 的 5 秒超时只放弃等待、不取消调用，底层 RestTemplate 也没有连接/读超时：下游慢于 5 秒时，失败的订单照样发货；下游挂起时，线程随故障时长线性堆积",
+"file": "SS-sock-shop.md",
+"line": 130,
+"f": {
+"family": "cancellation；primary D2——codebook 边界案例\"调用方有超时，但下游不接收取消\"；secondary D1。",
+"loc": "orders → user / carts / payment / shipping（`@Async` 配合 `Future.get`）。",
+"trigger": " / 对 shipping 注入 6–10 秒延迟：orders 在 5 秒时回 500，但发货请求仍在后台完成并入队，每分钟约 30–45 个\"失败订单的发货\"。 / 对 payment 或 shipping 注入黑洞：每单泄漏 1 个永久阻塞的线程，10 分钟约 300–450 个。user 黑洞不算在内——它会先卡在 front-end，请求到不了 orders。",
+"impact": "幽灵发货；orders 的线程与原生内存增长（接 SS-19）。",
+"conf": "高。"
+},
+"end": 145,
+"_k": "conf"
+},
+{
+"id": "SS-09",
+"title": "有状态组件都没有持久卷，且都是 BestEffort；压测账号的地址和卡是运行期绑定的，user-db 一重建，结账就可能永久失败（引用修复记录，补 session-db 快照失败的配置层根因）",
+"file": "SS-sock-shop.md",
+"line": 146,
+"f": {
+"family": "replica_disruption（T-10）＋ resource_limit；primary D1，secondary D2——资源治理只覆盖了无状态层。session-db 的历史形态为 D3。",
+"loc": "carts-db、orders-db、user-db、catalogue-db、session-db、rabbitmq。",
+"trigger": "删 user-db Pod；节点内存压力导致数据库被先驱逐（再叠加 SS-01）；如果有人按上游清单去掉 session-db 的参数，写入量到默认快照阈值后就会报 MISCONF，登录全部失败。",
+"impact": "结账可能在故障解除后持续失败；购物车、订单、会话、队列都会随重建丢失。",
+"conf": "E1–E3、E5 为高；E4 决定严重度；E6 的根因待实测。"
+},
+"end": 166,
+"_k": "conf"
+},
+{
+"id": "SS-10",
+"title": "user 的用户名唯一索引只在服务启动时建一次：user-db 重建后，去重保护会悄悄消失；一旦出现重名，下次 user 重启会卡在一个不退避、还泄漏会话的初始化死循环里，永远起不来",
+"file": "SS-sock-shop.md",
+"line": 167,
+"f": {
+"family": "idempotency_compensation ＋ retry_backoff；primary D2；secondary D5——无退避重试加会话泄漏，形成对 user-db 的连接风暴。",
+"loc": "user ↔ user-db（注册、登录、启动）。",
+"trigger": "删 user-db Pod；在此期间有同名注册两次（前端重复提交、脚本重试，或被测智能体重试）；之后 user 任意一次重启（liveness、OOM、滚动更新）即触发。",
+"impact": "登录和结账永久中断，同时拖垮 user-db。",
+"conf": "中。代码链完整，但需要\"重名注册\"这个前置条件，当前压测不做注册。"
+},
+"end": 181,
+"_k": "conf"
+},
+{
+"id": "SS-11",
+"title": "下单流程是\"付款 → 发货 → 写 orders-db\"，既没有补偿也没有幂等键：orders-db 不可用或挂起时，已经付款、已经发货，却没有订单",
+"file": "SS-sock-shop.md",
+"line": 182,
+"f": {
+"family": "idempotency_compensation；primary D1——codebook 规定\"扣款后订单中止、无补偿\"记为 D1；secondary D2。",
+"loc": "orders → orders-db。",
+"trigger": "删 orders-db Pod，每单在 save 处等满 10 秒后回 500，此前付款和发货都已完成；若是黑洞，save 会无限阻塞。用户重试就会重复发货。",
+"impact": "结账一致性。",
+"conf": "高。"
+},
+"end": 193,
+"_k": "conf"
+},
+{
+"id": "SS-12",
+"title": "catalogue 熔断器的参数和错误分类都有问题：客户端连续请求 6 次不存在的商品，就会让所有人 30 秒内无法加购；数据库故障被报成 404；慢故障不计入失败",
+"file": "SS-sock-shop.md",
+"line": 194,
+"f": {
+"family": "circuit_isolation；primary D4，secondary D2。",
+"loc": "catalogue 服务端的 gobreaker。",
+"trigger": "连续 6 次 `GET /catalogue/<不存在的id>` 后，约 30 秒内商品详情、加购、结账全部失败。catalogue-db 重启时熔断会打开，数据库恢复后最多还要再失败 30 秒。",
+"impact": "加购和结账；外部可以低成本触发。",
+"conf": "中。"
+},
+"end": 208,
+"_k": "conf"
+},
+{
+"id": "SS-13",
+"title": "front-end 把下游错误改写成 200：压测中占一半的浏览流量，对 catalogue 侧故障\"看不见\"",
+"file": "SS-sock-shop.md",
+"line": 209,
+"f": {
+"family": "fallback_degradation；D4。",
+"loc": "front-end 的 `/catalogue*`、`/tags`、`/customers*`、`/cards*`、`/addresses`。",
+"trigger": "catalogue 完全不可用时，成功率只会掉加购加结账那 30%；如果只是 Get 路由熔断这类局部故障，成功率可能仍在 0.95 以上。",
+"impact": "故障检测和恢复判定被系统性低估。",
+"conf": "高。"
+},
+"end": 220,
+"_k": "conf"
+},
+{
+"id": "SS-14",
+"title": "整条链路的错误码分类都不准：不可重试的客户端错误回 500，数据库故障回 404，带副作用的超时也回 500（第 2 点的评估）",
+"file": "SS-sock-shop.md",
+"line": 221,
+"f": {
+"family": "retry_backoff（可重试性信号）；primary D4，secondary 为潜在的 D3。",
+"loc": "user、payment、catalogue、orders、front-end 的错误编码。",
+"trigger": "同名 `POST /register` 两次；`POST /paymentAuth {\"amount\":0}`。",
+"impact": "错误预算、熔断决策、重试决策都会失真。",
+"conf": "中。分类事实是确定的，但危害需要有重试层才会发生。"
+},
+"end": 237,
+"_k": "conf"
+},
+{
+"id": "SS-15",
+"title": "front-end 的所有出站调用都没有超时；Node 在 120 秒后断开客户端连接，却不取消出站请求，这些请求也不进延迟直方图（T-01/T-02）",
+"file": "SS-sock-shop.md",
+"line": 238,
+"f": {
+"family": "deadline_timeout ＋ cancellation；primary D1，secondary D2。",
+"loc": "front-end → catalogue / carts / orders / user。",
+"trigger": "对 carts 或 orders 注入黑洞，相关请求挂满 120 秒，闭环用户全部卡住，throughput 塌陷。",
+"impact": "p95、throughput 受损，还留下可观测性盲区。",
+"conf": "高。"
+},
+"end": 250,
+"_k": "conf"
+},
+{
+"id": "SS-16",
+"title": "登录时对 carts 合并做了\"出错就忽略\"的降级，却没有超时：carts 变慢或挂起时，登录被一个非关键依赖拖住",
+"file": "SS-sock-shop.md",
+"line": 251,
+"f": {
+"family": "fallback_degradation；D2——降级只覆盖了出错，没覆盖变慢。",
+"loc": "front-end `GET /login` → carts 的 `/merge`。",
+"trigger": "给 carts 注入 30 秒延迟，登录就要约 30 秒；若是黑洞，登录挂满 120 秒。如果故障恰好覆盖压测启动时刻，压测用户会一直处于未认证状态，整轮结账失败（`LOC:42-54,129-131`）。",
+"impact": "登录，以及依赖登录的结账。",
+"conf": "高。"
+},
+"end": 262,
+"_k": "conf"
+},
+{
+"id": "SS-17",
+"title": "carts 和 orders 的 Mongo 只配了服务器选择超时，没有读写超时：数据库挂起时，请求线程会无限阻塞",
+"file": "SS-sock-shop.md",
+"line": 263,
+"f": {
+"family": "deadline_timeout；D2。",
+"loc": "carts → carts-db；orders → orders-db。",
+"trigger": "连接建立之后，对 carts-db 注入黑洞，carts 的请求线程全部停在 socket 读上。",
+"impact": "看车、加购、结账。",
+"conf": "中。"
+},
+"end": 275,
+"_k": "conf"
+},
+{
+"id": "SS-18",
+"title": "carts、orders、shipping、queue-master 没有任何探针，它们自带的 `/health` 又恒返回 200（T-05 实例）",
+"file": "SS-sock-shop.md",
+"line": 276,
+"f": {
+"family": "health_probe（readiness/liveness/app_healthcheck）；D1。",
+"loc": "四个 Java 服务。",
+"trigger": "删 carts Pod。Spring Boot 在 300m CPU 限额下启动较慢，启动期间端点已经在 Service 里，请求会被拒；JVM 如果死锁或堆耗尽，也不会被重启。",
+"impact": "看车、加购、结账、发货。",
+"conf": "高。"
+},
+"end": 288,
+"_k": "conf"
+},
+{
+"id": "SS-19",
+"title": "资源限额与运行时参数错配：JVM 堆 128 MiB 远低于 500 Mi 限额，OOM 时也不退出；orders 的异步线程没有上限；Go 1.7 按宿主机核数调度（T-08；JVM 内部 OOM 对 K8s 不可见）",
+"file": "SS-sock-shop.md",
+"line": 289,
+"f": {
+"family": "resource_limit；primary D2，secondary D4。",
+"loc": "四个 Java 服务；catalogue、payment、user。",
+"trigger": "对 payment 或 shipping 黑洞 10 分钟，观察 orders 的 RSS 和线程数。",
+"impact": "结账；延迟尖峰。",
+"conf": "中。"
+},
+"end": 302,
+"_k": "conf"
+},
+{
+"id": "SS-20",
+"title": "14 个 Deployment 全部单副本、没有反亲和，导出清单中也没有 PDB（T-06 实例）",
+"file": "SS-sock-shop.md",
+"line": 303,
+"f": {
+"family": "replica_disruption；D1。",
+"loc": "全部工作负载。",
+"trigger": "drain 一个节点（腾讯云只有 2 个节点）。Go 服务再叠加 180 秒就绪延迟，数据库数据清空，接着触发 SS-01。",
+"impact": "全站。",
+"conf": "高（E2 待核）。"
+},
+"end": 315,
+"_k": "conf"
+},
+{
+"id": "SS-21",
+"title": "front-end 到 session-db 的重连退避没有上限，累计 1 小时后永久放弃（N-04 实例，库版本待核）",
+"file": "SS-sock-shop.md",
+"line": 316,
+"f": {
+"family": "retry_backoff；D4。",
+"loc": "front-end → session-db。",
+"trigger": "按默认值推算，下一次重试的间隔约为已断开时长的 0.7 倍。断开 60 秒后可能还要再等约 40 秒，断开 300 秒后可能还要再等约 3 分钟，断开超过 1 小时则永不重连。这期间看车、加购、结账都回 500，有人登录就会触发 SS-03 E5 的崩溃。",
+"impact": "看车、加购、登录、结账，恢复明显滞后。",
+"conf": "低到中。"
+},
+"end": 327,
+"_k": "conf"
+},
+{
+"id": "SS-22",
+"title": "carts 加购是非原子的\"读-改-写\"，购物车懒创建且没有唯一约束；5 个虚拟用户共用一个账号的购物车（这是第 1 点\"超过支付限额\"在代码层的根因）",
+"file": "SS-sock-shop.md",
+"line": 328,
+"f": {
+"family": "idempotency_compensation；D1。",
+"loc": "front-end → carts → carts-db；orders → payment。",
+"trigger": "故障恢复时积压请求同时释放；或者对加购做任何重试。",
+"impact": "结账正确性；测评结果的确定性。",
+"conf": "中。"
+},
+"end": 341,
+"_k": "conf"
+},
+{
+"id": "SS-23",
+"title": "queue-master 的发货工作在 K8s 里必然失败，却被吞掉、消息照常确认；处理出异常的消息默认重新入队，也没有死信队列",
+"file": "SS-sock-shop.md",
+"line": 342,
+"f": {
+"family": "idempotency_compensation / fallback_degradation；primary D1，secondary 为潜在的 D3。",
+"loc": "rabbitmq → queue-master。",
+"trigger": "稳态下就成立——发货链路末端 100% 静默失败；毒消息则需要一条每次处理都抛异常的消息。",
+"impact": "发货链路末端不可观测，这一段的故障注入没有业务层面的信号。",
+"conf": "中。 / 三个 Go 服务在导出清单里都没有 ZIPKIN 环境变量，因此用的是空追踪器，根本不上报（`CAT/cmd/cataloguesvc/main.go:47,73-74`；`USR/main.go:45,76-77`；`PAY/cmd/paymentsvc/main.go:25`）。 / 四个 Java 服务都带 `-Dspring.zipkin.enabled=false`。shipping 的 ZIPKIN 只进了 `spring.zipkin.baseUrl`（`application.properties:4`），本身已被禁用；front-end 没有追踪库。 / 所以\"调用链一直不可用\"是因为全体都没上报，而不是上报失败，也就不存在阻塞业务线程的问题。 / 如果以后给 Go 服务打开 ZIPKIN，vendored 的 zipkin-go-opentracing 594640b（`USR/glide.lock:72-73`）在收集端会不会阻塞，需要查该版本源码（存疑）。"
+},
+"end": 407,
+"_k": "conf"
+}
+]

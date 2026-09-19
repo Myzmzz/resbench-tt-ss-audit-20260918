@@ -1,0 +1,102 @@
+## train-ticket：JVM 堆上限 vs 容器内存限额（堆上限取自 OTel jvm.memory.limit 的 heap 池之和）
+service | heap_max | heap_used_max(15m) | mem_request | mem_limit | wss_max(15m) | heap/limit
+ts-admin-basic-info-service | 194Mi | 106Mi | 100Mi | 1500Mi | 537Mi | 0.13
+ts-admin-order-service | 194Mi | 109Mi | 100Mi | 1500Mi | 533Mi | 0.13
+ts-admin-route-service | 195Mi | 89Mi | 100Mi | 1500Mi | 488Mi | 0.13
+ts-admin-travel-service | 194Mi | 80Mi | 100Mi | 1500Mi | 544Mi | 0.13
+ts-admin-user-service | 194Mi | 77Mi | 100Mi | 1500Mi | 506Mi | 0.13
+ts-assurance-service | 194Mi | 116Mi | 100Mi | 1500Mi | 568Mi | 0.13
+ts-auth-service | 194Mi | 115Mi | 100Mi | 1500Mi | 629Mi | 0.13
+ts-basic-service | 192Mi | 106Mi | 100Mi | 1500Mi | 565Mi | 0.13
+ts-cancel-service | 193Mi | 134Mi | 100Mi | 1500Mi | 645Mi | 0.13
+ts-config-service | 195Mi | 119Mi | 100Mi | 1500Mi | 601Mi | 0.13
+ts-consign-price-service | 195Mi | 97Mi | 100Mi | 1500Mi | 567Mi | 0.13
+ts-consign-service | 194Mi | 104Mi | 100Mi | 1500Mi | 561Mi | 0.13
+ts-contacts-service | 194Mi | 121Mi | 100Mi | 1500Mi | 604Mi | 0.13
+ts-delivery-service | 196Mi | 98Mi | 100Mi | 1500Mi | 591Mi | 0.13
+ts-execute-service | 194Mi | 108Mi | 100Mi | 1500Mi | 509Mi | 0.13
+ts-food-delivery-service | 195Mi | 79Mi | 100Mi | 1500Mi | 582Mi | 0.13
+ts-food-service | 194Mi | 118Mi | 100Mi | 1500Mi | 571Mi | 0.13
+ts-gateway-service | 999Mi | 346Mi | 100Mi | 1500Mi | 848Mi | 0.67
+ts-inside-payment-service | 194Mi | 92Mi | 100Mi | 1500Mi | 620Mi | 0.13
+ts-notification-service | 195Mi | 112Mi | 100Mi | 1500Mi | 596Mi | 0.13
+ts-order-other-service | 194Mi | 112Mi | 100Mi | 1500Mi | 602Mi | 0.13
+ts-order-service | 194Mi | 121Mi | 100Mi | 1500Mi | 647Mi | 0.13
+ts-payment-service | 195Mi | 97Mi | 100Mi | 1500Mi | 598Mi | 0.13
+ts-preserve-other-service | 195Mi | 100Mi | 100Mi | 1500Mi | 507Mi | 0.13
+ts-preserve-service | 194Mi | 111Mi | 100Mi | 1500Mi | 669Mi | 0.13
+ts-price-service | 195Mi | 123Mi | 100Mi | 1500Mi | 607Mi | 0.13
+ts-rebook-service | 196Mi | 111Mi | 100Mi | 1500Mi | 600Mi | 0.13
+ts-route-plan-service | 194Mi | 107Mi | 100Mi | 1500Mi | 533Mi | 0.13
+ts-route-service | 194Mi | 111Mi | 100Mi | 1500Mi | 622Mi | 0.13
+ts-seat-service | 192Mi | 110Mi | 100Mi | 1500Mi | 551Mi | 0.13
+ts-security-service | 194Mi | 120Mi | 100Mi | 1500Mi | 607Mi | 0.13
+ts-station-food-service | 194Mi | 119Mi | 100Mi | 1500Mi | 622Mi | 0.13
+ts-station-service | 194Mi | 117Mi | 100Mi | 1500Mi | 595Mi | 0.13
+ts-train-food-service | 194Mi | 117Mi | 100Mi | 1500Mi | 561Mi | 0.13
+ts-train-service | 194Mi | 120Mi | 100Mi | 1500Mi | 611Mi | 0.13
+ts-travel-plan-service | 194Mi | 74Mi | 100Mi | 1500Mi | 510Mi | 0.13
+ts-travel-service | 194Mi | 143Mi | 100Mi | 1500Mi | 719Mi | 0.13
+ts-travel2-service | 196Mi | 136Mi | 100Mi | 1500Mi | 649Mi | 0.13
+ts-user-service | 193Mi | 122Mi | 100Mi | 1500Mi | 637Mi | 0.13
+ts-verification-code-service | 193Mi | 93Mi | 100Mi | 1500Mi | 465Mi | 0.13
+ts-wait-order-service | 194Mi | 82Mi | 100Mi | 1500Mi | 595Mi | 0.13
+
+## train-ticket：Hikari 连接池上限（OTel db.client.connections.max）
+ts-assurance-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-auth-service | instances=2 | max_per_instance=10 | subtotal=20
+ts-config-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-consign-price-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-consign-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-contacts-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-delivery-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-food-delivery-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-food-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-inside-payment-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-notification-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-order-other-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-order-service | instances=2 | max_per_instance=10 | subtotal=20
+ts-payment-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-price-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-route-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-security-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-station-food-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-station-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-train-food-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-train-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-travel-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-travel2-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-user-service | instances=1 | max_per_instance=10 | subtotal=10
+ts-wait-order-service | instances=1 | max_per_instance=10 | subtotal=10
+TOTAL pool max across reporting instances = 270（注：collector 导出端的过期窗口内可能含已退出实例）
+15 分钟内出现过排队等连接的服务：无
+取连接等待 p99（ms，15m）前 8：[('ts-auth-service', 5.0), ('ts-train-service', 5.0), ('ts-contacts-service', 5.0), ('ts-travel-service', 5.0), ('ts-inside-payment-service', 5.0), ('ts-order-other-service', 5.0), ('ts-station-service', 5.0), ('ts-train-food-service', 5.0)]
+
+## CPU 节流比例（15m，Pod 级 cgroup，throttled_periods / periods，只列 >1% 的 Pod）
+train-ticket: 有节流数据的 Pod 56 个；>1%：[('ts-travel-service', '26%'), ('ts-assurance-service', '22%'), ('ts-auth-service', '22%'), ('ts-train-food-service', '20%'), ('ts-station-service', '18%'), ('ts-order-other-service', '18%'), ('ts-security-service', '18%'), ('ts-order-service', '18%'), ('ts-wait-order-service', '8%'), ('ts-payment-service', '4%'), ('ts-preserve-service', '2%'), ('ts-preserve-service', '1%')]
+sock-shop: 有节流数据的 Pod 8 个；>1%：[('carts', '30%'), ('orders', '21%'), ('shipping', '8%'), ('queue-master', '5%'), ('front-end', '2%')]
+
+## sock-shop：内存工作集峰值 vs 限额（15m，Pod 级）
+carts | wss_max=368Mi | limit=500Mi | 74%
+carts-db | wss_max=36Mi | limit=none
+catalogue | wss_max=12Mi | limit=200Mi | 6%
+catalogue-db | wss_max=181Mi | limit=none
+front-end | wss_max=100Mi | limit=1000Mi | 10%
+orders | wss_max=389Mi | limit=500Mi | 78%
+orders-db | wss_max=37Mi | limit=none
+payment | wss_max=10Mi | limit=200Mi | 5%
+queue-master | wss_max=321Mi | limit=500Mi | 64%
+rabbitmq | wss_max=133Mi | limit=none
+rb-load-sock-shop-audit-ss-baseline-0918-m6lnv | wss_max=47Mi | limit=none
+session-db | wss_max=7Mi | limit=none
+shipping | wss_max=346Mi | limit=500Mi | 69%
+user | wss_max=16Mi | limit=200Mi | 8%
+user-db | wss_max=34Mi | limit=none
+设置了 CPU limit 的容器数： {'train-ticket': '65', 'sock-shop': '8'}
+
+## 补充（2026-09-18 09:2x UTC，同一 Prometheus，kube-state-metrics + cAdvisor）
+- CPU limit/request：train-ticket 46 个 ts-* 容器 request 10m、limit 1.5 核；业务库 tsdb-mysql 的 mysql 容器 request 100m / limit 500m、内存 256Mi/1Gi；xenon 容器 limit 100m / 256Mi（选主与健康检查进程）；nacos 容器 request 500m。
+  sock-shop：catalogue、payment limit 200m；user、front-end、queue-master、carts、shipping limit 300m；orders limit 500m；request 均约 100m。
+- 基线（1 QPS）下 tsdb 三个 MySQL Pod 的 CPU 用量约 0.01 核，网关三副本各约 0.03 核、节流 <0.5%——train-ticket 的数据库与网关在基线负载下都不是瓶颈；上表 train-ticket 的高节流 Pod 都是 09:07–09:10 刚重启的服务，节流来自 JVM 启动期（limit 1.5 核），不是稳态。
+- sock-shop 各 Pod 在压测前已稳定运行数小时，carts 30% / orders 21% 的节流发生在 5 个虚拟用户的稳态负载下（limit 300m / 500m）。
+- 注意：本环境 cAdvisor 只有 Pod 级 cgroup（cgroup v2 + cri-dockerd，无 container 标签），所以内存/CPU 都是 Pod 级数值；对单容器 Pod 等同于容器数值，mysql 等多容器 Pod 是容器之和。

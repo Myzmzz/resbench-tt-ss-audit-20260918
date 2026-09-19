@@ -1,0 +1,1096 @@
+{
+"TT-A1": {
+"cites": [
+"SRC/ts-gateway-service/src/main/resources/application.yml:16–209",
+"pom.xml:70–72",
+"~/.m2/…/spring-cloud-starter-alibaba-nacos-discovery-2.2.7.RELEASE.pom:150–155",
+"MAN/deployments.json"
+],
+"n": 4,
+"changed": [],
+"chars": 3162
+},
+"TT-A2": {
+"cites": [
+"MAN/configmaps.json",
+"MAN/statefulsets.json",
+"MAN/services.json"
+],
+"n": 3,
+"changed": [],
+"chars": 1758
+},
+"TT-A3": {
+"cites": [
+"application.yml",
+"application.yaml:3–7",
+"MAN/deployments.json"
+],
+"n": 3,
+"changed": [],
+"chars": 1937
+},
+"TT-A4": {
+"cites": [
+"AuthApplication.java:21–25",
+"UserApplication.java:28–32",
+"*Application.java:30–34"
+],
+"n": 3,
+"changed": [
+"ts-order-service"
+],
+"chars": 981
+},
+"TT-A5": {
+"cites": [
+"SRC/ts-preserve-service/…/PreserveServiceImpl.java:170",
+"SRC/ts-cancel-service/…/CancelServiceImpl.java:57",
+"MAN/deployments.json"
+],
+"n": 3,
+"changed": [],
+"chars": 1112
+},
+"TT-A6": {
+"cites": [
+"JWTProvider.java:20",
+"JWTUtil.java:31",
+"JWTUtil.java:100",
+"pom.xml:17–18",
+"JWTUtil.java:101–103",
+"TokenException.java:6",
+"BaseException.java:6",
+"JWTFilter.java:28"
+],
+"n": 11,
+"changed": [],
+"chars": 1486
+},
+"TT-A7": {
+"cites": [
+"ts-ui-dashboard/nginx.conf:40–42",
+"pom.xml:77–79"
+],
+"n": 2,
+"changed": [],
+"chars": 940
+},
+"TT-A8": {
+"cites": [
+"AuthApplication.java:21–25",
+"UserApplication.java:28–32",
+"ContactsApplication.java:30–34",
+"VerifyCodeApplication.java:22",
+"PreserveApplication.java",
+"CancelApplication.java:30–34",
+"UserServiceImpl.java:133"
+],
+"n": 7,
+"changed": [],
+"chars": 1651
+},
+"TT-A9": {
+"cites": [
+"MAN/deployments.json",
+"pom.xml:91",
+"WebSecurityConfig.java:94",
+"SecurityConfig.java:74",
+"SecurityConfig.java:76"
+],
+"n": 5,
+"changed": [],
+"chars": 975
+},
+"TT-A10": {
+"cites": [
+"GatewayConfiguration.java:107–119",
+"WebSecurityConfig.java:75",
+"TokenServiceImpl.java:84",
+"profiles.yaml:66",
+"profiles.yaml:77"
+],
+"n": 5,
+"changed": [],
+"chars": 894
+},
+"TT-A11": {
+"cites": [
+"Dockerfile:6",
+"Dockerfile:1"
+],
+"n": 2,
+"changed": [],
+"chars": 885
+},
+"TT-A12": {
+"cites": [
+"hack/deploy/utils.sh:59–66",
+"MAN/services.json",
+"InitUser.java:29–49"
+],
+"n": 3,
+"changed": [],
+"chars": 1019
+},
+"TT-A13": {
+"cites": [
+"static-manifests.yaml",
+"live-export.yaml"
+],
+"n": 2,
+"changed": [],
+"chars": 691
+},
+"TT-A14": {
+"cites": [
+"VerifyCodeController.java:55",
+"TokenServiceImpl.java:65–79",
+"UserController.java:44–50",
+"GlobalExceptionHandler.java:15–18",
+"client_login.js:38–42"
+],
+"n": 5,
+"changed": [],
+"chars": 819
+},
+"TT-A15": {
+"cites": [
+"UserServiceImpl.java:63",
+"UserServiceImpl.java:52–65",
+"User.java:32–33",
+"User.java:28",
+"UserDetailsServiceImpl.java:29",
+"TokenServiceImpl.java:90",
+"UserRepository.java:20",
+"InitUser.java:40–49"
+],
+"n": 8,
+"changed": [],
+"chars": 933
+},
+"TT-A16": {
+"cites": [
+"nginx.conf:1",
+"Dockerfile:1"
+],
+"n": 2,
+"changed": [],
+"chars": 826
+},
+"TT-A17": {
+"cites": [
+"MAN/deployments.json",
+"MAN/configmaps.json"
+],
+"n": 2,
+"changed": [],
+"chars": 674
+},
+"TT-A18": {
+"cites": [
+"VerifyCodeController.java:37–38",
+"SecurityConfig.java:68",
+"SecurityConfig.java:71",
+"Dockerfile:6"
+],
+"n": 4,
+"changed": [],
+"chars": 670
+},
+"TT-B01": {
+"cites": [
+"TravelApplication.java:30-34",
+"PreserveServiceImpl.java:366",
+"SeatServiceImpl.java:40-116"
+],
+"n": 3,
+"changed": [],
+"chars": 1501
+},
+"TT-B02": {
+"cites": [
+"application.yml:13",
+"S/ts-ui-dashboard/nginx.conf:40-41"
+],
+"n": 2,
+"changed": [],
+"chars": 927
+},
+"TT-B03": {
+"cites": [
+"TravelServiceImpl.java:51-53",
+"M/statefulsets.json"
+],
+"n": 2,
+"changed": [],
+"chars": 2022
+},
+"TT-B04": {
+"cites": [
+"M/deployments.json",
+"pom.xml:90-91",
+"SecurityConfig.java:75-78"
+],
+"n": 3,
+"changed": [],
+"chars": 1032
+},
+"TT-B05": {
+"cites": [
+"TravelServiceImpl.java:203-217, :322-377"
+],
+"n": 1,
+"changed": [],
+"chars": 641
+},
+"TT-B06": {
+"cites": [
+"application.yml:5-9",
+"M/deployments.json"
+],
+"n": 2,
+"changed": [],
+"chars": 1154
+},
+"TT-B07": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 717
+},
+"TT-B08": {
+"cites": [
+"SeatServiceImpl.java:190, :205-215",
+"InitData.java:22-23",
+"InitData.java:18-26"
+],
+"n": 3,
+"changed": [],
+"chars": 667
+},
+"TT-B09": {
+"cites": [
+"BasicServiceImpl.java:284-290"
+],
+"n": 1,
+"changed": [],
+"chars": 454
+},
+"TT-B10": {
+"cites": [
+"TravelServiceImpl.java:277-286",
+"W/profiles.yaml:57",
+":49, :272, :279"
+],
+"n": 3,
+"changed": [],
+"chars": 551
+},
+"TT-B11": {
+"cites": [
+"Route.java:28-34"
+],
+"n": 1,
+"changed": [],
+"chars": 503
+},
+"TT-B12": {
+"cites": [
+"Order.java:19-55",
+"OrderServiceImpl.java:54-62",
+"SeatServiceImpl.java:151",
+"W/runtime-fixture.example.yaml:19",
+"CancelServiceImpl.java:240-247"
+],
+"n": 5,
+"changed": [],
+"chars": 729
+},
+"TT-B13": {
+"cites": [
+"S/hack/deploy/utils.sh:61,66",
+"gen-mysql-secret.sh:47-60",
+"M/services.json",
+"M/configmaps.json",
+"leader-start.sh",
+"leader-stop.sh",
+"M/roles.json"
+],
+"n": 7,
+"changed": [],
+"chars": 1076
+},
+"TT-B14": {
+"cites": [
+"TravelServiceImpl.java:353-365",
+"BasicServiceImpl.java:185-189, :210-214, :233-237"
+],
+"n": 2,
+"changed": [],
+"chars": 466
+},
+"TT-B15": {
+"cites": [
+"Dockerfile:6"
+],
+"n": 1,
+"changed": [],
+"chars": 471
+},
+"TT-B16": {
+"cites": [
+"RoutePlanServiceImpl.java:47-48, :83, :336-355",
+"TravelPlanServiceImpl.java:113-121"
+],
+"n": 2,
+"changed": [],
+"chars": 590
+},
+"TT-B17": {
+"cites": [
+"bin/db.js:10-15",
+":5, :10-15"
+],
+"n": 2,
+"changed": [],
+"chars": 447
+},
+"TT-C1": {
+"cites": [
+"deploy.json",
+"sts.json"
+],
+"n": 2,
+"changed": [
+"ts-order-service"
+],
+"chars": 4614
+},
+"TT-C2": {
+"cites": [
+"deploy.json"
+],
+"n": 1,
+"changed": [],
+"chars": 1500
+},
+"TT-C3": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 1186
+},
+"TT-C4": {
+"cites": [
+"deploy.json",
+"sts.json"
+],
+"n": 2,
+"changed": [],
+"chars": 1790
+},
+"TT-C5": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 892
+},
+"TT-C6": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 1354
+},
+"TT-C7": {
+"cites": [
+"cm.json",
+"sts.json"
+],
+"n": 2,
+"changed": [],
+"chars": 1190
+},
+"TT-C8": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 973
+},
+"TT-C9": {
+"cites": [
+"U/hack/deploy/utils.sh:66",
+"svc.json",
+"cm.json",
+"leader-start.sh",
+"leader-stop.sh"
+],
+"n": 5,
+"changed": [],
+"chars": 996
+},
+"TT-C10": {
+"cites": [
+"deploy.json"
+],
+"n": 1,
+"changed": [],
+"chars": 725
+},
+"TT-C11": {
+"cites": [
+"deploy.json",
+"spring-configuration-metadata.json",
+"application.yml"
+],
+"n": 3,
+"changed": [],
+"chars": 1332
+},
+"TT-C12": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 706
+},
+"TT-C13": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 1073
+},
+"TT-C14": {
+"cites": [
+"deploy.json"
+],
+"n": 1,
+"changed": [],
+"chars": 749
+},
+"TT-C15": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 1510
+},
+"TT-D1": {
+"cites": [
+"CancelController.java:45-51",
+"CancelServiceImpl.java",
+"profiles.yaml:22-27"
+],
+"n": 3,
+"changed": [],
+"chars": 1308
+},
+"TT-D2": {
+"cites": [
+"Money.java:19-41"
+],
+"n": 1,
+"changed": [
+"ts-order-service"
+],
+"chars": 1409
+},
+"TT-D3": {
+"cites": [
+"RebookServiceImpl.java:127",
+"OrderController.java:142",
+"InsidePaymentServiceImpl.java:278"
+],
+"n": 3,
+"changed": [],
+"chars": 1257
+},
+"TT-D4": {
+"cites": [
+"PaymentServiceImpl.java:35",
+"Payment.java:29-30",
+"PaymentRepository.java:16"
+],
+"n": 3,
+"changed": [
+"ts-payment-service"
+],
+"chars": 1190
+},
+"TT-D5": {
+"cites": [
+"OrderServiceImpl.java:315-327"
+],
+"n": 1,
+"changed": [
+"ts-order-service"
+],
+"chars": 953
+},
+"TT-D6": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 793
+},
+"TT-D7": {
+"cites": [
+"AddMoneyRepository.java:20",
+"application.yml:17-22",
+"train-ticket.yaml:109-110"
+],
+"n": 3,
+"changed": [],
+"chars": 957
+},
+"TT-D8": {
+"cites": [
+"RabbitSend.java:21",
+"PreserveServiceImpl.java:406-417"
+],
+"n": 2,
+"changed": [],
+"chars": 1096
+},
+"TT-D9": {
+"cites": [
+"RabbitReceive.java:49-54"
+],
+"n": 1,
+"changed": [],
+"chars": 572
+},
+"TT-D10": {
+"cites": [
+"deployments.json"
+],
+"n": 1,
+"changed": [],
+"chars": 1255
+},
+"TT-D11": {
+"cites": [
+"server.py:14"
+],
+"n": 1,
+"changed": [],
+"chars": 560
+},
+"TT-D12": {
+"cites": [
+"InsidePaymentController.java:62-66",
+"pom.xml:71-72",
+"pom.xml:159-160",
+"pom.xml:83"
+],
+"n": 4,
+"changed": [],
+"chars": 634
+},
+"TT-D13": {
+"cites": [
+"pom.xml:71-72",
+"CancelApplication.java:23",
+"server.py:47-48"
+],
+"n": 3,
+"changed": [],
+"chars": 1249
+},
+"TT-D14": {
+"cites": [
+"AdminOrderServiceImpl.java:47-53",
+"OrderServiceImpl.java:302-311"
+],
+"n": 2,
+"changed": [],
+"chars": 534
+},
+"TT-E01": {
+"cites": [
+"localhost:3306",
+"CH/mysql/values.yaml:29",
+"CH/mysql/templates/statefulset.yaml:195-196",
+"MF/statefulsets.json",
+"xenon.json",
+"RE/TT-xenon-ipv6-localhost/before-fix.txt:27-28",
+"mysql[localhost:3306]… (using password: NO)… downslimits:3",
+"before-fix.txt:21-22"
+],
+"n": 16,
+"changed": [],
+"chars": 2720
+},
+"TT-E02": {
+"cites": [
+"UP/pom.xml:68-73",
+"UP/ts-order-service/src/main/resources/application.yml:9",
+"…/spring-cloud-alibaba-dependencies-2.2.7.RELEASE.pom:46",
+"CH/nacos/templates/configmap.yaml:7",
+"CH/nacos/templates/service.yaml:1-24",
+"RE/TT-startup-hard-dependency-on-nacos/crashloop.txt:12",
+"MF/deployments.json",
+"crashloop.txt:2-9"
+],
+"n": 11,
+"changed": [
+"ts-order-service"
+],
+"chars": 2550
+},
+"TT-E03": {
+"cites": [
+"MF/deployments.json",
+"D0/kubernetes/train-ticket/live-export.yaml",
+"UP/deployment/kubernetes-manifests/quickstart-k8s/yamls/sw_deploy.yaml.sample:20-25",
+"RE/TT-nfs-javaagent-startup-dependency/before-fix.txt:2,9-12",
+"1.94.151.57:85"
+],
+"n": 5,
+"changed": [],
+"chars": 1419
+},
+"TT-E04": {
+"cites": [
+"MF/deployments.json",
+"UP/ts-preserve-service/src/main/java/preserve/service/PreserveServiceImpl.java:44-45",
+"UP/ts-order-service/src/main/java/order/OrderApplication.java:29-33",
+"D0/applications/train-ticket.yaml:137-138"
+],
+"n": 4,
+"changed": [
+"ts-order-service"
+],
+"chars": 1334
+},
+"TT-E05": {
+"cites": [
+"…2.2.7.RELEASE.pom:151-155",
+"PreserveServiceImpl.java:32-33",
+"UP/pom.xml:83",
+"spring-integration-core-5.3.8.RELEASE.pom:81-85"
+],
+"n": 4,
+"changed": [],
+"chars": 1907
+},
+"TT-E06": {
+"cites": [
+"application.yml:1-3",
+"application.yml:13",
+"UP/ts-order-service/src/main/java/order/service/OrderServiceImpl.java:200",
+"Order.java:20",
+"train-ticket.yaml:138"
+],
+"n": 5,
+"changed": [
+"ts-order-service"
+],
+"chars": 1570
+},
+"TT-E07": {
+"cites": [
+"UP/hack/deploy/utils.sh:66",
+"CH/mysql/templates/service.yaml:29,53"
+],
+"n": 2,
+"changed": [],
+"chars": 947
+},
+"TT-E08": {
+"cites": [
+"CH/nacos/templates/statefulset.yaml:35-40",
+"CH/mysql/templates/service.yaml:19-20",
+"D0/repairs/train-ticket-nacos-workload-qualification-20260822.yaml:25",
+"MF/statefulsets.json",
+"live-export.yaml:1283-1289",
+"10.0.2.124:12031",
+"10.0.2.194:14568",
+"10.0.2.93:18888"
+],
+"n": 9,
+"changed": [],
+"chars": 1812
+},
+"TT-E09": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 730
+},
+"TT-E10": {
+"cites": [
+"leader-start/stop.sh",
+"CH/mysql/templates/configmap.yaml:29-38",
+"MF/configmaps.json",
+"service.yaml:53"
+],
+"n": 4,
+"changed": [],
+"chars": 785
+},
+"TT-E11": {
+"cites": [
+"UP/ts-order-service/Dockerfile:1,6",
+"UP/ts-gateway-service/Dockerfile:6"
+],
+"n": 2,
+"changed": [
+"ts-order-service"
+],
+"chars": 708
+},
+"TT-E12": {
+"cites": [
+"CH/nacos/templates/statefulset.yaml:7"
+],
+"n": 1,
+"changed": [],
+"chars": 707
+},
+"TT-E13": {
+"cites": [
+"train-ticket.yaml:106"
+],
+"n": 1,
+"changed": [],
+"chars": 594
+},
+"TT-E14": {
+"cites": [
+"GatewayConfiguration.java:107-118"
+],
+"n": 1,
+"changed": [],
+"chars": 539
+},
+"TT-E15": {
+"cites": [
+"MF/deployments.json",
+"CH/rabbitmq/values.yaml:14-20"
+],
+"n": 2,
+"changed": [],
+"chars": 586
+},
+"TT-E16": {
+"cites": [
+"D0/kubernetes/train-ticket/live-export.yaml:151-163"
+],
+"n": 1,
+"changed": [],
+"chars": 517
+},
+"TT-E17": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 395
+},
+"TT-E18": {
+"cites": [
+"UP/hack/deploy/utils.sh:59-67",
+"CH/mysql/values.yaml:56-61"
+],
+"n": 2,
+"changed": [],
+"chars": 588
+},
+"TT-E19": {
+"cites": [
+"before-fix.txt:27-32"
+],
+"n": 1,
+"changed": [],
+"chars": 390
+},
+"TT-E20": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 355
+},
+"TT-E21": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 297
+},
+"SS-01": {
+"cites": [
+"REP:21-28",
+"FE/helpers/index.js:86-104",
+"FE/api/orders/index.js:50-56",
+"FE/api/user/index.js:305-306",
+"FE/config.js:15-21",
+"FE/api/cart/index.js:14-16,26-29,73,84",
+"CARTJ/cart/CartResource.java:24,30-32",
+"FE/api/orders/index.js:60"
+],
+"n": 13,
+"changed": [],
+"chars": 2488
+},
+"SS-02": {
+"cites": [
+"FE/api/cart/index.js:77-80",
+"FE/api/catalogue/index.js:12-14",
+"api/cart/index.js:79"
+],
+"n": 3,
+"changed": [],
+"chars": 1467
+},
+"SS-03": {
+"cites": [
+"FE/api/orders/index.js:61",
+"USR/api/transport.go:102-115",
+"FE/api/user/index.js:75-76,98-99",
+"USR/db/mongodb/mongodb.go:68-84,242-286",
+"ORDJ/controllers/OrdersController.java:56-57",
+"USR/db/db.go:107-119",
+"USR/api/endpoints.go:101-107",
+"FE/api/user/index.js:270,205"
+],
+"n": 8,
+"changed": [],
+"chars": 1961
+},
+"SS-04": {
+"cites": [
+"USR/api/service.go:136-152",
+"mongodb.go:461-465",
+"mongodb.go:42",
+"USR/api/transport.go:196",
+"CAT/transport.go:179-187",
+"CAT/service.go:163-179",
+"CAT/cmd/cataloguesvc/main.go:46",
+"USR/main.go:99-110"
+],
+"n": 10,
+"changed": [],
+"chars": 2002
+},
+"SS-05": {
+"cites": [
+"FE/server.js:22-29",
+"FE/config.js:15-21",
+"FE/yarn.lock:367-368",
+"FE/package.json:31",
+"FE/Dockerfile:1",
+"FE/server.js:21",
+"/package.json"
+],
+"n": 7,
+"changed": [],
+"chars": 1198
+},
+"SS-06": {
+"cites": [
+"B/benchmark-sources/sock-shop-deployment/deploy/kubernetes/complete-demo.yaml:183,494,810",
+"PAY/cmd/paymentsvc/main.go:66-71",
+"CAT/cmd/cataloguesvc/main.go:105-109"
+],
+"n": 3,
+"changed": [],
+"chars": 968
+},
+"SS-07": {
+"cites": [
+"SHPJ/controllers/ShippingController.java:42-48",
+"SHPJ/configuration/RabbitMqConfiguration.java:52",
+"QMJ/configuration/RabbitMqConfiguration.java:54",
+"QMJ/configuration/ShippingConsumerConfiguration.java:30",
+"ORDJ/controllers/OrdersController.java:100-120",
+"SHPJ/configuration/RabbitMqConfiguration.java:27"
+],
+"n": 6,
+"changed": [],
+"chars": 1269
+},
+"SS-08": {
+"cites": [
+"OrdersController.java:46-47",
+"ORDJ/config/RestProxyTemplate.java:24",
+"ORDJ/OrderApplication.java:8",
+"ORDJ/services/AsyncGetService.java:54-92"
+],
+"n": 4,
+"changed": [],
+"chars": 1280
+},
+"SS-09": {
+"cites": [
+"B/multisystem-audit-20260918/manifests/sock-shop/persistentvolumeclaims.json",
+"USR/docker/user-db/Dockerfile:4-17",
+"CAT/docker/catalogue-db/Dockerfile:7",
+"REP:37-38,51-52",
+"REP:8-10",
+"complete-demo.yaml:657",
+"REP:21-28"
+],
+"n": 7,
+"changed": [],
+"chars": 2260
+},
+"SS-10": {
+"cites": [
+"USR/db/mongodb/mongodb.go:46,447-459",
+"USR/main.go:99-110",
+"mongodb.go:109-127",
+"mongodb.go:201-209",
+"mongodb.go:42",
+"USR/api/transport.go:102-115",
+"mongodb.go:129-132",
+"FE/api/user/index.js:209-210,231-236"
+],
+"n": 8,
+"changed": [],
+"chars": 1527
+},
+"SS-11": {
+"cites": [
+"OrdersController.java:85-117",
+"FE/api/orders/index.js:70-75",
+"ORDJ/config/MongoConfiguration.java:17",
+"B/benchmark-sources/materialized/sock-shop-orders-0.4.7/src/main/resources/application.properties:2"
+],
+"n": 4,
+"changed": [],
+"chars": 872
+},
+"SS-12": {
+"cites": [
+"CAT/transport.go:38-91",
+"CAT/endpoints.go:54-59",
+"CAT/service.go:147-155",
+"CAT/transport.go:96-101",
+"CAT/cmd/cataloguesvc/main.go:46",
+"FE/api/cart/index.js:77-105",
+"CARTJ/configuration/ValidationConfiguration.java:12",
+"CARTJ/entities/Item.java:13-14"
+],
+"n": 8,
+"changed": [],
+"chars": 1156
+},
+"SS-13": {
+"cites": [
+"FE/helpers/index.js:32-34,78-83",
+"FE/api/catalogue/index.js:17-23",
+"FE/api/user/index.js:7-22",
+"LOC:120-123",
+"PROF:73-89"
+],
+"n": 5,
+"changed": [],
+"chars": 667
+},
+"SS-14": {
+"cites": [
+"USR/api/transport.go:102-115",
+"PAY/transport.go:47-56,78-83,98-103",
+"FE/helpers/index.js:15-23",
+"FE/api/cart/index.js:69,114,118",
+"OrdersController.java:121-122"
+],
+"n": 5,
+"changed": [],
+"chars": 1202
+},
+"SS-15": {
+"cites": [
+"FE/server.js",
+"FE/yarn.lock:1038-1039",
+"FE/api/metrics/index.js:33-35"
+],
+"n": 3,
+"changed": [],
+"chars": 806
+},
+"SS-16": {
+"cites": [
+"FE/api/user/index.js:278-295",
+"LOC:42-54,129-131"
+],
+"n": 2,
+"changed": [],
+"chars": 554
+},
+"SS-17": {
+"cites": [
+"B/benchmark-sources/materialized/sock-shop-carts-0.4.8/src/main/resources/application.properties:2",
+"CARTJ/configuration/MongoConfiguration.java:17",
+"ORDJ/config/MongoConfiguration.java:17",
+"REP:11-16"
+],
+"n": 4,
+"changed": [],
+"chars": 814
+},
+"SS-18": {
+"cites": [
+"CARTJ/controllers/HealthCheckController.java:22-35",
+"ORDJ/controllers/HealthCheckController.java:22-36",
+"SHPJ/controllers/ShippingController.java:51",
+"QMJ/controllers/HealthCheckController.java:26-36"
+],
+"n": 4,
+"changed": [],
+"chars": 843
+},
+"SS-19": {
+"cites": [
+"CAT/docker/catalogue/Dockerfile:1",
+"PAY/docker/payment/Dockerfile:1",
+"USR/docker/user/Dockerfile-release:1",
+"/usr/local/bin/java.sh"
+],
+"n": 4,
+"changed": [],
+"chars": 994
+},
+"SS-20": {
+"cites": [],
+"n": 0,
+"changed": [],
+"chars": 474
+},
+"SS-21": {
+"cites": [
+"FE/config.js:16",
+"node_modules/redis/package.json"
+],
+"n": 2,
+"changed": [],
+"chars": 682
+},
+"SS-22": {
+"cites": [
+"CARTJ/controllers/ItemsController.java:46-58",
+"CARTJ/cart/CartResource.java:24-33",
+"CARTJ/controllers/CartsController.java:36-41",
+"LOC:133-137",
+"LOC:138-152",
+"PAY/cmd/paymentsvc/main.go:26",
+"PAY/service.go:50-55",
+"OrdersController.java:154-160"
+],
+"n": 8,
+"changed": [],
+"chars": 942
+},
+"SS-23": {
+"cites": [
+"QMJ/ShippingTaskHandler.java:15-16",
+"QMJ/DockerSpawner.java:33-35",
+":38,:61-62",
+"QMJ/configuration/ShippingConsumerConfiguration.java:35-37",
+"FE/api/user/index.js:14-22",
+"FE/config.js:10,18",
+"OrdersController.java:62-73",
+"mongo=user-db:27017"
+],
+"n": 22,
+"changed": [],
+"chars": 4286
+}
+}

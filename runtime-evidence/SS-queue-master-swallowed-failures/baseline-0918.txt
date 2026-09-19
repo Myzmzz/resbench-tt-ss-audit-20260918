@@ -1,0 +1,12 @@
+# queue-master 在 K8s 中处理发货消息必然失败但照常确认（SS-23）——新环境基线期间只读采集 2026-09-18T09:23:32Z
+## RabbitMQ 队列（rabbitmqctl list_queues name durable messages messages_unacknowledged consumers）
+Listing queues ...
+shipping-task	false	0	0	1
+## RabbitMQ 交换机/队列累计投递与确认（rabbitmqctl list_queues name message_stats 不在 3.6 中提供时略）
+## queue-master 近 15 分钟日志归类（时间戳与数字已归一化）
+ 433 Received shipment task: NaaceNcfcaNdbNfN
+ 351  ERROR N --- [ool-N-thread-N] w.weave.socks.queuemaster.DockerSpawner  : Exception trying to launch/remove worker container. javax.ws.rs.ProcessingException: org.newsclub.net.unix.AFUNIXSocketException: No such file or directory (socket: /var/run/docker.s
+  81  ERROR N --- [pool-N-thread-N] w.weave.socks.queuemaster.DockerSpawner  : Exception trying to launch/remove worker container. javax.ws.rs.ProcessingException: org.newsclub.net.unix.AFUNIXSocketException: No such file or directory (socket: /var/run/docker.
+   1  ERROR N --- [a-jaxrs-async-N] c.g.d.core.async.ResultCallbackTemplate  : Error during callback
+   1   WARN N --- [enerContainer-N] s.a.r.l.ConditionalRejectingErrorHandler : Execution of Rabbit message listener failed.
+## 同期 sock-shop 结账成功数（locust）：POST /orders [checkout] 225 次、0 失败
