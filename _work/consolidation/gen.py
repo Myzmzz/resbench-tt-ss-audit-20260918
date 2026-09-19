@@ -14,7 +14,7 @@ from data_misc import (APPENDIX_MD, FAMILY_ORDER, HEADER_MD, INJECTION_MD, ORIGI
 from data_ss import SS_ENTRIES
 from data_tt import TT_ENTRIES
 
-OUT_DIR = Path("/Users/mymz/work/国家重点研发/韧性测试工具 benchmark/multisystem-audit-20260918")
+OUT_DIR = Path(__file__).resolve().parents[2]   # 仓库根目录
 LEVELS = ["R", "C", "S", "X", "M"]
 LEVEL_TEXT = {
     "R": "R（本轮运行时已复现）",
@@ -94,6 +94,19 @@ def flow_family_table(entries: list[dict]) -> str:
     return "\n".join(rows)
 
 
+def top10_block(entries: list[dict]) -> str:
+    """Render the ranked top-10 list, pulling title/level from the entry data itself."""
+    by_id = {e["id"]: e for e in entries}
+    lines = []
+    for item in TOP10:
+        entry = by_id[item["id"]]
+        lines.append(f"**{item['rank']}. {entry['id']}〔{entry['level']}〕{entry['title']}**")
+        lines.append("")
+        lines.append(f"{item['why']}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def mapping_table(entries: list[dict]) -> str:
     """Original id -> final id(s), including the runtime-only TT-RT ids."""
     mapping: "OrderedDict[str, list[str]]" = OrderedDict()
@@ -107,9 +120,15 @@ def mapping_table(entries: list[dict]) -> str:
         mapping.setdefault(key, []).append(target)
 
     def sort_key(item: str) -> tuple:
-        prefix = item.split("-")[0] + "-" + item.split("-")[1][:1] if item.startswith("TT-") else "SS"
+        """TT-A…TT-E, then SS, then the free-form notes (TT-RT-*, withdrawn judgements) last."""
+        if item.startswith("TT-") and len(item.split("-")) > 1 and item.split("-")[1][:1].isalpha():
+            prefix = "1" + item.split("-")[1][:1]
+        elif item.startswith("SS-"):
+            prefix = "2"
+        else:
+            prefix = "3"
         digits = "".join(ch for ch in item if ch.isdigit()) or "0"
-        return (prefix, int(digits))
+        return (prefix, int(digits), item)
 
     rows = ["| 原编号 | 终稿去向 |", "|---|---|"]
     for key in sorted(mapping, key=sort_key):
@@ -129,7 +148,7 @@ def main() -> None:
              "### 1.1 系统 × 证据等级", "", level_table(entries), "",
              "### 1.2 业务链路 × 机制族（不含 X 级；一条可同时计入多个链路和多个机制族，所以格子之和大于条目数）", "",
              flow_family_table(entries), "",
-             TOP10_INTRO_MD.strip(), "",
+             TOP10_INTRO_MD.strip(), "", top10_block(entries), "",
              "## 2. train-ticket 条目", ""]
     parts += [render_entry(e) + "\n" for e in TT_ENTRIES]
     parts += ["## 3. sock-shop 条目", ""]
