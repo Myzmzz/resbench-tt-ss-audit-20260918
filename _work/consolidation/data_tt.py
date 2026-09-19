@@ -767,4 +767,28 @@ dict(
     original_ids=["TT-A14（部分）"],
     notes="代码层面的缺陷（校验恒返回 true 却被同步依赖）仍记在 TT-16 里，只是基准负载触发不到。",
 ),
+
+# ============================ 八、镜像比对新增（不在 108 条静态候选内） ============================
+dict(
+    id="TT-41", system=S, level="C",
+    title="部署镜像在主查询路径第一行植入了对 ts-traceenv-test 的同步调用，默认走无超时的共享连接池",
+    family=["deadline_timeout", "circuit_isolation", "other（插桩残留）"],
+    families=["deadline_timeout", "circuit_isolation", "other"],
+    dmode="主 D1（无截止时间）；次 D4（复用了错配的连接池）、D6",
+    flows=["搜索"],
+    trigger="每一次 POST /api/v1/travelservice/trips/left 都会触发，不需要注入——callTraceenvTest 在 queryByBatch 的方法体第一行（字节码 offset 2）。风险在 Nacos 返回了任何一个 ts-traceenv-test 地址时兑现（TT-02 记录的陈旧实例正是这种情况）。",
+    consequence="部署清单里没有任何服务设置 TRACEENV_TEST_URL，所以走的是 else 分支：用共享的 @LoadBalanced RestTemplate（三种超时全无、每目标 5 条、整进程 10 条，见 TT-11）去调一个 Nacos 里没有实例的服务名。正常情况下 Ribbon 抛 No instances available 被 catch 吞掉，快速失败；一旦 Nacos 给出任何地址，这个调用就会用无超时连接去打它，按 tcp_syn_retries=6 单次最长挂约 127 s，并占用整进程仅有的 10 条连接之一。等于把 TT-02 和 TT-11 串成了一条现成的放大链路，入口就在 SLO 路径的第一行。",
+    level_why="本轮反编译实际部署的镜像核实：拉取 ts-travel-service:1.0.0 的 fat jar 层（sha256:cee94c3e…，73,585,634 字节，摘要与 manifest 一致），javap 反编译 TravelServiceImpl.class 得到完整方法体、两个调用点和异常表；并核对上游源码确认该方法不存在、核对 deployments.json 确认环境变量未设置。后果（打到死 IP 后挂 127 s）没有实跑。",
+    evidence=[
+        "证据/TT-rebuilt-image-provenance/README.md 第 4.2 节（callTraceenvTest 的反编译结果、两个分支、异常表 0–177 → 180）",
+        "TT源码/ts-travel-service/src/main/java/travel/service/TravelServiceImpl.java（上游该文件里 callTraceenvTest 出现 0 次，确认是镜像额外植入）",
+        "TT源码/ts-travel-service/src/main/java/travel/controller/TravelController.java:113、:123（POST /trips/left → queryByBatch，即压测主查询入口）",
+        "清单/train-ticket/deployments.json（ts-travel-service 的 env 只有 NODE_IP、6 个 OTEL_* 和 JAVA_TOOL_OPTIONS，没有 TRACEENV_TEST_URL）",
+        "证据/TT-network-and-health/probe.txt（09:01Z，tcp_syn_retries=6，连不存在的 IP 约 127 s 才失败）",
+    ],
+    original_ids=["（本轮镜像比对新增，不在 108 条静态候选内）"],
+    notes="静态审计依据的是上游 313886e9，而上游没有这段代码，所以 108 条里不可能有它——这条正好说明「只审源码不看部署镜像」会漏掉什么。"
+          "另外 5 个含 ts-traceenv-test 的服务（order、payment、preserve、preserve-other、train）改动模式相同，推测是同一套插桩，但**未反编译核实**。"
+          "基线里没被发现是因为快速失败：本轮 search p95 只有 139 ms。",
+),
 ]

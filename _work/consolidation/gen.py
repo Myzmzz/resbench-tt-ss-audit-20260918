@@ -143,8 +143,10 @@ def main() -> None:
 
     parts = [HEADER_MD.strip(), "",
              "## 1. 汇总", "",
-             f"终稿共 **{len(entries)}** 条（TT {len(TT_ENTRIES)} 条、SS {len(SS_ENTRIES)} 条；其中 X 级 "
-             f"{sum(e['level'] == 'X' for e in entries)} 条是已否定的原候选，保留在正文里便于追溯）。", "",
+             f"终稿共 **{len(entries)}** 条（TT {len(TT_ENTRIES)} 条、SS {len(SS_ENTRIES)} 条）："
+             f"108 条静态候选合并成 {len(entries) - 1} 条，另有 1 条（TT-41）是本轮镜像比对新发现的、"
+             f"不在静态候选内。其中 X 级 {sum(e['level'] == 'X' for e in entries)} 条是已否定的原候选，"
+             f"保留在正文里便于追溯。", "",
              "### 1.1 系统 × 证据等级", "", level_table(entries), "",
              "### 1.2 业务链路 × 机制族（不含 X 级；一条可同时计入多个链路和多个机制族，所以格子之和大于条目数）", "",
              flow_family_table(entries), "",

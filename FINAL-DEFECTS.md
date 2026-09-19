@@ -25,21 +25,21 @@ Markdown 与 `final-defects.json` 出自同一份数据，不会漂移。
 
 ## 1. 汇总
 
-终稿共 **57** 条（TT 43 条、SS 14 条；其中 X 级 3 条是已否定的原候选，保留在正文里便于追溯）。
+终稿共 **58** 条（TT 44 条、SS 14 条）：108 条静态候选合并成 57 条，另有 1 条（TT-41）是本轮镜像比对新发现的、不在静态候选内。其中 X 级 3 条是已否定的原候选，保留在正文里便于追溯。
 
 ### 1.1 系统 × 证据等级
 
 | 系统 | R | C | S | X | M | 合计 |
 |---|---|---|---|---|---|---|
-| train-ticket（TT） | 6 | 17 | 17 | 3 | 0 | 43 |
+| train-ticket（TT） | 6 | 18 | 17 | 3 | 0 | 44 |
 | sock-shop（SS） | 3 | 7 | 4 | 0 | 0 | 14 |
-| 合计 | 9 | 24 | 21 | 3 | 0 | 57 |
+| 合计 | 9 | 25 | 21 | 3 | 0 | 58 |
 
 ### 1.2 业务链路 × 机制族（不含 X 级；一条可同时计入多个链路和多个机制族，所以格子之和大于条目数）
 
 | 系统 | 业务链路 | deadline_<wbr>timeout | retry_<wbr>backoff | circuit_<wbr>isolation | fallback_<wbr>degradation | idempotency_<wbr>compensation | delivery_<wbr>semantics | replica_<wbr>disruption | health_<wbr>probe | load_<wbr>shedding_<wbr>admission | resource_<wbr>limit | other | 条目数 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| TT | 搜索 | 2 | · | · | 3 | · | · | · | 1 | 2 | 3 | 4 | 8 |
+| TT | 搜索 | 3 | · | 1 | 3 | · | · | · | 1 | 2 | 3 | 5 | 9 |
 | TT | 下单 | 1 | 1 | · | 3 | 3 | 1 | · | 1 | 2 | 2 | 3 | 9 |
 | TT | 取消 | · | 1 | · | 2 | 3 | · | · | · | 1 | 1 | · | 6 |
 | TT | 支付 | · | 1 | · | · | 2 | · | · | · | · | · | · | 2 |
@@ -65,6 +65,8 @@ Markdown 与 `final-defects.json` 出自同一份数据，不会漂移。
 
 排序依据：先看是否已复现（R > C > S），再看影响面（全站 / 关键链路 / 单一功能），
 最后看触发概率（默认负载就会撞上 > 需要注入 > 需要自定义负载）。
+
+紧随其后的是 TT-27（order 接收队列停止排空、不自愈）：旧环境真实发生过、需要人工重启，机制链完整，但本轮基线下 CLOSE_WAIT 与连接池排队三个现象全为 0，因此它是最值得优先做注入验证的一条（见注入设计 G4）。
 
 **1. TT-06〔R〕tsdb 实际连接上限只有 214 而稳态需求 270：configmap 写的 65535 被 open_files_limit=1024 压掉了两个数量级**
 
@@ -102,9 +104,9 @@ Markdown 与 `final-defects.json` 出自同一份数据，不会漂移。
 
 影响面最大的结构性问题：41 个服务单副本、没有 PDB、没有反亲和，而新环境只有 2 个节点且 TT 全被固定在 vm-0-10。排空一个节点就能让下单链路和数据库仲裁组同时失去多数派。
 
-**10. TT-27〔C〕order 接收队列停止排空、CLOSE_WAIT 与句柄堆积且不自愈，只能人工重启**
+**10. TT-41〔C〕部署镜像在主查询路径第一行植入了对 ts-traceenv-test 的同步调用，默认走无超时的共享连接池**
 
-旧环境真实发生过、需要人工重启才能恢复，是典型的「不自愈」缺陷。机制链完整（无界等待 + 不中止 + 无 liveness），但本轮基线下 CLOSE_WAIT、连接池排队三个现象全为 0，因此它同时也是最值得优先做注入验证的一条。
+本轮反编译部署镜像才发现的：主查询入口 POST /trips/left 的第一行，就同步调用一个上游源码里不存在、Nacos 里也没有实例的 ts-traceenv-test，而且默认走无超时的共享连接池。它把 TT-02（陈旧实例）和 TT-11（无超时+10 条连接）串成了一条现成的放大链路，入口正好在 SLO 路径上。静态审计看的是上游源码，不可能发现它。
 
 ## 2. train-ticket 条目
 
@@ -495,6 +497,15 @@ Markdown 与 `final-defects.json` 出自同一份数据，不会漂移。
 - **证据位置**：证据/TT-call-graph-baseline/fanout.txt（登录 HTTP 1 跳，仅 gateway→auth）；D0/environment/workloads/train-ticket/image/train_ticket_workload_generator.py:302-309（登录不带验证码）
 - **原编号 / 备注**：原编号 TT-A14（部分）。代码层面的缺陷（校验恒返回 true 却被同步依赖）仍记在 TT-16 里，只是基准负载触发不到。
 
+### TT-41〔C〕部署镜像在主查询路径第一行植入了对 ts-traceenv-test 的同步调用，默认走无超时的共享连接池
+- **机制族 / 失效模式**：deadline_timeout + circuit_isolation + other（插桩残留）；主 D1（无截止时间）；次 D4（复用了错配的连接池）、D6
+- **业务链路**：搜索
+- **触发条件**：每一次 POST /api/v1/travelservice/trips/left 都会触发，不需要注入——callTraceenvTest 在 queryByBatch 的方法体第一行（字节码 offset 2）。风险在 Nacos 返回了任何一个 ts-traceenv-test 地址时兑现（TT-02 记录的陈旧实例正是这种情况）。
+- **后果**：部署清单里没有任何服务设置 TRACEENV_TEST_URL，所以走的是 else 分支：用共享的 @LoadBalanced RestTemplate（三种超时全无、每目标 5 条、整进程 10 条，见 TT-11）去调一个 Nacos 里没有实例的服务名。正常情况下 Ribbon 抛 No instances available 被 catch 吞掉，快速失败；一旦 Nacos 给出任何地址，这个调用就会用无超时连接去打它，按 tcp_syn_retries=6 单次最长挂约 127 s，并占用整进程仅有的 10 条连接之一。等于把 TT-02 和 TT-11 串成了一条现成的放大链路，入口就在 SLO 路径的第一行。
+- **证据等级**：C（运行对象/配置已核实存在，后果未实跑）。本轮反编译实际部署的镜像核实：拉取 ts-travel-service:1.0.0 的 fat jar 层（sha256:cee94c3e…，73,585,634 字节，摘要与 manifest 一致），javap 反编译 TravelServiceImpl.class 得到完整方法体、两个调用点和异常表；并核对上游源码确认该方法不存在、核对 deployments.json 确认环境变量未设置。后果（打到死 IP 后挂 127 s）没有实跑。
+- **证据位置**：证据/TT-rebuilt-image-provenance/README.md 第 4.2 节（callTraceenvTest 的反编译结果、两个分支、异常表 0–177 → 180）；TT源码/ts-travel-service/src/main/java/travel/service/TravelServiceImpl.java（上游该文件里 callTraceenvTest 出现 0 次，确认是镜像额外植入）；TT源码/ts-travel-service/src/main/java/travel/controller/TravelController.java:113、:123（POST /trips/left → queryByBatch，即压测主查询入口）；清单/train-ticket/deployments.json（ts-travel-service 的 env 只有 NODE_IP、6 个 OTEL_* 和 JAVA_TOOL_OPTIONS，没有 TRACEENV_TEST_URL）；证据/TT-network-and-health/probe.txt（09:01Z，tcp_syn_retries=6，连不存在的 IP 约 127 s 才失败）
+- **原编号 / 备注**：原编号 （本轮镜像比对新增，不在 108 条静态候选内）。静态审计依据的是上游 313886e9，而上游没有这段代码，所以 108 条里不可能有它——这条正好说明「只审源码不看部署镜像」会漏掉什么。另外 5 个含 ts-traceenv-test 的服务（order、payment、preserve、preserve-other、train）改动模式相同，推测是同一套插桩，但**未反编译核实**。基线里没被发现是因为快速失败：本轮 search p95 只有 139 ms。
+
 ## 3. sock-shop 条目
 
 ### SS-01〔R〕发货链路两端都静默失败：shipping 吞掉发布异常仍回 201，queue-master 的发货必然失败却照常确认消息
@@ -758,6 +769,8 @@ observability / jaeger 四个命名空间的约定。
 4. **sock-shop 多个库的实际版本**未核实：redis 客户端的退避参数（SS-14）、gobreaker 的跳闸阈值（SS-11）、
    Mongo 驱动的 socketTimeout（SS-06）、spring-amqp 的重新入队行为（SS-01），都只有文档默认值作依据。
 5. **kube-proxy 模式**未核实，决定 Service 无端点时是立即拒连还是挂起，影响 SS-02 的故障量级（立刻崩 vs 约 127 秒后崩）。
+6. **另外 5 个含 ts-traceenv-test 的服务未反编译**（order、payment、preserve、preserve-other、train）。
+   travel 一个已反编译核实（见 TT-41），其余 5 个改动模式相同，推测是同一套插桩，但未核实。
 
 **只读查询就能升级定级的条目**（本轮已做的已标注，未做的需要新环境 kubeconfig）：
 
@@ -907,6 +920,7 @@ TT-A 组有 8 条的 key_evidence 用了「网关 yml:13」这类裸写法，没
 | SS-21 | SS-14 |
 | SS-22 | SS-08 |
 | SS-23 | SS-01 |
+|  | TT-41（本轮镜像比对新增，不在 108 条静态候选内） |
 | N-01（OTel 同步导出） | 附录 D（观测缺口）——负控制，未成立 |
 | T-03（重试放大） | 附录 A（排除清单）——TT 侧无实例，SS 侧仅 SS-14 的潜在 D3 |
 | java:8-jre 不感知容器 | TT-X2 |

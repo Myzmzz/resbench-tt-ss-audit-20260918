@@ -143,40 +143,91 @@ PreserveOtherServiceImpl`$9`、TrainServiceImpl`$1`）。这些匿名内部类�
 `ts-traceenv-test` 这个名字在上游 313886e9 的全仓里搜不到，也不在任何部署清单里——
 **Nacos 里不会有这个服务的实例**，所以这些订阅在运行时必然得到空列表。
 
-### 4.2 性质判定
+### 4.2 ts-travel-service 里到底植入了什么（已反编译核实）
+
+本轮把 ts-travel-service:1.0.0 的 fat jar 层单独拉了下来
+（`sha256:cee94c3e…`，73,585,634 字节，摘要与 manifest 一致），反编译了 `TravelServiceImpl.class`。
+镜像里多出来一个上游**完全不存在**的私有方法（上游 `TravelServiceImpl.java` 里 `callTraceenvTest` 出现 0 次）：
+
+```java
+private void callTraceenvTest(HttpHeaders headers) {
+    String url = System.getenv("TRACEENV_TEST_URL");
+    if (url != null && !url.isEmpty()) {
+        // 分支 A：自建 RestTemplate，连接超时 3000ms、读超时 3000ms
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(3000);
+        f.setReadTimeout(3000);
+        new RestTemplate(f).exchange(url + "/api/v1/traceenvtest/test", GET, entity, <$4>);
+    } else {
+        // 分支 B：走 Nacos 解析服务名，复用 this.restTemplate
+        String url = getServiceUrl("ts-traceenv-test");
+        this.restTemplate.exchange(url + "/api/v1/traceenvtest/test", GET, entity, <$5>);
+    }
+}   // 整个方法体被 catch (Exception) 包住（异常表：0–177 → 180, java/lang/Exception）
+```
+
+`TravelServiceImpl$4` 和 `$5` 就是这两个分支各自的 `ParameterizedTypeReference` 匿名内部类——
+这解释了第 3 节里「镜像多出 `$4`、`$5`」的现象。
+
+**调用点在主查询路径的第一行**。字节码显示它被两个方法在 offset 2（即方法体开头）调用：
+
+| 调用方 | 对应入口 | 是否在压测路径上 |
+|---|---|---|
+| `queryByBatch(TripInfo, HttpHeaders)` | `POST /api/v1/travelservice/trips/left`（TravelController.java:113 → :123） | **是**，这是基准负载的主查询入口 |
+| `create(TravelInfo, HttpHeaders)` | 创建车次 | 否 |
+
+**部署时走的是分支 B**。`manifests/train-ticket/deployments.json` 里**没有任何服务**设置
+`TRACEENV_TEST_URL`（ts-travel-service 的 env 只有 NODE_IP、6 个 OTEL_* 和 JAVA_TOOL_OPTIONS）。
+所以实际执行的是：用**共享的 `@LoadBalanced` RestTemplate**（就是终稿 TT-11 说的那个
+`builder.build()`——三种超时全无、每目标 5 条连接、整进程 10 条）
+去调用一个**在 Nacos 里没有任何实例**的服务名。
+
+### 4.3 性质判定
 
 | 判定 | 结论 |
 |---|---|
-| 是否与上游一致 | **否**，确定不一致（7 个服务的 jar 里有上游没有的字符串和类） |
-| 是否是植入的故障 | **未核实**。需要成员级 javap 差异才能判断新增代码做了什么（例如是否有 `Thread.sleep`、是否有额外的同步 HTTP 调用），本轮因带宽中止 |
-| 是否影响审计结论 | **是**，见 4.3 |
+| 是否与上游一致 | **否**，已反编译核实：上游没有这个方法 |
+| 是不是插桩残留 | **是**，方法名、URL 路径 `/api/v1/traceenvtest/test`、以及「有环境变量就用带超时的客户端」这套写法，都符合链路追踪实验代码的特征 |
+| 是不是刻意植入的韧性故障 | **未核实**。没有 `Thread.sleep`、没有死循环，不像刻意的故障注入；但分支 B 复用无超时连接池这一点，效果上确实构成一个真实的故障放大器 |
+| 是否影响审计结论 | **是**，见 4.4；并已据此在终稿新增一条 TT-41 |
 
-我倾向于认为这是**一次埋点/链路追踪实验的残留**（名字里的 traceenv 指向 trace environment，
-且改动集中在 Controller/ServiceImpl 这类适合插桩的位置），而不是刻意植入的韧性故障——
-但这是推测，没有证据支持，**按约束记为未核实**。
+**风险在于分支 B 与既有缺陷的叠加**：
 
-### 4.3 对审计结论的影响
+- 正常情况下 Nacos 里没有 `ts-traceenv-test`，Ribbon 抛 `No instances available`，被 `catch (Exception)` 吞掉，
+  快速失败，对延迟影响很小——这也是它在基线里没被发现的原因（本轮 search p95 只有 139 ms）。
+- 但一旦 Nacos 返回了任何一个地址（终稿 TT-02 记录的「陈旧副本把死 IP 标成健康」正是这种情况），
+  这个调用就会用**没有超时**的连接去打死 IP。按 `tcp_syn_retries=6`，单次连接最长挂约 127 秒，
+  而且占用整进程仅有的 10 条连接之一（终稿 TT-11）。
+- 它位于主查询路径的**第一行**，在任何业务逻辑之前执行。
 
+换句话说，这段插桩代码把 TT-02 和 TT-11 串成了一条现成的放大链路，且入口就在 SLO 路径上。
+
+### 4.4 对审计结论的影响
+
+- **新增终稿条目 TT-41**，记录这段插桩代码本身。它不在 108 条静态候选里——静态审计依据的是上游源码，
+  而上游根本没有这段代码，这正说明「只审源码不看镜像」会漏掉什么。
 - **直接受影响的终稿条目**：`TT-21`（改签删单用 POST 打 @DeleteMapping，依赖 ts-order-service:1.0.1 的 OrderController）、
   `TT-22`（支付去重逻辑，依赖 ts-payment-service:1.0.2 的 PaymentServiceImpl 和 PaymentRepository）。
   这两条的关键 class 恰好都在「被改过」的清单里，因此终稿里都标注了「以上游为准，部署镜像上未核实」。
 - **需要留意的条目**：凡是结论落在 preserve、preserve-other、travel、train、order、payment 这六个服务的
-  ServiceImpl 上的，都要考虑运行的代码可能与上游不同。涉及的终稿条目包括 TT-11、TT-13、TT-16、TT-18、TT-19、TT-24。
-- **不受影响的**：结论落在部署清单（探针、资源、副本、卷）、数据库配置、或那 23 个与上游完全一致的服务上的条目。
+  ServiceImpl 上的，都要考虑运行的代码可能与上游不同。涉及 TT-11、TT-13、TT-16、TT-18、TT-19、TT-24。
+- **另外五个含 traceenv 的服务尚未反编译**（order、payment、preserve、preserve-other、train）。
+  它们的改动模式与 travel 一致（Controller + ServiceImpl 同时改、新增匿名内部类），
+  **推测是同一套插桩，但未核实**。
 
-### 4.4 怎么接着查
+### 4.5 怎么接着查
 
-1. 在带宽较好的环境重跑，拿到成员级差异：
+1. 另外五个服务重复本轮做法即可（每个约 70 MB）：取 amd64 manifest → 下最大的那个层 → 解包 → `javap -p -c`：
    ```
-   python3 diff_images.py --skip-inventory --upstream-compile \
-     --grep ts-traceenv-test --grep traceenv \
-     --pair ts-travel-service:1.0.1:1.0.0 --pair ts-order-service:1.0.0:1.0.1
+   TOK=$(curl -s "http://1.94.151.57:85/service/token?service=harbor-registry&scope=repository:train-ticket/<repo>:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+   curl -H "Authorization: Bearer $TOK" "http://1.94.151.57:85/v2/train-ticket/<repo>/blobs/<layer digest>" -o layer.tar.gz
    ```
-   产物在 `pairs/<repo>/<old>__<new>/javap/<class>.diff` 和 `upstream/<repo>/<tag>/report.txt`。
-2. 更省事的办法是直接从运行中的 Pod 取 jar（不需要走 Harbor）：
-   `kubectl cp <pod>:/app/<service>.jar ./` 然后 `unzip -p` + `javap`。
-3. 网关那条最容易查：`kubectl exec deploy/ts-gateway-service -- cat /app/BOOT-INF/classes/application.yml | grep -A3 traceenv`，
-   一条命令就能确认是不是多了一条路由。
+2. 更省事的办法是直接从运行中的 Pod 取（不走 Harbor）：`kubectl cp <pod>:/app/<service>.jar ./`。
+3. 网关那一处最容易查，一条命令即可：
+   `kubectl exec deploy/ts-gateway-service -- cat /app/BOOT-INF/classes/application.yml | grep -A3 traceenv`
+   （注意 travel 的 `application.yml` 里**没有** traceenv，引用只在 class 里；网关恰好相反。）
+4. 要成员级的完整字节码差异，在带宽较好的环境跑：
+   `python3 diff_images.py --skip-inventory --upstream-compile --grep ts-traceenv-test --pair ts-travel-service:1.0.1:1.0.0`
 
 ---
 
