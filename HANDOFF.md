@@ -135,8 +135,45 @@ _work/extract/*.jsonl 的字段：id, claim, family, dmode, flows, default_load,
 | sock-shop payment / queue-master / shipping / user | 同上 | 0.4.3 / 0.3.1 / 0.4.8 / 0.4.7 |
 | sock-shop 部署清单 | microservices-demo/microservices-demo | 9dff06f |
 
+### 5.1 集群接入（kubeconfig 不在仓库里，由用户单独提供）
+
+| | 新环境（腾讯云，主实验环境） | 旧环境（tcse-v100） |
+|---|---|---|
+| API Server | https://62.234.93.223:6443 | https://122.112.193.220:6443 |
+| kubeconfig | `~/.kube/resbench-new-config`，context kubernetes-admin@kubernetes | `~/.kube/coroot-config`。**没有 current-context**，每条命令都要加 `--context=kubernetes-admin@kubernetes`，否则会静默连到本机别的集群 |
+| 节点 | vm-0-13-ubuntu 控制面、vm-0-10-ubuntu 工作节点；k8s 1.31.14；cri-dockerd + Docker 29；cgroup v2；存储类 openebs-hostpath | tcse-v100-01~03，各 8C/64G，k8s 1.28 |
+| TT / SS 状态 | 全部部署并就绪：TT 47 个服务 + Nacos 3 副本 + tsdb/nacosdb 两套 MySQL，SS 14 个组件。TT 的 Deployment 和 nacos 都固定在 vm-0-10（偏差 #8） | **待机**：TT 51 个对象、SS 14 个对象，副本全为 0。原副本数记在注解 `resiliencebenchmark.io/standby-replicas`。本审计的 manifests/ 就是从这里导出的 |
+| 观测 | 自建（偏差 #6）：observability 命名空间的 prometheus:9090、jaeger-query:16686（badger 持久化）、otel-collector、kube-state-metrics；jaeger/zipkin 是 ExternalName，SS 的 shipping 用它 | observability 命名空间的 prometheus:9090、jaeger-query:16686、otel-collector、loki:3100、kube-state-metrics、node-exporter；另有 coroot 命名空间 |
+| 共享情况 | 别人的命名空间：observe、social-network、sregym、chaos-mesh 等。**我们只能动** train-ticket、sock-shop、observability、jaeger，以及 ClusterRole resbench-audit-prometheus、resbench-audit-kube-state-metrics | 同时承载 Stage-2 评测平台（resbench-system 等）、otel-demo-01~05 副本、BladeAI 等，**任何写操作都要先问用户** |
+
+查询要点：
+- 只用 kubectl 访问，不要用口令登录主机。如果 6443 连不上，先确认本机出口 IP 是否被放行：之前遇到过移动网络出口被远端拒绝，另外 Clash TUN 会让任意端口看起来"通"。
+- Prometheus / Jaeger 走 API Server 服务代理，不需要端口转发：`kubectl get --raw "/api/v1/namespaces/observability/services/prometheus:9090/proxy/api/v1/query?query=<URL编码的PromQL>"`；Jaeger 用 `jaeger-query:16686/proxy/api/...`。
+- 新环境 cAdvisor 只有 Pod 级 cgroup（没有 container 标签），PromQL 要按 pod 聚合。OTel 指标名前缀是 `train_ticket_`，服务名在 `exported_job` 标签里。
+- 查 MySQL：先用 `kubectl get pods -l role=leader` 找主库（当前是 tsdb-mysql-2 和 nacosdb-mysql-0），再执行 `kubectl exec <pod> -c mysql -- mysql -uroot -h127.0.0.1 -e "..."`。只做 SELECT 和 SHOW。
+- tsdb 的 max_connections=400 是临时 `SET GLOBAL`（偏差 #13）。MySQL 一重启或切主就会回到 214，TT 会重新 Too many connections。
+
+压测（新环境；**跑之前先问用户**）。在 Myzmzz/resiliencebenchmark 分支 codex/stage2-d0-integration 的仓库根目录执行，`$A` 是本仓库路径：
+
+```bash
+python3 scripts/train_ticket_workload.py start --profile baseline --fixture $A/workload/tt-fixture.yaml --run-id <新id> \
+  --image 1.94.151.57:85/train-ticket/train-ticket-workload:1320c15bef95@sha256:4be3b6e41094a8fbd05b580162f876825d413663372bd422b27d1a705d680397 \
+  --kubeconfig ~/.kube/resbench-new-config --execute
+python3 scripts/locust_workload.py start --application sock-shop --fixture $A/workload/ss-fixture.yaml --run-id <新id> \
+  --image 1.94.151.57:85/train-ticket/locust:2.14.2@sha256:53b8e21d4e9ce42b1b670bdca8234a46d0e52746b958bab3daf819071740f50a \
+  --duration-seconds 600 --kubeconfig ~/.kube/resbench-new-config --execute
+```
+
+- 压测账号已经建好（Secret 在各自的命名空间里），不用重建。
+- 结果在 PVC train-ticket-workload-results / sock-shop-workload-results 上。读取方法：`python3 workload/read_results.py <ns> <pvc> <文件名>` 生成一个只读挂载的读取 Pod，apply 后看它的日志，读完删掉。
+- TT 压测器没有预热期：服务刚重启时首请求要约 10 s，会触发中止，要等几分钟再跑。
+- tt-fixture.yaml 的 travel_date=2026-09-25，过了这天可能失效，要改成未来日期。
+- 重建部署的方法：`export_clean.py` 从旧环境导出 → `patch_javaagent.py` → `kubectl apply`，观测栈用 `observability/gen_observability.py`（输出到 stdout）。未打码的 apply 版只在原机器上，需要时从旧环境重新导出，再按 DEVIATIONS.md 重做偏差。
+
+### 5.2 其它
+
 实验环境：
-- 新环境是腾讯云 2 节点共享集群（vm-0-10 worker、vm-0-13 控制面，k8s 1.31，cri-dockerd + Docker 29，cgroup v2）。kubeconfig 只在原机器上，**没有上传**。
+- 新环境是腾讯云 2 节点共享集群（vm-0-10 worker、vm-0-13 控制面，k8s 1.31，cri-dockerd + Docker 29，cgroup v2）。kubeconfig **没有上传**，见 5.1。
 - 我方在集群上的资源仍在：命名空间 train-ticket、sock-shop、observability、jaeger；ClusterRole/Binding resbench-audit-prometheus、resbench-audit-kube-state-metrics。是否清理由用户决定。
 - 镜像仓库 Harbor：http://1.94.151.57:85，项目 train-ticket、sock-shop 公开。registry v2 要先匿名取令牌：`/service/token?service=harbor-registry&scope=repository:<项目>/<仓库>:pull`；标签指向 OCI index，要先选 linux/amd64 的 manifest。
 - 查询技巧：Prometheus 和 Jaeger 可以走 API Server 服务代理 `kubectl get --raw /api/v1/namespaces/observability/services/<svc>:<port>/proxy/...`；cAdvisor 数据要按 pod 聚合。
