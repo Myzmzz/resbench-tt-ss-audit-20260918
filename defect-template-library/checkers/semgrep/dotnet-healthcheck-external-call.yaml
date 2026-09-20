@@ -1,0 +1,15 @@
+rules:
+  - id: dotnet-healthcheck-external-call
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      IHealthCheck 的 CheckHealthAsync 里访问了进程外对象。若该检查没有用 tags 从
+      liveness 端点里过滤掉，依赖抖动会把容器判成不存活。
+    patterns:
+      - pattern-inside: |
+          class $C : IHealthCheck { ... }
+      - pattern-either:
+          - pattern: await $DB.OpenAsync(...)
+          - pattern: await $HTTP.GetAsync(...)
+          - pattern: await $HTTP.SendAsync(...)
+          - pattern: await $REDIS.PingAsync(...)

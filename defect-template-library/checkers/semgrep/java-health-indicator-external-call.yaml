@@ -1,0 +1,21 @@
+rules:
+  - id: java-health-indicator-external-call
+    languages: [java]
+    severity: WARNING
+    message: >-
+      HealthIndicator 的 health() 里直接访问了进程外对象（数据源、HTTP 客户端、缓存客户端）。
+      若该指示器被划进 liveness 分组，依赖抖动会把容器判成不存活并触发重启。
+    patterns:
+      - pattern-inside: |
+          class $C implements HealthIndicator {
+            ...
+          }
+      - pattern-inside: |
+          public Health health() { ... }
+      - pattern-either:
+          - pattern: $DS.getConnection(...)
+          - pattern: $JDBC.execute(...)
+          - pattern: $RT.getForObject(...)
+          - pattern: $RT.exchange(...)
+          - pattern: $WC.block(...)
+          - pattern: $REDIS.ping(...)

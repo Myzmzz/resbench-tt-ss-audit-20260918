@@ -1,0 +1,456 @@
+# 缺陷模板库。每条模板四块：rule（应该怎样、凭什么）、locate（到哪找、查什么）、
+# experiment（用什么故障、多大多久）、verdict（看什么、算不算、怎么修）。
+# 字段含义见 README.md；所有 quote 由 validate.py 回查 docs-cache/<doc_id>.txt。
+templates:
+
+# ============================================================ health_probe
+- template_id: T-PROBE-01
+  name: 存活探针的判定耦合进程外依赖
+  mechanism_group: health_probe
+  mechanism: liveness probe
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 存活探针的判定不应依赖进程外的对象；依赖是否可用由就绪探针检查。
+    sources:
+      - doc_id: k8s-probes-concept
+        quote: |-
+          When your app has a strict dependency on back-end services, you can implement both a liveness and a readiness probe. The liveness probe passes when the app itself is healthy, but the readiness probe additionally checks that each required back-end service is available.
+        location: Liveness, Readiness, and Startup Probes > Types of probe > Liveness probe
+      - doc_id: k8s-probes-concept
+        quote: |-
+          If a container fails its liveness probe more times than the configured tolerance, the kubelet restarts that container.
+        location: Liveness, Readiness, and Startup Probes > Liveness probe
+    defaults:
+      - {symbol: timeoutSeconds, value: 1, unit: s, doc_id: k8s-probes-concept}
+      - {symbol: periodSeconds, value: 10, unit: s, doc_id: k8s-probes-concept}
+      - {symbol: failureThreshold, value: 3, unit: 次, doc_id: k8s-probes-concept}
+  locate:
+    applies_when:
+      - 容器声明了 livenessProbe（httpGet / exec / grpc / tcpSocket 任一）
+      - 该容器所属服务在依赖图上有出边指向进程外对象（数据库、缓存、消息中间件、其他服务）
+    roles:
+      defect_site: 该服务的探针配置与探针端点的处理函数
+      injection_site: 该服务的进程外依赖
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Kubernetes
+        how: livenessProbe.httpGet.path 指向的端点、exec 指向的脚本、grpc 指向的健康服务
+        config_or_code: spec.template.spec.containers[*].livenessProbe
+      - component: Spring Boot Actuator
+        how: liveness 分组包含的 HealthIndicator；默认只含 livenessState，把数据库等指示器加进去即耦合
+        config_or_code: management.endpoint.health.group.liveness.include
+      - component: Go net/http
+        how: 与探针路径对应的处理函数（HandleFunc 或路由库注册）里是否发起出站调用
+        config_or_code: 源码
+      - component: ASP.NET Core
+        how: MapHealthChecks 的 Predicate 或 tags 过滤是否把依赖检查放进了存活端点
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 探针端点的处理函数同步访问进程外对象（数据库 ping、HTTP/gRPC 调用、缓存命令）
+        checker: codegraph
+        query: 起点为 livenessProbe 路径对应的处理函数符号，沿调用边查 3 跳内是否到达出站客户端（sql/http/grpc/redis 客户端）
+      - id: C2
+        kind: 必要
+        statement: 该访问没有短于 timeoutSeconds 的等待上限
+        checker: semgrep
+        query: checkers/semgrep/go-sql-open-dsn-no-timeout.yaml、checkers/semgrep/go-http-client-no-timeout.yaml、checkers/semgrep/python-requests-no-timeout.yaml、checkers/semgrep/java-health-indicator-external-call.yaml、checkers/semgrep/dotnet-healthcheck-external-call.yaml；命中不确定时交 llm 复核是否被带超时的中间件包裹
+      - id: C3
+        kind: 反证
+        statement: 存活探针指向的是只查进程自身状态的端点（Spring 的 livenessState、独立的 /livez）
+        checker: manifest
+        query: spec.template.spec.containers[*].livenessProbe.httpGet.path
+      - id: C4
+        kind: 附注
+        statement: 依赖失败时该端点的返回状态是否变化（决定「依赖不可达」这个动作能否触发）
+        checker: runtime
+        query: 注入依赖不可达后观察探针端点返回码是否由 2xx 变为非 2xx
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，限定到该服务与依赖的 Pod 对与端口
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 丢弃该服务到依赖的报文，或让依赖端口拒绝连接
+        only_if: C4 成立
+    parameter_relation:
+      symbols:
+        - {symbol: T, meaning: timeoutSeconds, source: manifest|default}
+        - {symbol: P, meaning: periodSeconds, source: manifest|default}
+        - {symbol: F, meaning: failureThreshold, source: manifest|default}
+        - {symbol: b, meaning: 探针处理函数的基线耗时, source: measured}
+        - {symbol: n, meaning: 一次探针调用对依赖的往返次数, source: measured|assumed_worst}
+      boundary: d* = T - b
+      worst_case_multiplier: n
+      hold: (F + 1) * P + T
+      recovery_window: readinessProbe.initialDelaySeconds + hold
+  verdict:
+    expected_behavior: 依赖变慢时实例可被就绪探针摘出流量，但进程自身健康的容器不被重启。
+    signals:
+      - {signal: 注入窗内连续 ≥ F 次探针失败事件, source: events}
+      - {signal: 容器重启计数 +1，且 Killing 事件消息为 failed liveness probe, source: events}
+      - {signal: 终止原因非 OOMKilled；无 Pod 删除或驱逐事件, source: status}
+      - {signal: 同期容器资源用量在限额之内, source: metrics}
+    alternative_explanations:
+      - 内存溢出被 OOMKilled
+      - 人工删除或节点驱逐
+      - 只被就绪探针摘流而未重启
+    mitigation:
+      family: 存活探针只查进程自身；依赖检查移到就绪探针
+      level: config
+  violation_manifestation: 依赖变慢十几秒，进程健康的容器被重启，随后被就绪探针初始延迟拖成分钟级不可用。
+  evidence_incidents:
+    - {ref: etcd-io/etcd#13340, url: https://github.com/etcd-io/etcd/issues/13340}
+
+- template_id: T-PROBE-02
+  name: 接收流量的容器没有就绪探针
+  mechanism_group: health_probe
+  mechanism: readiness probe
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 会被路由到的容器必须声明就绪信号，使暂时不能服务的实例被摘出流量而不是被杀掉。
+    sources:
+      - doc_id: k8s-probes-concept
+        quote: |-
+          Readiness probes determine when a container is ready to accept traffic. This is useful when waiting for an application to perform time-consuming initial tasks, such as establishing network connections, loading files, and warming caches.
+        location: Liveness, Readiness, and Startup Probes > Types of probe > Readiness probe
+      - doc_id: k8s-probes-concept
+        quote: |-
+          If the readiness probe returns a failed state, the EndpointSlice controller removes the Pod's IP address from the EndpointSlices of all Services that match the Pod.
+        location: Liveness, Readiness, and Startup Probes > Types of probe > Readiness probe
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          readinessProbeMissing | warning | Fails when a readiness probe is not configured for a pod.
+        location: Polaris Checks > Reliability 检查表
+  locate:
+    applies_when:
+      - 容器所属工作负载被某个 Service 的 selector 选中
+      - 该容器对外提供同步接口（有 containerPort 且被 Service 引用）
+    roles:
+      defect_site: 该容器的探针配置
+      injection_site: 该服务自身或它的进程外依赖
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Kubernetes
+        how: 容器是否声明 readinessProbe
+        config_or_code: spec.template.spec.containers[*].readinessProbe
+      - component: Spring Boot Actuator
+        how: 是否暴露 /actuator/health/readiness 并被探针引用
+        config_or_code: management.endpoint.health.group.readiness.include
+      - component: ASP.NET Core
+        how: 是否用 tags 区分出一个只给就绪用的端点
+        config_or_code: 源码（MapHealthChecks 的 Predicate）
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 被 Service 选中的容器没有声明 readinessProbe
+        checker: manifest
+        query: spec.template.spec.containers[?readinessProbe==null].name
+      - id: C2
+        kind: 反证
+        statement: 该工作负载不接收同步流量（无 Service 选中，或只跑批处理）
+        checker: manifest
+        query: spec.template.metadata.labels 与集群内各 Service 的 spec.selector 是否有交集
+      - id: C3
+        kind: 附注
+        statement: 应用是否有能反映「暂时不能服务」的内部状态（否则就算加了探针也恒返回就绪）
+        checker: llm
+        query: 该服务是否存在依赖不可用时仍返回 200 的健康端点？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 丢弃该服务到依赖的报文
+      - action: 实例重启
+        type: 离散·有数量
+        target_role: defect_site
+        primitive_hint: 删除该服务的一个 Pod，观察新实例在未就绪期间是否已被打流量
+  verdict:
+    expected_behavior: 实例在不能服务的窗口内被摘出 EndpointSlice，上游看到的错误率不随之上升。
+    signals:
+      - {signal: EndpointSlice 中该 Pod 地址在故障窗内被移除, source: status}
+      - {signal: 上游对该服务的 5xx 或连接失败计数, source: metrics}
+      - {signal: 新实例启动期间被路由到的请求数, source: traces}
+    alternative_explanations:
+      - 上游自身已有熔断或异常实例剔除，掩盖了未摘流的影响
+      - Service 使用了 headless 模式，路由不经 EndpointSlice
+    mitigation:
+      family: 为接流量的容器声明就绪探针，判据覆盖依赖不可用与预热未完成
+      level: config
+  violation_manifestation: 实例还没准备好或已经不能服务，却一直留在 Endpoints 里，持续吃掉一份流量并向上游返回错误。
+
+- template_id: T-PROBE-03
+  name: 慢启动容器没有用启动探针兜住
+  mechanism_group: health_probe
+  mechanism: startup probe
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 初始化明显长于稳态响应时间的容器必须用启动探针覆盖最坏启动时长，而不是把存活探针的容忍度放宽。
+    sources:
+      - doc_id: k8s-probes-task
+        quote: |-
+          The solution is to set up a startup probe with the same command, HTTP or TCP check, with a failureThreshold * periodSeconds long enough to cover the worst case startup time.
+        location: Configure Liveness, Readiness and Startup Probes > Protect slow starting containers with startup probes
+      - doc_id: k8s-probes-task
+        quote: |-
+          Once the startup probe has succeeded once, the liveness probe takes over to provide a fast response to container deadlocks. If the startup probe never succeeds, the container is killed after 300s and subject to the pod's restartPolicy.
+        location: Configure Liveness, Readiness and Startup Probes > Protect slow starting containers with startup probes
+      - doc_id: k8s-probes-concept
+        quote: |-
+          If a startup probe is configured, Kubernetes does not execute liveness or readiness probes until the startup probe succeeds, allowing the application time to finish its initialization.
+        location: Liveness, Readiness, and Startup Probes > Types of probe > Startup probe
+    defaults:
+      - {symbol: periodSeconds, value: 10, unit: s, doc_id: k8s-probes-concept}
+      - {symbol: failureThreshold, value: 3, unit: 次, doc_id: k8s-probes-concept}
+  locate:
+    applies_when:
+      - 容器声明了 livenessProbe
+      - 容器没有声明 startupProbe
+      - 该容器在启动路径上需要连接进程外依赖或做预热（建连接池、载缓存、JIT 预热）
+    roles:
+      defect_site: 该容器的 startupProbe 与 livenessProbe 配置
+      injection_site: 该服务在启动路径上依赖的进程外对象
+      manifest_site: 该服务自身的就绪副本数
+    instantiations:
+      - component: Kubernetes
+        how: startupProbe 的 failureThreshold × periodSeconds 是否覆盖最坏启动时长
+        config_or_code: spec.template.spec.containers[*].startupProbe
+      - component: Spring Boot Actuator
+        how: 启动期 readiness 未就绪；若无 startupProbe，liveness 会在启动完成前开始计数
+        config_or_code: management.endpoint.health.group.readiness.include
+      - component: JVM
+        how: 类加载与 JIT 预热让首次启动明显慢于稳态，是这条规则的典型触发场景
+        config_or_code: 容器启动参数
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 容器有 livenessProbe 但没有 startupProbe
+        checker: manifest
+        query: spec.template.spec.containers[?livenessProbe!=null && startupProbe==null].name
+      - id: C2
+        kind: 必要
+        statement: 启动路径上存在对进程外依赖的同步等待（依赖变慢会把启动时长推高）
+        checker: codegraph
+        query: 起点为 main / ApplicationRunner / init 容器入口符号，沿调用边查 4 跳内是否到达出站客户端的建连或校验调用
+      - id: C3
+        kind: 反证
+        statement: livenessProbe 的 initialDelaySeconds 已经大于最坏启动时长
+        checker: manifest
+        query: spec.template.spec.containers[*].livenessProbe.initialDelaySeconds
+      - id: C4
+        kind: 附注
+        statement: 最坏启动时长的实测值（决定注入幅值）
+        checker: runtime
+        query: 冷启动（缓存空、依赖正常）下从容器启动到首次就绪的耗时
+  experiment:
+    actions:
+      - action: 启动期依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 先注入延迟，再删除该服务的一个 Pod，使新实例在启动路径上撞上慢依赖
+      - action: 实例重启
+        type: 离散·有数量
+        target_role: defect_site
+        primitive_hint: 删除 Pod 触发重建
+    parameter_relation:
+      symbols:
+        - {symbol: S, meaning: 冷启动下的最坏启动时长, source: measured}
+        - {symbol: I, meaning: livenessProbe.initialDelaySeconds, source: manifest|default}
+        - {symbol: P, meaning: livenessProbe.periodSeconds, source: manifest|default}
+        - {symbol: F, meaning: livenessProbe.failureThreshold, source: manifest|default}
+        - {symbol: k, meaning: 启动路径上对该依赖的串行等待次数, source: measured|assumed_worst}
+      boundary: d* = (I + F * P - S) / k
+      worst_case_multiplier: k
+      hold: I + (F + 1) * P
+      recovery_window: 2 * (I + (F + 1) * P)
+  verdict:
+    expected_behavior: 启动变慢只推迟就绪时间，容器不会在启动完成前被存活探针杀掉。
+    signals:
+      - {signal: 容器重启计数在注入窗内增加，Killing 事件消息为 failed liveness probe, source: events}
+      - {signal: Pod 进入 CrashLoopBackOff, source: status}
+      - {signal: 该工作负载的就绪副本数在注入窗内跌到 0, source: status}
+    alternative_explanations:
+      - 镜像拉取失败或配置错误导致的启动失败
+      - 节点资源不足导致容器被驱逐
+      - 应用自身在依赖不可用时主动退出（与探针无关）
+    mitigation:
+      family: 增加 startupProbe，failureThreshold × periodSeconds 覆盖最坏启动时长
+      level: config
+  violation_manifestation: 依赖一变慢，新实例就在启动完成前被存活探针杀掉，反复 CrashLoopBackOff，副本数越滚越少。
+
+- template_id: T-PROBE-04
+  name: 存活探针与就绪探针用同一个判据
+  mechanism_group: health_probe
+  mechanism: liveness probe
+  defect_class: 实现错误型
+  parameter_kind: 离散动作
+  rule:
+    statement: 存活与就绪不应使用同一个判据，否则凡是该摘流量的情形都会顺带触发重启。
+    sources:
+      - doc_id: kube-score-checks
+        quote: |-
+          | pod-probes-identical | Pod | Makes sure that readiness and liveness probes are not identical | default |
+        location: kube-score checks 列表
+      - doc_id: k8s-probes-concept
+        quote: |-
+          Liveness probes do not wait for readiness probes to succeed.
+        location: Liveness, Readiness, and Startup Probes > Types of probe > Liveness probe
+  locate:
+    applies_when:
+      - 容器同时声明了 livenessProbe 与 readinessProbe
+    roles:
+      defect_site: 该容器的两个探针配置及其指向的端点
+      injection_site: 该服务的进程外依赖
+      manifest_site: 该服务自身的就绪副本数与上游错误率
+    instantiations:
+      - component: Kubernetes
+        how: 两个探针的 httpGet.path / exec.command / tcpSocket.port 是否完全相同
+        config_or_code: spec.template.spec.containers[*].livenessProbe 与 .readinessProbe
+      - component: Spring Boot Actuator
+        how: 两个探针是否都指向 /actuator/health（而不是分别指向 liveness 与 readiness 分组）
+        config_or_code: management.endpoint.health.group
+      - component: ASP.NET Core
+        how: 两个端点是否用同一个 Predicate，没有靠 tags 区分
+        config_or_code: 源码（MapHealthChecks）
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 两个探针的判定目标完全相同（同一路径、同一命令或同一端口）
+        checker: manifest
+        query: spec.template.spec.containers[*].[livenessProbe.httpGet.path, readinessProbe.httpGet.path]
+      - id: C2
+        kind: 反证
+        statement: 虽然路径相同，但该端点只反映进程自身状态，不触达任何进程外依赖
+        checker: codegraph
+        query: 起点为该路径对应的处理函数符号，沿调用边查 3 跳内是否到达出站客户端；未到达则本模板不适用
+      - id: C3
+        kind: 附注
+        statement: 两个探针的 failureThreshold × periodSeconds 差多少（差得越小，摘流与重启越容易同时发生）
+        checker: manifest
+        query: spec.template.spec.containers[*].[livenessProbe.failureThreshold, livenessProbe.periodSeconds, readinessProbe.failureThreshold, readinessProbe.periodSeconds]
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，幅值取到足以让探针端点超时
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 丢弃该服务到依赖的报文
+  verdict:
+    expected_behavior: 依赖短暂不可用只导致摘流，容器不被重启；恢复后实例自行回到就绪。
+    signals:
+      - {signal: 同一注入窗内同时出现「摘出 EndpointSlice」与「容器重启」, source: events}
+      - {signal: 容器重启计数 +1，Killing 事件消息为 failed liveness probe, source: events}
+      - {signal: 依赖恢复后该实例重新就绪所花的时间, source: status}
+    alternative_explanations:
+      - 存活探针本就耦合了依赖（与 T-PROBE-01 同源，需要用反证项区分）
+      - 应用在依赖不可用时自行退出
+    mitigation:
+      family: 存活与就绪指向不同端点，存活只查进程自身
+      level: config
+  violation_manifestation: 依赖抖一下本该只摘流，结果容器被重启，重启又带来冷启动，恢复反而更慢。
+
+- template_id: T-PROBE-05
+  name: 探针超时小于探针端点本身的基线耗时
+  mechanism_group: health_probe
+  mechanism: probe timeout
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 探针的超时必须大于该探针端点在正常状态下的耗时，并留出依赖抖动的余量，否则探针会在系统正常时就开始失败。
+    sources:
+      - doc_id: k8s-probes-concept
+        quote: |-
+          Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1.
+        location: Liveness, Readiness, and Startup Probes > Configure probes > timeoutSeconds
+      - doc_id: k8s-probes-concept
+        quote: |-
+          After a probe fails failureThreshold times in a row, Kubernetes considers that the overall check has failed: the container is not ready/healthy/live.
+        location: Liveness, Readiness, and Startup Probes > Configure probes > failureThreshold
+    defaults:
+      - {symbol: timeoutSeconds, value: 1, unit: s, doc_id: k8s-probes-concept}
+      - {symbol: periodSeconds, value: 10, unit: s, doc_id: k8s-probes-concept}
+      - {symbol: failureThreshold, value: 3, unit: 次, doc_id: k8s-probes-concept}
+  locate:
+    applies_when:
+      - 容器声明了任一探针
+      - 该探针端点的处理函数做了不止「返回常量」的工作（读本地状态、聚合多个健康指示器、访问依赖）
+    roles:
+      defect_site: 该容器的探针 timeoutSeconds 与探针端点的处理函数
+      injection_site: 该服务所在容器（CPU 压力）或它的进程外依赖（延迟）
+      manifest_site: 该服务自身的就绪副本数与重启计数
+    instantiations:
+      - component: Kubernetes
+        how: timeoutSeconds 未显式设置即为 1 秒，对聚合型健康端点常常不够
+        config_or_code: spec.template.spec.containers[*].*Probe.timeoutSeconds
+      - component: Spring Boot Actuator
+        how: /actuator/health 聚合全部 HealthIndicator，耗时随指示器数量增长
+        config_or_code: management.endpoint.health.group.*.include
+      - component: ASP.NET Core
+        how: MapHealthChecks 默认跑全部已注册的健康检查
+        config_or_code: 源码（MapHealthChecks 的 Predicate）
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 探针未显式设置 timeoutSeconds（落在 1 秒默认值上），或设置值接近端点基线耗时
+        checker: manifest
+        query: spec.template.spec.containers[*].[livenessProbe.timeoutSeconds, readinessProbe.timeoutSeconds, startupProbe.timeoutSeconds]
+      - id: C2
+        kind: 必要
+        statement: 探针端点做的不只是返回常量
+        checker: codegraph
+        query: 起点为探针路径对应的处理函数符号，沿调用边查 2 跳内是否存在 I/O 或聚合调用
+      - id: C3
+        kind: 反证
+        statement: 探针端点是静态返回（例如直接写死 200），基线耗时与依赖无关
+        checker: llm
+        query: 该探针端点的处理函数是否只返回常量、不做任何 I/O？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 探针端点的基线耗时实测值
+        checker: runtime
+        query: 无注入时连续采样探针端点的响应耗时，取 p99
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，限定到该服务与依赖的 Pod 对与端口
+      - action: CPU 压力
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在该容器内占用 CPU，抬高探针端点的处理耗时
+    parameter_relation:
+      symbols:
+        - {symbol: T, meaning: timeoutSeconds, source: manifest|default}
+        - {symbol: b, meaning: 探针端点的基线耗时 p99, source: measured}
+        - {symbol: P, meaning: periodSeconds, source: manifest|default}
+        - {symbol: F, meaning: failureThreshold, source: manifest|default}
+        - {symbol: n, meaning: 一次探针调用触达依赖的次数, source: measured|assumed_worst}
+      boundary: d* = (T - b) / n
+      worst_case_multiplier: n
+      hold: (F + 1) * P + T
+      recovery_window: (F + 1) * P + T
+  verdict:
+    expected_behavior: 依赖或 CPU 出现小幅抖动时探针仍能在超时内完成，实例不被摘流也不被重启。
+    signals:
+      - {signal: 探针失败事件出现时，注入幅值远小于该服务的业务超时, source: events}
+      - {signal: 就绪副本数下降或容器重启计数增加, source: status}
+      - {signal: 探针端点响应耗时越过 timeoutSeconds 的时刻, source: metrics}
+    alternative_explanations:
+      - 探针端点本身耦合了依赖（T-PROBE-01），而非超时值过紧
+      - 容器被 CPU 限额节流（需要同时看 throttling 指标）
+    mitigation:
+      family: 按探针端点的基线耗时设置 timeoutSeconds 并留余量；同时收敛端点自身的工作量
+      level: config
+  violation_manifestation: 依赖只抖动几百毫秒，探针就连续超时，实例被摘流甚至被重启，而业务请求其实还在正常返回。

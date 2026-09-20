@@ -1,0 +1,13 @@
+rules:
+  - id: go-sql-open-dsn-no-timeout
+    languages: [go]
+    severity: WARNING
+    message: >-
+      go-sql-driver/mysql 的 DSN 没有给 timeout / readTimeout / writeTimeout。
+      三者缺省都是「无超时」，数据库变慢时这条连接上的查询会一直等下去。
+    patterns:
+      - pattern-either:
+          - pattern: sql.Open("mysql", $DSN)
+          - pattern: sql.OpenDB($CONN)
+      - pattern-not: sql.Open("mysql", "=~/.*[?&]readTimeout=.*/")
+      - pattern-not: sql.Open("mysql", "=~/.*[?&]timeout=.*/")

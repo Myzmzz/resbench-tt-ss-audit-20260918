@@ -1,0 +1,16 @@
+rules:
+  - id: go-http-client-no-timeout
+    languages: [go]
+    severity: WARNING
+    message: >-
+      http.Client 没有设置 Timeout，且请求未携带带 deadline 的 context。
+      net/http 的零值 Client 不设超时，对端不回包时调用会一直阻塞。
+    patterns:
+      - pattern-either:
+          - pattern: |
+              &http.Client{...}
+          - pattern: http.Client{...}
+      - pattern-not: |
+          &http.Client{..., Timeout: $T, ...}
+      - pattern-not: |
+          http.Client{..., Timeout: $T, ...}

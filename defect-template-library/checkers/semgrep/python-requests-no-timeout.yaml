@@ -1,0 +1,17 @@
+rules:
+  - id: python-requests-no-timeout
+    languages: [python]
+    severity: WARNING
+    message: >-
+      requests 调用没有传 timeout。requests 默认不设超时，对端不回包时会一直等。
+    patterns:
+      - pattern-either:
+          - pattern: requests.get(...)
+          - pattern: requests.post(...)
+          - pattern: requests.put(...)
+          - pattern: requests.delete(...)
+          - pattern: requests.request(...)
+          - pattern: $S.get(...)
+          - pattern: $S.post(...)
+      - pattern-not: requests.$M(..., timeout=$T, ...)
+      - pattern-not: $S.$M(..., timeout=$T, ...)
