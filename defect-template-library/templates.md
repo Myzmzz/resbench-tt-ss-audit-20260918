@@ -2,7 +2,7 @@
 
 # templates.md —— 缺陷模板卡片
 
-共 46 条模板、6 条 advisory。每张卡片四块：**规则**（应该怎样、凭什么）、**定位**（到哪找、查什么）、**实验**（用什么故障、多大多久）、**判定**（看什么、算不算、怎么修）。
+共 49 条模板、6 条 advisory。每张卡片四块：**规则**（应该怎样、凭什么）、**定位**（到哪找、查什么）、**实验**（用什么故障、多大多久）、**判定**（看什么、算不算、怎么修）。
 
 ## 目录
 
@@ -17,6 +17,7 @@
 - **`replica_disruption`**：[T-REPLICA-01](#t-replica-01)、[T-REPLICA-02](#t-replica-02)、[T-REPLICA-03](#t-replica-03)、[T-REPLICA-04](#t-replica-04)、[T-REPLICA-05](#t-replica-05)
 - **`resource_limit`**：[T-RESOURCE-01](#t-resource-01)、[T-RESOURCE-02](#t-resource-02)、[T-RESOURCE-03](#t-resource-03)、[T-RESOURCE-04](#t-resource-04)
 - **`retry_backoff`**：[T-RETRY-01](#t-retry-01)、[T-RETRY-02](#t-retry-02)、[T-RETRY-03](#t-retry-03)、[T-RETRY-04](#t-retry-04)、[T-RETRY-05](#t-retry-05)
+- **`service_discovery`**：[T-DISCOVERY-01](#t-discovery-01)、[T-DISCOVERY-02](#t-discovery-02)、[T-DISCOVERY-03](#t-discovery-03)
 
 
 ---
@@ -1681,6 +1682,8 @@
   > Instead, we favor code paths that are exercised in production continuously rather than rarely.
 - `sre-cascading-failures`（Google SRE，Preventing Server Overload > Load Shedding and Graceful Degradation）— SRE Book ch.22 Addressing Cascading Failures
   > Remember that the code path you never use is the code path that (often) doesn’t work.
+- `chaos-principles`（Principles of Chaos Engineering，Principles of Chaos Engineering > 开篇）— Principles of Chaos Engineering
+  > Systemic weaknesses could take the form of: improper fallback settings when a service is unavailable; retry storms from improperly tuned timeouts; outages when a downstream dependency receives too much traffic; cascading failures when a single point of failure crashes; etc.
 
 #### 二 定位
 
@@ -3884,6 +3887,256 @@
 - 上游流量本身在故障期间下降
 
 怎么修：按失败与成功的比例节流重试，预算耗尽即直接失败（改动层面：**config**）
+
+
+---
+
+## 机制组 `service_discovery`
+
+
+### T-DISCOVERY-01　注册中心不可用时客户端解析不到地址
+
+> 机制 `registry client local cache`　缺陷类别 **需求相对型**　参数类型 **离散动作**
+
+**违反后的运行时表现**：注册中心一挂，正在跑的实例还撑得住，一旦有实例重启就再也起不来——故障范围随重启逐步扩大。
+
+#### 一 规则
+
+注册中心不可用时，客户端应当能用本地缓存继续解析服务地址；这条要求在实例冷启动那一刻同样成立。
+
+依据：
+
+- `nacos-java-failover`（Nacos，Java SDK 容灾 > 使用场景）— Java SDK 容灾
+  > 在Nacos运行期间，突然出现接口不可用或者数据异常，我们可以快速的开启容灾，让客户端使用容灾数据，减小服务受影响的窗口，等Nacos服务端恢复后再关闭容灾；
+- `nacos-java-properties`（Nacos，Java SDK 配置项 > 注册中心）— Java SDK 配置项
+  > namingLoadCacheAtStart | NAMING_LOAD_CACHE_AT_START | 注册中心NamingService在启动时读取本地磁盘缓存来初始化数据 | boolean | false
+
+文档给出的默认值：
+
+| 符号 | 值 | 单位 | 出处 |
+|---|---|---|---|
+| `namingLoadCacheAtStart` | false | 布尔 | `nacos-java-properties` |
+
+#### 二 定位
+
+适用范围：
+
+- 该服务通过注册中心解析下游地址（而不是固定域名或 Kubernetes Service）
+
+角色：脆弱点在 **该服务的注册中心客户端配置（本地缓存与启动时读盘）**；故障加在 **注册中心**；异常显现在 **该服务对下游的调用成功率，以及它自身的启动过程**。
+
+落点：
+
+| 组件 | 怎么落 | 配置键或代码 |
+|---|---|---|
+| Nacos | 是否开启本地容灾；namingLoadCacheAtStart 默认 false，冷启动时不读磁盘缓存 | `nacos 客户端 properties` |
+| Eureka | 客户端本地注册表缓存与增量拉取；注册中心不可用时沿用最后一次拉到的列表 | `eureka.client.* 配置` |
+| Consul | 通过本地 agent 访问可缓解 server 不可用，需确认应用连的是 agent 还是 server | `客户端连接地址配置` |
+| Spring Cloud LoadBalancer | 服务实例列表的本地缓存与其 ttl | `spring.cloud.loadbalancer.cache.*` |
+
+检查项：
+
+| id | 类型 | 判定方式 | 要查什么 | 查询 |
+|---|---|---|---|---|
+| C1 | 必要 | `manifest` | 客户端没有开启本地缓存或容灾，或缓存只在内存里、进程重启即丢 | 注册中心客户端配置里的本地缓存与容灾开关取值 |
+| C2 | 必要 | `manifest` | 冷启动路径不允许从本地缓存初始化（例如 namingLoadCacheAtStart 落在 false 默认值上） | 客户端配置里的启动时读盘开关 |
+| C3 | 反证 | `codegraph` | 该服务其实不经注册中心解析地址（用的是集群内 Service 名或固定域名） | 起点为该服务的出站客户端构造点，检查地址来源是注册中心 API 还是静态配置 |
+| C4 | 附注 | `runtime` | 本地缓存文件是否真实存在并被读取 | 观察客户端缓存目录下是否有服务列表文件，以及重启时是否被加载 |
+
+#### 三 实验
+
+| 动作 | 类型 | 作用对象 | 注入手法 | 触发条件 |
+|---|---|---|---|---|
+| 注册中心不可达 | 离散·有时长 | `injection_site` | 切断该服务到注册中心的网络，保持下游服务本身正常 | — |
+| 注册中心不可达期间重启实例 | 离散·有数量 | `defect_site` | 在注册中心仍不可达时删除该服务的一个 Pod，检验新实例能否起来并解析到地址 | — |
+
+#### 四 判定
+
+预期行为：注册中心不可用期间，已在运行的实例继续正常调用；期间重启的实例也能从本地缓存拿到地址并进入就绪。
+
+看哪些信号：
+
+| 信号 | 来源 |
+|---|---|
+| 注册中心不可达期间该服务对下游的调用成功率 | `metrics` |
+| 期间重启的实例能否进入就绪 | `status` |
+| 解析失败类错误（服务列表为空、找不到实例）的计数 | `logs` |
+| 客户端本地缓存文件的读取记录 | `logs` |
+
+同一现象的其他解释（实验必须能排除）：
+
+- 下游地址其实由 Kubernetes Service 解析，注册中心只用于元数据
+- 调用方有长连接复用，注入窗内没有触发新的地址解析
+
+怎么修：开启客户端本地缓存并落盘，允许冷启动时从缓存初始化（改动层面：**config**）
+
+
+### T-DISCOVERY-02　实例已经不可用但仍被解析到
+
+> 机制 `instance eviction delay`　缺陷类别 **需求相对型**　参数类型 **阈值型**
+
+**违反后的运行时表现**：实例已经死了，调用方还在往它身上打流量，错误率稳定在 1/n 附近持续好几十秒才回落。
+
+#### 一 规则
+
+实例失效到它从解析结果中消失之间有一段延迟，这段延迟由心跳间隔、容忍次数与客户端缓存 ttl 叠加而成，必须与调用方能承受的失败比例相称。
+
+依据：
+
+- `eureka-client`（Eureka，Spring Cloud Netflix > Service Discovery: Eureka Clients）— Spring Cloud Netflix: Eureka client and server
+  > Eureka receives heartbeat messages from each instance belonging to a service. If the heartbeat fails over a configurable timetable, the instance is normally removed from the registry.
+- `eureka-client`（Eureka，Spring Cloud Netflix > Why Is It so Slow to Register a Service?）— Spring Cloud Netflix: Eureka client and server
+  > Being an instance also involves a periodic heartbeat to the registry (through the client’s serviceUrl) with a default duration of 30 seconds. A service is not available for discovery by clients until the instance, the server, and the client all have the same metadata in their local cache (so it could take 3 heartbeats).
+- `consul-health-checks`（Consul，Define health checks > Types of checks）— Define health checks
+  > Time-to-live (TTL) checks are passive checks that await updates from the service. If the check does not receive a status update before the specified duration, the health check enters a criticalstate.
+
+文档给出的默认值：
+
+| 符号 | 值 | 单位 | 出处 |
+|---|---|---|---|
+| `leaseRenewalIntervalInSeconds` | 30 | s | `eureka-client` |
+
+#### 二 定位
+
+适用范围：
+
+- 下游地址通过注册中心解析
+- 调用方侧还有一层服务实例列表缓存
+
+角色：脆弱点在 **心跳间隔、剔除容忍次数与客户端缓存 ttl 三者的组合**；故障加在 **下游服务的一个实例**；异常显现在 **调用方看到的错误率**。
+
+落点：
+
+| 组件 | 怎么落 | 配置键或代码 |
+|---|---|---|
+| Eureka | eureka.instance.leaseRenewalIntervalInSeconds（默认 30 秒）与服务端剔除周期，再加客户端缓存 | `eureka.instance.* 与 eureka.client.* 配置` |
+| Nacos | 临时实例靠心跳维持，持久实例靠服务端主动健康检查；两类的剔除时机不同 | `nacos 客户端与集群健康检查配置` |
+| Consul | TTL 检查在超过指定时长没收到更新时进入 critical，此后不再被发现 | `服务注册时的 check 定义` |
+| Spring Cloud LoadBalancer | 实例列表缓存的 ttl，会叠加在注册中心的剔除延迟之上 | `spring.cloud.loadbalancer.cache.ttl` |
+
+检查项：
+
+| id | 类型 | 判定方式 | 要查什么 | 查询 |
+|---|---|---|---|---|
+| C1 | 必要 | `manifest` | 心跳间隔与容忍次数沿用默认值，没有按调用方的容忍度调过 | 注册中心客户端的心跳间隔与服务端的剔除阈值配置 |
+| C2 | 必要 | `manifest` | 调用方侧还有一层实例列表缓存，其 ttl 叠加在剔除延迟之上 | spring.cloud.loadbalancer.cache.ttl 或等价的客户端缓存配置 |
+| C3 | 反证 | `manifest` | 调用方有异常实例剔除或熔断，能在注册中心之前把坏实例摘掉 | 该调用路径上的 outlierDetection 或熔断配置 |
+| C4 | 附注 | `manifest` | 调用方对该下游的重试配置（决定单次解析到坏实例是否会被掩盖） | 该路径的重试次数与可重试条件 |
+
+#### 三 实验
+
+| 动作 | 类型 | 作用对象 | 注入手法 | 触发条件 |
+|---|---|---|---|---|
+| 单实例强制终止 | 离散·有数量 | `injection_site` | 直接删除下游的一个 Pod，不给它主动注销的机会 | — |
+| 单实例网络隔离 | 离散·有时长 | `injection_site` | 切断该实例与注册中心之间的网络，但保留它与调用方之间的网络 | — |
+
+参数关系：
+
+| 符号 | 含义 | 取值来源 |
+|---|---|---|
+| `H` | 心跳间隔 | manifest|default |
+| `k` | 剔除前容忍的心跳丢失次数 | manifest|default |
+| `C` | 客户端实例列表缓存的 ttl | manifest|default |
+| `n` | 下游实例数 | manifest|measured |
+| `q` | 调用方对该下游的 QPS | measured |
+
+- 触发边界：`d* = 1（终止一个实例即可触发）；总剔除延迟 T_evict = H * k + C`
+- 最坏情况倍数：`1`
+- 保持时长：`2 * (H * k + C)`
+- 恢复观察窗：`2 * (H * k + C)`
+
+余量与安全系数由下游流水线统一取，模板不写。
+
+#### 四 判定
+
+预期行为：实例失效后在可接受的时间内从解析结果中消失，期间落到它身上的失败请求数在预算之内。
+
+看哪些信号：
+
+| 信号 | 来源 |
+|---|---|
+| 从实例终止到服务列表中不再出现它的时长 | `logs` |
+| 该时间窗内打到已死实例的请求数 | `traces` |
+| 调用方错误率的峰值与持续时长 | `metrics` |
+| 客户端实例列表刷新的时刻 | `logs` |
+
+同一现象的其他解释（实验必须能排除）：
+
+- 调用方的熔断或异常剔除先起作用，掩盖了注册中心的剔除延迟
+- 长连接复用使调用方在缓存过期前不会重新解析
+
+怎么修：按可接受的失败比例反推心跳间隔与缓存 ttl，并用客户端侧的异常剔除兜住这段延迟（改动层面：**config**）
+
+
+### T-DISCOVERY-03　注册状态不反映应用的真实健康
+
+> 机制 `registry health propagation`　缺陷类别 **规范明示型**　参数类型 **离散动作**
+
+**违反后的运行时表现**：实例的业务功能已经完全不可用，注册中心里它还是 UP，上游持续把流量发过去，错误率稳定在 1/n 不降。
+
+#### 一 规则
+
+注册中心里的实例状态应当反映应用自身的健康判断；只靠心跳判活时，进程活着但业务不可用的实例仍会被当成可用实例发出去。
+
+依据：
+
+- `eureka-client`（Eureka，Spring Cloud Netflix > Status Page and Health Indicator）— Spring Cloud Netflix: Eureka client and server
+  > By default, Eureka uses the client heartbeat to determine if a client is up. Unless specified otherwise, the Discovery Client does not propagate the current health check status of the application, per the Spring Boot Actuator. Consequently, after successful registration, Eureka always announces that the application is in 'UP' state.
+- `nacos-java-properties`（Nacos，Java SDK 配置项 > 通用 GRPC 配置）— Java SDK 配置项
+  > nacos.remote.client.grpc.health.retry | 该Nacos Java SDK的GRPC连接的健康检查重试次数，达到这个次数健康检查失败的连接会被客户端强制关闭，进行重连 | 任意int值 | 3
+
+#### 二 定位
+
+适用范围：
+
+- 该服务把自己注册到注册中心，且下游调用方按注册结果选实例
+
+角色：脆弱点在 **该服务的注册客户端健康上报配置**；故障加在 **该服务的进程外依赖（让业务不可用但进程存活）**；异常显现在 **调用该服务的上游**。
+
+落点：
+
+| 组件 | 怎么落 | 配置键或代码 |
+|---|---|---|
+| Eureka | 是否启用了把 Actuator 健康状态上报给注册中心的开关；不启用时注册后恒为 UP | `eureka.client.healthcheck.enabled` |
+| Nacos | 临时实例靠心跳与连接生命周期判活，业务不可用不会自动反映到实例健康上 | `nacos 客户端注册参数` |
+| Consul | 注册时是否定义了能反映业务健康的 check，而不是只有 TTL 或端口探测 | `服务注册时的 check 定义` |
+| Spring Boot Actuator | readiness 分组的判据是否被接到注册中心的健康上报上 | `management.endpoint.health.group.readiness.include` |
+
+检查项：
+
+| id | 类型 | 判定方式 | 要查什么 | 查询 |
+|---|---|---|---|---|
+| C1 | 必要 | `manifest` | 注册客户端没有启用应用健康状态上报，实例状态只由心跳或端口连通性决定 | eureka.client.healthcheck.enabled 与等价的注册中心健康上报开关 |
+| C2 | 必要 | `codegraph` | 该服务确有「进程活着但业务不可用」的状态（例如关键依赖不可用时无法服务） | 起点为该服务的对外接口处理函数，沿调用边查 4 跳内是否存在无法降级的关键依赖调用 |
+| C3 | 反证 | `codegraph` | 上游不按注册结果选实例，而是走 Kubernetes Service 与就绪探针 | 起点为上游的出站客户端构造点，检查地址来源是注册中心还是集群内 Service |
+| C4 | 附注 | `manifest` | 该服务的就绪探针判据是否已覆盖这类状态（两条路径可能不一致） | spec.template.spec.containers[*].readinessProbe 与健康分组配置 |
+
+#### 三 实验
+
+| 动作 | 类型 | 作用对象 | 注入手法 | 触发条件 |
+|---|---|---|---|---|
+| 关键依赖不可达 | 离散·有时长 | `injection_site` | 让该服务的关键依赖不可用，使它能应答 HTTP 但处理不了业务 | — |
+| 关键依赖变慢 | 连续幅值 | `injection_site` | 注入延迟使业务处理超时，但进程与端口仍然正常 | — |
+
+#### 四 判定
+
+预期行为：应用进入不可服务状态后，注册中心里的实例状态随之变为不可用，上游不再把流量发给它。
+
+看哪些信号：
+
+| 信号 | 来源 |
+|---|---|
+| 注入期间注册中心里该实例的状态 | `status` |
+| 上游在注入期间仍打到该实例的请求数 | `traces` |
+| 上游对该服务的错误率 | `metrics` |
+| 该实例就绪探针状态与注册状态是否一致 | `status` |
+
+同一现象的其他解释（实验必须能排除）：
+
+- 上游其实走 Kubernetes Service，就绪探针已经把它摘了
+- 上游有异常实例剔除，掩盖了注册状态没变的影响
+
+怎么修：把应用的就绪判据接到注册中心的健康上报上（改动层面：**config**）
 
 
 ---

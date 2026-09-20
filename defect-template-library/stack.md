@@ -143,4 +143,9 @@ slug 与本仓库审计终稿 `final-defects.json` 的 `family` 词表保持一�
 | `idempotency_compensation` | 幂等键、补偿、副作用顺序 |
 | `delivery_semantics` | 消息确认、持久化、重投、死信、消费幂等 |
 
-读文档时遇到不属于以上任何一组的机制，会新建一组并在 `CHANGES.md` 写明理由；`final-defects.json` 里这类机制归在 `other（…）` 下。
+读文档时遇到不属于以上任何一组的机制，会新建一组并在 `CHANGES.md` 写明理由；`final-defects.json` 里这类机制归在 `other（…）` 下。本版新建了两组：
+
+| slug | 覆盖的机制 | 为什么单列 |
+|---|---|---|
+| `connection_lifecycle` | 连接保活探测、连接最长寿命、与对端保活策略的协商 | 以连接为单位而不是以请求为单位，与超时、熔断、资源限额都正交 |
+| `service_discovery` | 客户端本地缓存与容灾、实例剔除延迟、注册状态与应用健康的一致性 | 管的是"该往哪儿发"，与"等多久""要不要继续调""本实例能不能服务"都不重叠 |

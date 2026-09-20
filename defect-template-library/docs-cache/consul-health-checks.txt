@@ -1,0 +1,8 @@
+# consul-health-checks —— 引用核对副本（摘录）
+# 来源：https://developer.hashicorp.com/consul/docs/register/health-check/vm
+# 许可：许可未能确认，按不可再分发处理。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
+#      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
+# ----------------------------------------------------------------------
+[[H2]] Overview
+...
+Time-to-live (TTL) checks are passive checks that await updates from the service. If the check does not receive a status update before the specified duration, the health check enters a criticalstate.

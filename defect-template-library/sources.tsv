@@ -97,3 +97,5 @@ azure-transient-faults	通用准则	Azure Architecture Center	Transient fault ha
 polaris-checks-reliability	通用准则	Polaris	Polaris Checks: Reliability	https://polaris.docs.fairwinds.com/checks/reliability/	DOC-POLARIS-RELIABILITY
 kube-score-checks	通用准则	kube-score	kube-score checks list	https://raw.githubusercontent.com/zegl/kube-score/master/README_CHECKS.md	DOC-KUBESCORE-CHECKS
 chaos-principles	通用准则	Principles of Chaos Engineering	Principles of Chaos Engineering	https://principlesofchaos.org/	
+consul-health-checks	服务发现	Consul	Define health checks	https://developer.hashicorp.com/consul/docs/register/health-check/vm	
+eureka-client	服务发现	Eureka	Spring Cloud Netflix: Eureka client and server	https://docs.spring.io/spring-cloud-netflix/reference/spring-cloud-netflix.html	

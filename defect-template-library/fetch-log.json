@@ -251,6 +251,20 @@
   "url": "https://principlesofchaos.org/",
   "version": "unversioned"
  },
+ "consul-health-checks": {
+  "chars": 22417,
+  "component": "Consul",
+  "doc_id": "consul-health-checks",
+  "last_modified": "",
+  "layer": "服务发现",
+  "lines": 423,
+  "retrieved_at": "2026-09-20",
+  "source_sha256": "05778e54fcaaabfd140e9d6a61a0bdf48e5e70de789c807f45205fc8603307e6",
+  "status": "ok",
+  "title": "Define health checks",
+  "url": "https://developer.hashicorp.com/consul/docs/register/health-check/vm",
+  "version": "unversioned"
+ },
  "dotnet-http-resilience": {
   "chars": 23209,
   "component": "Microsoft.Extensions.Http.Resilience",
@@ -362,6 +376,20 @@
   "title": "FAQ: Envoy timeouts",
   "url": "https://www.envoyproxy.io/docs/envoy/latest/faq/configuration/timeouts",
   "version": "latest"
+ },
+ "eureka-client": {
+  "chars": 28165,
+  "component": "Eureka",
+  "doc_id": "eureka-client",
+  "last_modified": "Thu, 17 Sep 2026 20:47:01 GMT",
+  "layer": "服务发现",
+  "lines": 332,
+  "retrieved_at": "2026-09-20",
+  "source_sha256": "21d25e95cc6b833f147fcacfd09760e143e04a4bdc704daf48d6bd1466c4dc05",
+  "status": "ok",
+  "title": "Spring Cloud Netflix: Eureka client and server",
+  "url": "https://docs.spring.io/spring-cloud-netflix/reference/spring-cloud-netflix.html",
+  "version": "unversioned"
  },
  "go-context": {
   "chars": 22314,

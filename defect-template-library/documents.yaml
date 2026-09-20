@@ -10,6 +10,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d9a83d034e119264f1c1120f45ff9c8527d114674a5aaaffb74d1809b61416d0
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -23,6 +24,9 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/
   retrieved_at: '2026-09-20'
+  retrieved_via: web-archive-snapshot
+  snapshot_of: https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/
+  snapshot_note: 原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。按 2026-09-20 的口径，该快照视同原站点的官方文档。
   sha256: 3665ed2fc39e30ee3222f64def020b0a9ba8f553dd45d3ee89906ee9e4f1de59
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -36,6 +40,9 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/implementing-health-checks/
   retrieved_at: '2026-09-20'
+  retrieved_via: web-archive-snapshot
+  snapshot_of: https://aws.amazon.com/builders-library/implementing-health-checks/
+  snapshot_note: 原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。按 2026-09-20 的口径，该快照视同原站点的官方文档。
   sha256: 03462801deeeb6754f244a073b7707e3541d23e413e45a144721549e4c029b92
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -49,6 +56,9 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
   retrieved_at: '2026-09-20'
+  retrieved_via: web-archive-snapshot
+  snapshot_of: https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
+  snapshot_note: 原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。按 2026-09-20 的口径，该快照视同原站点的官方文档。
   sha256: 7571aac3e82f2853a7a3a948efb59208e7b862c0b8d38da81134a72d5e25ed68
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -62,6 +72,9 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
   retrieved_at: '2026-09-20'
+  retrieved_via: web-archive-snapshot
+  snapshot_of: https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
+  snapshot_note: 原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。按 2026-09-20 的口径，该快照视同原站点的官方文档。
   sha256: daf9091b6f01877b2d447c0870e4b82c321ba54f1bd078341992f8f76da48891
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -75,6 +88,9 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
   retrieved_at: '2026-09-20'
+  retrieved_via: web-archive-snapshot
+  snapshot_of: https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
+  snapshot_note: 原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。按 2026-09-20 的口径，该快照视同原站点的官方文档。
   sha256: b4b1f2a977e094a5c20da43205ada98e82e2e042faa5028ec14dcbf8405233cc
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -88,6 +104,7 @@ documents:
   version: latest
   url: https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: c86472489a5aa64f823b59f52d58fcc6bff87cf352fa62d82f80a44184c210d2
   source_sha256: ''
   license: © Amazon，文档未授权再分发
@@ -101,6 +118,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/axios/axios/v1.x/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: bf13a86c3d5073e0b2de57232e33622b888f75e8cdac00e4ac22a6f3f2a5fa86
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -114,6 +132,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ec5bcb1753ea348b0ef84bad246c634d28d9d7b27f7e9454cd2651c11b1634c5
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -127,6 +146,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 1d143afa84f126bea848187deb71feb40a0b8beb10ec684fc509f4b56b2fc820
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -140,6 +160,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 9a180abe20cc266116e3164952b98b5cf7f74fb66b4a5a967e3f10d6ddf0ba83
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -153,6 +174,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 50b8aefe0c5457b0ff1873f77a5f2800b8e8edfa4644b78cfb268e9ac801f062
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -166,6 +188,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 749c644b625176ab95b6c73f752d567b0a352ea7dc45cf14bbf254b0a03a3eb1
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -179,6 +202,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 47d5a7933886ba2f18f7bf2cb0de710d2af6bb9cd3e182faa7e405a4d1fc8b1c
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -192,6 +216,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/retry
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 99bbb7094f2ec6dfeac6941c897824af39c8f42e1732221d5136c7f4cd4f9c4c
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -205,6 +230,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 7f07e3044f943da489edae66cf30447a0e1af1f8710411dc1c9bda109a44071a
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -218,6 +244,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 7fee7ee9ce412ca405178227d779cce35494a1cff2f9d2bf335afc47a64a0e86
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -231,11 +258,26 @@ documents:
   version: unversioned
   url: https://principlesofchaos.org/
   retrieved_at: '2026-09-20'
-  sha256: 83708eb1a0253ebd71e4856669bd994c9d38c61425bb38a8de11f6f4790adc13
+  retrieved_via: direct
+  sha256: c0b9c5c28225a9c439c4f5a30b2c20a1058f0bf6ec0bde1e01c2b1d327b9d8ea
   source_sha256: ''
   license: 页面未标注许可，按不可再分发处理
   redistribution: restricted
   local_copy: docs-cache/chaos-principles.txt
+  local_copy_kind: excerpt
+- doc_id: consul-health-checks
+  title: Define health checks
+  component: Consul
+  layer: 服务发现
+  version: unversioned
+  url: https://developer.hashicorp.com/consul/docs/register/health-check/vm
+  retrieved_at: '2026-09-20'
+  retrieved_via: direct
+  sha256: 14d9be807365c500a1f4ba9e58279c589a77a8eadbbd43acbe2ebe01b1602b75
+  source_sha256: 05778e54fcaaabfd140e9d6a61a0bdf48e5e70de789c807f45205fc8603307e6
+  license: 许可未能确认，按不可再分发处理
+  redistribution: restricted
+  local_copy: docs-cache/consul-health-checks.txt
   local_copy_kind: excerpt
 - doc_id: dotnet-http-resilience
   title: Build resilient HTTP apps
@@ -244,6 +286,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/dotnet/core/resilience/http-resilience
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 2e2f80c4f2a8e4a7af584dfb4bda6ef9ed560468643d1e24a5a9e34c7ecda4b5
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -257,6 +300,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/dotnet/core/extensions/httpclient-factory
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d95bfa88e66bc63c48785a41121fac3951ee2186aee20866931959c2a2759af3
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -270,6 +314,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: a360efb224a2c0760d2d5d4a93d03135104886f0c6e1793f49d06c6c6d0f69d4
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
@@ -283,6 +328,7 @@ documents:
   version: latest
   url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ad1a20aeb0e16766efb9f30da197c2c9c869e8c45ebfa43cd2c2797817e25fab
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
@@ -296,6 +342,7 @@ documents:
   version: latest
   url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d64437a7ee19ffae4e5b6ea0848e243c8400d38e3711dfbada66af848d1e3d71
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
@@ -309,6 +356,7 @@ documents:
   version: latest
   url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 719909629196b25eb474a346caa7aafc64c729e217dbc19178892939607b9ba6
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
@@ -322,6 +370,7 @@ documents:
   version: latest
   url: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 642ec9537533b5c0367d5a6ba09fb0fb2c00f348946c93dc410f92a5c74251ea
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
@@ -335,11 +384,26 @@ documents:
   version: latest
   url: https://www.envoyproxy.io/docs/envoy/latest/faq/configuration/timeouts
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 069f0fc6e70b7bbaf910d3359cd31ece9940d18d284b67c97d2958a078374d11
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
   redistribution: permissive
   local_copy: docs-cache/envoy-timeouts.txt
+  local_copy_kind: full
+- doc_id: eureka-client
+  title: 'Spring Cloud Netflix: Eureka client and server'
+  component: Eureka
+  layer: 服务发现
+  version: unversioned
+  url: https://docs.spring.io/spring-cloud-netflix/reference/spring-cloud-netflix.html
+  retrieved_at: '2026-09-20'
+  retrieved_via: direct
+  sha256: 21d25e95cc6b833f147fcacfd09760e143e04a4bdc704daf48d6bd1466c4dc05
+  source_sha256: 21d25e95cc6b833f147fcacfd09760e143e04a4bdc704daf48d6bd1466c4dc05
+  license: Apache-2.0（Spring 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/eureka-client.txt
   local_copy_kind: full
 - doc_id: go-context
   title: context package
@@ -348,6 +412,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/context
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 6d354bc87941964de4d9f18c47be6a6a663ea28d3b83b760d8816f3334426e90
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -361,6 +426,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/database/sql
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 841eebeb5e19eef31178c6fff86fc93798e2077c758bb9ae0c8681b94885dc01
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -374,6 +440,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/net/http
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d1b1f76b0bd46af8470bb5851a7322ef75f4a189308db64fe25a2d54b951f584
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -387,6 +454,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/github.com/redis/go-redis/v9
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3c77a501c2998a959c9ec229fad648b7d4cab3362cb6e3eef805e9d7f9bcdb67
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -400,6 +468,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/github.com/hashicorp/go-retryablehttp
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 9fb2ce8e5e006012fdb8b58fd4edc51ea1604f044e01b576d2ad5d6bd64d300e
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -413,6 +482,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/go-sql-driver/mysql/master/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 5b9da2e9af50dfc4acf9c6320d721398d350bb80042d0893fc7a3867cf5b6947
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -426,6 +496,7 @@ documents:
   version: unversioned
   url: https://pkg.go.dev/github.com/sony/gobreaker
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: e882880ba3401ef5f0e8fe3a43afa2656a1048af10c0d14f1d443ae67285ab70
   source_sha256: ''
   license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
@@ -439,6 +510,7 @@ documents:
   version: unversioned
   url: https://grpc.io/docs/guides/cancellation/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 9c27f8b30735d10ed0e9bbd909342ddca8d7b08219e6c51110d5eb32a87fdd43
   source_sha256: ''
   license: CC BY 4.0（gRPC 项目文档）
@@ -452,6 +524,7 @@ documents:
   version: unversioned
   url: https://grpc.io/docs/guides/deadlines/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: a91677b7615b681fdadf57e2d19e63304011a12df2a7eba4920390e7d6907e04
   source_sha256: ''
   license: CC BY 4.0（gRPC 项目文档）
@@ -465,6 +538,7 @@ documents:
   version: unversioned
   url: https://grpc.io/docs/guides/keepalive/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 5b68ae963720514f7486d276c0e5bd50e9d6b04174a9d960bb0d954697a05a5d
   source_sha256: ''
   license: CC BY 4.0（gRPC 项目文档）
@@ -478,6 +552,7 @@ documents:
   version: unversioned
   url: https://grpc.io/docs/guides/retry/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 71168830dc6ed4ddea6188812aad18e5f3d513ca422f32a5e63c6b6ea937eb9c
   source_sha256: ''
   license: CC BY 4.0（gRPC 项目文档）
@@ -491,6 +566,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/grpc/proposal/master/A6-client-retries.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 62fd71920c9af052deada20af8ecc6bb614ad280d586da4895b96f3cf5a15191
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -504,6 +580,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/brettwooldridge/HikariCP/dev/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: dbc49b8d01f6957d0a16674a62ea2041d31dce362dac6652a5be0b6e1d0f8706
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -517,6 +594,7 @@ documents:
   version: unversioned
   url: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 068121ee7bc5277c698a32d66ee24d8b9f12da320cdafa1473c76bcf90fb723e
   source_sha256: ''
   license: Apache-2.0（ingress-nginx 项目文档）
@@ -530,6 +608,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/redis/ioredis/main/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: cde462174b2c0ff412f6a43090033585779ff27b185707c85181d952793710a4
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -543,6 +622,7 @@ documents:
   version: latest
   url: https://istio.io/latest/docs/reference/config/networking/destination-rule/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: f545675147e064722a64db7a70966164257754c133fba69250cc45066f2f8f3a
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
@@ -556,6 +636,7 @@ documents:
   version: latest
   url: https://istio.io/latest/docs/tasks/traffic-management/request-timeouts/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 26dbb05c9732aba29887aba8dc2a25ddcb7f67a28c14f77b0df06d2071e8a303
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
@@ -569,6 +650,7 @@ documents:
   version: latest
   url: https://istio.io/latest/docs/reference/config/networking/virtual-service/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: b82b3b683b71da9e040855c0772c02b4ce66bdbbceed1beafbcbb9a44273014c
   source_sha256: ''
   license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
@@ -582,6 +664,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/redis/jedis/master/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: e49041b1977ee3012d3a656d73e8534be28a9c600efa2135847164b454577668
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -595,6 +678,7 @@ documents:
   version: unversioned
   url: https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d9ecbc1659d028a48b4f354bbe7ce0a155ed55116511bbffeeea5fb8975a78e7
   source_sha256: ''
   license: © Oracle，文档未授权再分发
@@ -608,6 +692,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 9460420ddc579eebde43e794ba73c30b7705fd06defb103234734cc9e37b51a3
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -621,6 +706,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/configuration/overview/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ce98242f7fd9d646a0aba097c5284768e72d6c7293650c3cdd8aed05fd1f7289
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -634,6 +720,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 4e742e77caefb0461392d80f7c1d7f8fe277e943ed4f193cbadf66c7675b7dae
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -647,6 +734,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: cf2ebe75b5a678b90a4da4803e599dee1db664693012bfd3fbc92646dce09886
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -660,6 +748,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 5ff5c2f09069aca02f2f5782e565b1fa2af3d9894d42931d01b053da320d4c30
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -673,6 +762,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 32f0c63eaa06f65a4efa3e9efc486fa6af541c3873bcda65daba76ec374e822f
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -686,6 +776,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 17c3b41bb6e2a7d1fd1c4eece61d8a22608f6d9365f10c92d9f4c58163ba6707
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -699,6 +790,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3ebfdf05fac1ea665a850b7d132a9fdc301cd113a5b11be1e64bcc0b42280327
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -712,6 +804,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 13c24f5ed7f9cb0266acd435f6e6a1cecbda6f228b276485cd03f9edb8b89522
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -725,6 +818,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: cd97d8844b82e8914acbbcc3039582a38d9921a01b88820549819a05547281a3
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -738,6 +832,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 1af4675353934ee5eef9f95def82e8bc5eab0efec8e8a3bd90d049f5a6269e32
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -751,6 +846,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 5a3e6d203615e552e5f90780d20063c678f517fb17fd821921d80dd161df3933
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -764,6 +860,7 @@ documents:
   version: unversioned
   url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3c13f93877eaada784eb2a6b6371f32410c6650d61a0fc59b94a25f2042cca00
   source_sha256: ''
   license: CC BY 4.0（Kubernetes 官方文档）
@@ -777,6 +874,7 @@ documents:
   version: unversioned
   url: https://kafka.apache.org/40/generated/consumer_config.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 8ef8697fbfc6fec0d21952986caad71532ce8ef8baf13a9e70c8ae182c3eb5b9
   source_sha256: ''
   license: Apache-2.0（Apache 软件基金会项目文档）
@@ -790,6 +888,7 @@ documents:
   version: unversioned
   url: https://kafka.apache.org/40/generated/producer_config.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ec2aa931ecfd061ea9c8b91969f1fa1683e514d28bc3ee0def9a64ef298325cb
   source_sha256: ''
   license: Apache-2.0（Apache 软件基金会项目文档）
@@ -803,6 +902,7 @@ documents:
   version: unversioned
   url: https://kafka.apache.org/40/generated/topic_config.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: a75058e4b4f8cf0cb8856c5c2eff0cdd8f902bbfc6f3a4ba0f9c22913af50aa3
   source_sha256: ''
   license: Apache-2.0（Apache 软件基金会项目文档）
@@ -816,6 +916,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/zegl/kube-score/master/README_CHECKS.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 80478381adba8ae35c1ca793c39e70822394982ae590153daf88e85a12d80475
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -829,6 +930,7 @@ documents:
   version: unversioned
   url: https://redis.github.io/lettuce/advanced-usage/client-options/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 885942cf83868153c82019b757a82e096b385d99f893f0e692f679ccad78eb37
   source_sha256: ''
   license: MIT（Lettuce 项目文档）
@@ -842,6 +944,7 @@ documents:
   version: unversioned
   url: https://www.mongodb.com/docs/manual/reference/connection-string-options/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 40ea2ba9b340bcc2e677f2f74200d10d182af52ca4b6f84a752a1517b5520a74
   source_sha256: ''
   license: © MongoDB，文档未授权再分发
@@ -855,6 +958,7 @@ documents:
   version: latest
   url: https://nacos.io/docs/latest/manual/user/naming/instance-lifecycle/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: c40551b6ec788570d55f0df455c119011a0c47dc4c9370e1e0f357029fc2f635
   source_sha256: ''
   license: Apache-2.0（Nacos 项目文档）
@@ -868,6 +972,7 @@ documents:
   version: latest
   url: https://nacos.io/docs/latest/manual/user/java-sdk/failover/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 372e7f4f75f93a6d7bb30de12eaf70b0edce7335f5423fd09181e91e2cafdc9d
   source_sha256: ''
   license: Apache-2.0（Nacos 项目文档）
@@ -881,6 +986,7 @@ documents:
   version: latest
   url: https://nacos.io/docs/latest/manual/user/java-sdk/properties/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 934c80c8fdc928f461adfda955c0144b5690b7a6fe9d5a25c249fc4095deac76
   source_sha256: ''
   license: Apache-2.0（Nacos 项目文档）
@@ -894,6 +1000,7 @@ documents:
   version: unversioned
   url: https://nodejs.org/api/http.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 1d92a4487ac34966a4bb955e4b6edcbbcdf386a85de317ca79607c405ea159e3
   source_sha256: ''
   license: MIT（Node.js 文档）
@@ -907,6 +1014,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/nodejs/undici/main/docs/docs/api/Client.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 72ad4c3c389b5e64d5482186380d85a151973273fe82f3671c59a6fe60e95fd0
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -920,6 +1028,7 @@ documents:
   version: unversioned
   url: https://docs.guzzlephp.org/en/stable/request-options.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ec32ee7ec18933c5ded3fa380147f79012562afb61ce208287c5f6de9b8a376d
   source_sha256: ''
   license: MIT（Guzzle 项目文档）
@@ -933,6 +1042,7 @@ documents:
   version: unversioned
   url: https://polaris.docs.fairwinds.com/checks/reliability/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 2c12a56424988baa33c04be7ca27a2847f7700f634210ad8bc7898a4fd6ad0a9
   source_sha256: ''
   license: Apache-2.0（Polaris 项目文档）
@@ -946,6 +1056,7 @@ documents:
   version: unversioned
   url: https://www.pollydocs.org/strategies/circuit-breaker.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: ee520da661d4bd449ea7a36c759c0c92d0d93706b3462d491efd5dbf50b23818
   source_sha256: ''
   license: BSD-3-Clause（Polly 项目文档）
@@ -959,6 +1070,7 @@ documents:
   version: unversioned
   url: https://www.pollydocs.org/strategies/retry.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 6de628f01fa45e6cc47ad3c61c2d54027a5bd39fcf8ddf12206f9b09e0df6e49
   source_sha256: ''
   license: BSD-3-Clause（Polly 项目文档）
@@ -972,6 +1084,7 @@ documents:
   version: unversioned
   url: https://www.pollydocs.org/strategies/timeout.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 5767fd699e5852309146859d11e50abe6a6eb6cdfc2012ada69eb757ba51ecb7
   source_sha256: ''
   license: BSD-3-Clause（Polly 项目文档）
@@ -985,6 +1098,7 @@ documents:
   version: unversioned
   url: https://www.postgresql.org/docs/current/libpq-connect.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: bb1f75077765650a1e1ab0dc99784ca0ad0f87609b7f4fc7e33dadaabe15d25f
   source_sha256: ''
   license: PostgreSQL License
@@ -998,6 +1112,7 @@ documents:
   version: unversioned
   url: https://www.postgresql.org/docs/current/runtime-config-client.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: fb71f91cf100687b9d9b0ce8afa25e25a4e18a01e66cc021787af8e36528b0d6
   source_sha256: ''
   license: PostgreSQL License
@@ -1011,6 +1126,7 @@ documents:
   version: unversioned
   url: https://www.python-httpx.org/advanced/timeouts/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3e76b16afdd77261bdbf830f6004f18e81a8c27ceda43a6aca56df537f69d406
   source_sha256: ''
   license: BSD-3-Clause（HTTPX 项目文档）
@@ -1024,6 +1140,7 @@ documents:
   version: latest
   url: https://requests.readthedocs.io/en/latest/user/advanced/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: acba2d2d6442de0f2c3753475ecb6e1c7a3673578017d2e6382f9f02a9293727
   source_sha256: ''
   license: Apache-2.0（Requests 项目文档）
@@ -1037,6 +1154,7 @@ documents:
   version: unversioned
   url: https://www.rabbitmq.com/docs/confirms
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: cba9e87da8e2d3231a0ae86f09e90f06131d2e99fe57d833c8501146582d0498
   source_sha256: ''
   license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
@@ -1050,6 +1168,7 @@ documents:
   version: unversioned
   url: https://www.rabbitmq.com/docs/dlx
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 313895650a48d420e62cb10ab1cd20d5a1cd556532a52989d3f61095bf5607b3
   source_sha256: ''
   license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
@@ -1063,6 +1182,7 @@ documents:
   version: unversioned
   url: https://www.rabbitmq.com/docs/consumer-prefetch
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d0142aad0474e222afbe2d8990ef9822f7c4152f51c8f2df848283c8e594522b
   source_sha256: ''
   license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
@@ -1076,6 +1196,7 @@ documents:
   version: unversioned
   url: https://www.rabbitmq.com/docs/reliability
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d884264271b9aca3b02cefe00a8dbd3331b4bdc6ea315059319bf07868426e13
   source_sha256: ''
   license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
@@ -1089,6 +1210,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/redis/redis-py/master/README.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: f3cf8fab1933ed7b7587d49002e131db4b5cc788b2b8a104ed04c0af76f94c71
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）
@@ -1102,6 +1224,7 @@ documents:
   version: unversioned
   url: https://resilience4j.readme.io/docs/bulkhead
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 818a4940de55df4c7f911bc574ec71d7cb53e01efc139dfceba80ac923791395
   source_sha256: ''
   license: Apache-2.0（Resilience4j 项目文档）
@@ -1115,6 +1238,7 @@ documents:
   version: unversioned
   url: https://resilience4j.readme.io/docs/circuitbreaker
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: d7f5d3a472f896d6e75ca10576c5db1442169a6fb31d00ede10c07f9723bab87
   source_sha256: ''
   license: Apache-2.0（Resilience4j 项目文档）
@@ -1128,6 +1252,7 @@ documents:
   version: unversioned
   url: https://resilience4j.readme.io/docs/ratelimiter
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3187a67e573dd945ef2d305e6645b664569beea6d276bb6e5db2f376c6ed874a
   source_sha256: ''
   license: Apache-2.0（Resilience4j 项目文档）
@@ -1141,6 +1266,7 @@ documents:
   version: unversioned
   url: https://resilience4j.readme.io/docs/retry
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 29af85f4c368af79b1402271d638a73ee7db6517652f60dd105b39778fc28020
   source_sha256: ''
   license: Apache-2.0（Resilience4j 项目文档）
@@ -1154,6 +1280,7 @@ documents:
   version: unversioned
   url: https://resilience4j.readme.io/docs/timeout
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 856b971652e1ddadbc478b6ecbd97e67f6e465c8839953b5e0037ce8751c9d21
   source_sha256: ''
   license: Apache-2.0（Resilience4j 项目文档）
@@ -1167,6 +1294,7 @@ documents:
   version: unversioned
   url: https://docs.ruby-lang.org/en/master/Net/HTTP.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 4136949061abce5219b0589de8ed4c382e92c7591a9fca3d56f650ce01239518
   source_sha256: ''
   license: Ruby License / BSD-2-Clause（Ruby 文档）
@@ -1180,6 +1308,7 @@ documents:
   version: latest
   url: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 1ed5721b632a37bbaa267da0d8e55fbd8779d0d4cf7ab7a5b2e05f0b930a3e2e
   source_sha256: ''
   license: 随 crate 许可（reqwest 为 MIT OR Apache-2.0）
@@ -1193,6 +1322,7 @@ documents:
   version: unversioned
   url: https://docs.spring.io/spring-boot/reference/actuator/endpoints.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 338e18c8ab0e6f8f228bbd6a021c6947c0d8cce5b044f3fe202824f2d60a483b
   source_sha256: ''
   license: Apache-2.0（Spring 项目文档）
@@ -1206,6 +1336,7 @@ documents:
   version: unversioned
   url: https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: c1bd64c0515767b552a18fe88a7c902583b40386913d893868b52d40f2d7d6d5
   source_sha256: ''
   license: Apache-2.0（Spring 项目文档）
@@ -1219,6 +1350,7 @@ documents:
   version: unversioned
   url: https://docs.spring.io/spring-cloud-openfeign/reference/spring-cloud-openfeign.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 7ee1854916d43f295695f7db322ec14abd0ff8663475c92ea698cb76688933db
   source_sha256: ''
   license: Apache-2.0（Spring 项目文档）
@@ -1232,6 +1364,7 @@ documents:
   version: unversioned
   url: https://docs.spring.io/spring-boot/reference/io/rest-client.html
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: bea1e70e1d8deb731abd9e6bb8aee1a865ff92f4e5001dcc0f22466b15339259
   source_sha256: ''
   license: Apache-2.0（Spring 项目文档）
@@ -1245,6 +1378,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/addressing-cascading-failures/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 3b38631bbe6aa14cde7058422f7477d9068ec1a7e8b17bd4e8628fd8885efa25
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
@@ -1258,6 +1392,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/handling-overload/
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 8bc1c6b2e53354653983b7f36d10a6a9e690df997ad9c4491aef1a8f2e06dd95
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
@@ -1271,6 +1406,7 @@ documents:
   version: unversioned
   url: https://raw.githubusercontent.com/StackExchange/StackExchange.Redis/main/docs/Configuration.md
   retrieved_at: '2026-09-20'
+  retrieved_via: direct
   sha256: 74729f9b1ba4ea0ad2e88444cdd6c2a8c9d2a759da40de7b3b6d7353c4b6fda3
   source_sha256: ''
   license: 随所属仓库的开源许可（见 url 指向的仓库）

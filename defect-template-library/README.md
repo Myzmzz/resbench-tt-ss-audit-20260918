@@ -79,11 +79,13 @@ python3 validate.py              # 全部校验
 
 ## 交付说明
 
-**做了什么。** 登记并取回了 98 份文档（11 层技术栈的组件官方文档 + 通用准则），写了 46 条模板覆盖 11 个机制组（任务书给的 10 个，加上从文档里读出来的 `connection_lifecycle`），每组不少于 3 条；另有 6 条 advisory 记录本版参数类型不支持的规则。119 条引用全部逐字回查通过，`semgrep --validate` 对 15 条规则报 0 错误，`validate.py` 零错误。
+**做了什么。** 登记并取回了 100 份文档（11 层技术栈的组件官方文档 + 通用准则），写了 49 条模板覆盖 12 个机制组（任务书给的 10 个，加上从文档里读出来的 `connection_lifecycle` 与 `service_discovery`），每组不少于 3 条；另有 6 条 advisory 记录本版参数类型不支持的规则。127 条引用全部逐字回查通过，`semgrep --validate` 对 15 条规则报 0 错误，`validate.py` 零错误。
 
-**没做什么。** 一、没有读也没有绑定任何目标系统，模板里不出现系统名与服务名，`validate.py` 会拒绝这类字符串。二、没有从事故报告、博客或论文归纳规则；`evidence_incidents` 只在一条模板上出现，且只作优先级佐证。三、没有给规则预设失效模式分类，只写 `violation_manifestation`。四、按任务书口径不收的内容一律没收：优雅终止族、安全、可观测性配置、跨区域灾备与备份恢复、纯性能调优；例外的「故障恢复后回不来」保留在 `T-CIRCUIT-02`。五、参数关系属于概率型 / 累积型 / 滞后型 / 时机型 / 状态型的规则一律进了 `advisories.yaml`，本版不为它们生成场景。六、`redis-py` 与 `Nacos` 两个组件已登记文档但还没有模板落点，原因见 `stats.md` 与 `OPEN-QUESTIONS.md`。
+实验与判定两块的写法沿用 Principles of Chaos Engineering 的实验方法：`verdict.expected_behavior` 对应它说的稳态假设，`verdict.signals` 是稳态的可测输出，`verdict.alternative_explanations` 用来分辨"稳态被打破"是不是真由注入引起，`experiment.actions[].type` 的四分类对应它说的"变化真实世界事件"。余量与爆炸半径由下游流水线统一取，模板不写。
 
-**哪些引用来自不可再分发的来源。** 24 份文档没有再分发授权（Microsoft Learn、Oracle、AWS 文档与 Builders' Library、Google SRE 书、MongoDB 文档、Principles of Chaos Engineering），它们的 `docs-cache/<doc_id>.txt` 里**只有本库实际逐字引用到的段落及其所在小节标题**，不是全文副本，文件头部写明了来源与许可。要读全文请按 `documents.yaml` 里登记的 `url` 到原站点。涉及的标识与章节是：
+**没做什么。** 一、没有读也没有绑定任何目标系统，模板里不出现系统名与服务名，`validate.py` 会拒绝这类字符串。二、没有从事故报告、博客或论文归纳规则；`evidence_incidents` 只在一条模板上出现，且只作优先级佐证。三、没有给规则预设失效模式分类，只写 `violation_manifestation`。四、按任务书口径不收的内容一律没收：优雅终止族、安全、可观测性配置、跨区域灾备与备份恢复、纯性能调优；例外的「故障恢复后回不来」保留在 `T-CIRCUIT-02`。五、参数关系属于概率型 / 累积型 / 滞后型 / 时机型 / 状态型的规则一律进了 `advisories.yaml`，本版不为它们生成场景。六、`redis-py` 一个组件已登记文档但还没有模板落点（它的 README 是上手介绍，取不到可引用的超时与重连参数），按 `OPEN-QUESTIONS.md` 的 Q6 本版不处理。
+
+**哪些引用来自不可再分发的来源。** 25 份文档没有再分发授权（Microsoft Learn、Oracle、AWS 文档与 Builders' Library、Google SRE 书、MongoDB 文档、Principles of Chaos Engineering），它们的 `docs-cache/<doc_id>.txt` 里**只有本库实际逐字引用到的段落及其所在小节标题**，不是全文副本，文件头部写明了来源与许可。要读全文请按 `documents.yaml` 里登记的 `url` 到原站点。涉及的标识与章节是：
 
 | doc_id | 章节 |
 |---|---|
@@ -97,9 +99,12 @@ python3 validate.py              # 全部校验
 | `azure-pattern-retry` / `-circuit-breaker` / `-bulkhead` / `-throttling` / `-compensating` / `-cache-aside` | 各页的 Solution 与 Issues and considerations |
 | `azure-transient-faults` | Retry strategy guidelines |
 | `jvm-launcher` | Advanced Runtime Options（`-XX:-UseContainerSupport` 等） |
+| `chaos-principles` | 开篇（系统性弱点清单） |
 
-另有 9 份不可再分发的文档已登记但本版没有产生逐字引用（`aws-builders-health-checks`、`azure-pattern-health-endpoint`、`azure-pattern-queue-leveling`、`mongodb-connection-options`、`aspnet-health-checks`、`dotnet-httpclient-guidelines`、`dotnet-httpclient-factory`、`dotnet-http-resilience`、`chaos-principles`），它们的 `docs-cache/` 文件里只有一行说明，没有正文。
+另有 8 份不可再分发的文档已登记但本版没有产生逐字引用（`aws-builders-health-checks`、`azure-pattern-health-endpoint`、`azure-pattern-queue-leveling`、`mongodb-connection-options`、`aspnet-health-checks`、`dotnet-httpclient-guidelines`、`dotnet-httpclient-factory`、`dotnet-http-resilience`），它们的 `docs-cache/` 文件里只有一行说明，没有正文。
+
+其中 5 份（AWS Builders' Library）的正文取自 `web.archive.org` 快照，原站点已改成前端渲染取不到正文。按 2026-09-20 的口径，这些快照视同原站点的官方文档；`documents.yaml` 里用 `retrieved_via` / `snapshot_of` / `snapshot_note` 三个字段标出了这一点。
 
 其余 74 份文档采用开放许可（CC BY 4.0、Apache-2.0、MIT、BSD、PostgreSQL License 等），`docs-cache/` 里存的是全文正文副本，任何人都能直接复核引用。
 
-**关于"登记了但没引用"。** 98 份文档里有 50 份产生了逐字引用，另外 48 份只是登记在册：`documents.yaml` 是本版划定的阅读范围，不是引用清单。一份文档没被引用，可能是它覆盖的机制已由同组更贴切的文档支撑（例如 Kubernetes 探针的默认值集中在概念页，任务页只支撑启动探针那一条），也可能是它只在 `locate.instantiations` 里作为落点出现而无需引用（例如各语言 HTTP 客户端的超时参数名）。范围与引用的差额可以从 `stats.md` 第 2 节的「被引用到的文档」一行读出。
+**关于"登记了但没引用"。** 100 份文档里有 55 份产生了逐字引用，另外 45 份只是登记在册：`documents.yaml` 是本版划定的阅读范围，不是引用清单。一份文档没被引用，可能是它覆盖的机制已由同组更贴切的文档支撑（例如 Kubernetes 探针的默认值集中在概念页，任务页只支撑启动探针那一条），也可能是它只在 `locate.instantiations` 里作为落点出现而无需引用（例如各语言 HTTP 客户端的超时参数名）。范围与引用的差额可以从 `stats.md` 第 2 节的「被引用到的文档」一行读出。

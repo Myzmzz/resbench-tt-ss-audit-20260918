@@ -141,10 +141,19 @@ def main():
             body = HEADER.format(doc_id=doc_id, url=v["url"], license=note) + body + "\n"
             kind = "excerpt"
         open(os.path.join(CACHE, doc_id + ".txt"), "w", encoding="utf-8").write(body)
+        entry_extra = {}
+        if "web.archive.org" in v["url"] and "/https://" in v["url"]:
+            entry_extra["retrieved_via"] = "web-archive-snapshot"
+            entry_extra["snapshot_of"] = "https://" + v["url"].split("/https://", 1)[1]
+            entry_extra["snapshot_note"] = (
+                "原站点已改为前端渲染，脚本取不到正文，正文取自 Wayback 快照。"
+                "按 2026-09-20 的口径，该快照视同原站点的官方文档。")
+        else:
+            entry_extra["retrieved_via"] = "direct"
         docs.append(dict(
             doc_id=doc_id, title=v["title"], component=v["component"], layer=v["layer"],
             version=v.get("version", "unversioned"), url=v["url"],
-            retrieved_at=v["retrieved_at"],
+            retrieved_at=v["retrieved_at"], **entry_extra,
             sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
             source_sha256=v.get("source_sha256", ""),
             license=note, redistribution=tier, local_copy="docs-cache/%s.txt" % doc_id,

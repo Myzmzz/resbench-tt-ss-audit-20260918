@@ -61,3 +61,35 @@
 2. **探针默认值的出处与任务书示例不同。** 任务书给的 `T-PROBE-01` 示例把 `timeoutSeconds` / `periodSeconds` / `failureThreshold` 的默认值记在 `k8s-probes-task` 上；当前的 Kubernetes 文档把这三个默认值写在概念页 `k8s-probes-concept` 的 Configure probes 小节，任务页里没有。按"默认值只记录文档明确给出的并注明出处"的要求，改记为 `k8s-probes-concept`；示例里的两段引用原文则与当前文档逐字一致，未作改动。
 3. **两个组件已登记文档但没有模板落点。** `Nacos` 属于服务注册与发现，是一个还没建的机制组（见 `OPEN-QUESTIONS.md` 的 Q4）；`redis-py` 的 README 是上手介绍而非配置参考，取不到可引用的超时与重连参数，需要另找文档页。
 4. **有 48 份文档只登记未引用。** `documents.yaml` 是本版划定的阅读范围而不是引用清单，差额可从 `stats.md` 第 2 节读出，`README.md` 里有说明。
+
+## 提交 13：按 2026-09-20 的六条拍板结论收口
+
+出题人一次性答复了 `OPEN-QUESTIONS.md` 的 Q1–Q6，本次提交把六条结论全部落实。
+
+### 新增机制组 `service_discovery`（3 条模板）
+
+**理由（Q4 的落实）。** 服务注册与发现自成一类：它管的是"调用方怎么知道该往哪儿发"，与超时（等多久）、熔断（要不要继续调）、健康探针（本实例能不能服务）都不重叠。它的三类故障也各不相同——注册中心自身不可用、实例失效到被剔除之间的延迟、注册状态与应用真实健康脱节。v1 初版没建组是因为当时只凑得出 2 条规则；这次补抓了 Consul 的健康检查页与 Spring Cloud Netflix（Eureka）的客户端文档，拿到了三段可用的原文：
+
+- Eureka 的心跳判活与剔除（`If the heartbeat fails over a configurable timetable, the instance is normally removed from the registry.`）
+- Eureka 默认不上报应用健康状态（`the Discovery Client does not propagate the current health check status of the application`），注册后恒为 UP
+- Consul 的 TTL 检查在超时未更新时进入 critical
+- Nacos 的 `namingLoadCacheAtStart` 默认 `false`，冷启动不读本地磁盘缓存
+
+三条模板分别覆盖这三类故障。对应到本仓库审计终稿 `final-defects.json` 的 `family` 词表，这一组同样落在 `other（…）` 下，没有现成 slug，沿用任务书命名习惯取 `service_discovery`。
+
+文档清单同时增加 `consul-health-checks` 与 `eureka-client` 两份，共 100 份。
+
+### 其余五条结论的落实
+
+| 问题 | 结论 | 改了什么 |
+|---|---|---|
+| Q1 Principles of Chaos Engineering 算不算公认准则 | 算 | `chaos-principles` 可作规则依据；`T-FALLBACK-03` 引用了它点名的系统性弱点清单；`README.md` 写明本库 `verdict` 块与动作分类沿用它的实验方法。它讲的是实验方法而非组件机制，因此没有为它单独写模板 |
+| Q2 Wayback 快照算不算官方文档 | 算 | `build_cache.py` 为快照来源生成 `retrieved_via: web-archive-snapshot`、`snapshot_of`、`snapshot_note` 三个字段，落进 `documents.yaml`，共 5 份 |
+| Q3 厂商版权文档只入库摘录是否可接受 | 可以 | 维持现状，不改口径 |
+| Q5 `T-REPLICA-05` 是否越界 | 不越界 | 模板保留原样 |
+| Q6 `redis-py` 换哪份文档 | 先不管 | 保留在阅读范围里，不造落点；`stats.md` 继续把它列为无落点组件 |
+
+### 本次需要说明的口径
+
+1. **`location` 字段里带冒号的值全部加了引号。** `Spring Cloud Netflix > Service Discovery: Eureka Clients` 这类值在 YAML 里会被当成映射，加引号后解析正常；顺手对 `how` / `query` / `statement` 等字段做了同样处理。
+2. **`chaos-principles` 的引用是唯一一处"准则讲方法、却支撑了具体规则"的地方。** 用的是它开篇列举系统性弱点的那句，其中 `improper fallback settings when a service is unavailable` 与 `T-FALLBACK-03` 的规则陈述直接对应，不是拿方法论硬套机制。
