@@ -114,7 +114,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead
   retrieved_at: '2026-09-20'
-  sha256: 746419ab64870cf28add587546ac30944da748ca5120927b0974753a8a180f7c
+  sha256: ec5bcb1753ea348b0ef84bad246c634d28d9d7b27f7e9454cd2651c11b1634c5
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -140,7 +140,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker
   retrieved_at: '2026-09-20'
-  sha256: 11403c3bf65d904bffe93d7e6d6d5363a2b56526e6090dc98d52fcd6c7d95e01
+  sha256: 9a180abe20cc266116e3164952b98b5cf7f74fb66b4a5a967e3f10d6ddf0ba83
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted

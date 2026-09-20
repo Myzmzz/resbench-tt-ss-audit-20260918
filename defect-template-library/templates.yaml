@@ -1427,3 +1427,460 @@ templates:
       family: 按失败与成功的比例节流重试，预算耗尽即直接失败
       level: config
   violation_manifestation: 依赖大面积失败时重试流量把它彻底压死，恢复之后又被积压的重试洪峰再打挂一次。
+
+# ============================================================ circuit_isolation
+- template_id: T-CIRCUIT-01
+  name: 熔断只看错误率，不看慢调用
+  mechanism_group: circuit_isolation
+  mechanism: circuit breaker
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 熔断的判据除了失败率还应包含慢调用比例；只看错误率时，一个「只慢不错」的依赖永远不会让熔断跳闸。
+    sources:
+      - doc_id: resilience4j-circuitbreaker
+        quote: |-
+          The CircuitBreaker also changes from CLOSED to OPEN when the percentage of slow calls is equal or greater than a configurable threshold. For example when more than 50% of the recorded calls took longer than 5 seconds. This helps to reduce the load on an external system before it is actually unresponsive.
+        location: CircuitBreaker > Failure rate and slow call rate thresholds
+      - doc_id: resilience4j-circuitbreaker
+        quote: |-
+          The failure rate and slow call rate can only be calculated, if a minimum number of calls were recorded.
+        location: CircuitBreaker > Failure rate and slow call rate thresholds
+  locate:
+    applies_when:
+      - 对某个同步依赖启用了熔断
+      - 该依赖存在「变慢但仍返回成功」的失效方式（绝大多数同步依赖都有）
+    roles:
+      defect_site: 该依赖的熔断配置
+      injection_site: 该依赖
+      manifest_site: 调用方的线程池或连接池占用，以及它的上游
+    instantiations:
+      - component: Resilience4j
+        how: 是否配了 slowCallRateThreshold 与 slowCallDurationThreshold
+        config_or_code: resilience4j.circuitbreaker 配置
+      - component: Polly
+        how: 断路器只按 ShouldHandle 的结果计数，慢调用需靠外层 Timeout 策略转成失败
+        config_or_code: 源码
+      - component: Envoy
+        how: 无原生慢调用判据，靠 per_try_timeout 把慢转成错误后再由 outlier detection 剔除
+        config_or_code: route.retry_policy.per_try_timeout 与 cluster.outlier_detection
+      - component: gobreaker
+        how: ReadyToTrip 回调默认只数连续失败，慢调用需自行计入
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 熔断配置里没有慢调用判据（阈值时长或比例缺失）
+        checker: manifest
+        query: resilience4j.circuitbreaker.instances.*.[slowCallRateThreshold, slowCallDurationThreshold]
+      - id: C2
+        kind: 必要
+        statement: 该调用没有短于慢调用容忍度的超时（否则慢会被超时转成失败）
+        checker: codegraph
+        query: 起点为被熔断包裹的调用点，向内查 2 跳内底层客户端是否设置了读超时
+      - id: C3
+        kind: 反证
+        statement: 外层已有超时策略把慢调用转成失败，失败率判据能够覆盖
+        checker: llm
+        query: 被熔断包裹的调用是否有一个小于慢调用容忍时长的超时？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 熔断的最小请求数与统计窗口（决定触发所需的注入时长）
+        checker: manifest
+        query: resilience4j.circuitbreaker.instances.*.[minimumNumberOfCalls, slidingWindowSize]
+  experiment:
+    actions:
+      - action: 依赖变慢但仍成功
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，保持下游正常返回 200，只把耗时抬高
+    parameter_relation:
+      symbols:
+        - {symbol: S, meaning: 慢调用时长阈值，未配置时视为无穷, source: manifest|default}
+        - {symbol: rs, meaning: 慢调用比例阈值, source: manifest|default}
+        - {symbol: b, meaning: 该调用的基线耗时, source: measured}
+        - {symbol: M, meaning: 最小请求数, source: manifest|default}
+        - {symbol: q, meaning: 该路径的 QPS, source: measured}
+      boundary: d* = S - b
+      worst_case_multiplier: 1
+      hold: M / q + 慢调用统计窗口
+      recovery_window: 2 * (M / q)
+  verdict:
+    expected_behavior: 依赖只慢不错时，熔断在慢调用比例越过阈值后跳闸，调用方的线程占用回落。
+    signals:
+      - {signal: 熔断器状态是否发生 CLOSED 到 OPEN 的变迁, source: metrics}
+      - {signal: 慢调用比例指标随注入幅值的变化, source: metrics}
+      - {signal: 调用方线程池活跃线程数与队列长度, source: metrics}
+      - {signal: 上游对该服务的耗时 p99, source: traces}
+    alternative_explanations:
+      - 调用本身有短超时，慢被转成了失败，熔断其实是按失败率跳的
+      - QPS 太低，统计窗内攒不满最小请求数
+    mitigation:
+      family: 给熔断加慢调用判据，或用短于容忍度的超时把慢转成失败
+      level: config
+  violation_manifestation: 依赖只是变慢、一直返回成功，熔断全程闭合，调用方的线程池被慢调用占满直至自身不可用。
+
+- template_id: T-CIRCUIT-02
+  name: 熔断打开后不能自动恢复
+  mechanism_group: circuit_isolation
+  mechanism: circuit breaker half-open
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 熔断打开后应在等待时长到期时自动进入半开并放行少量探测调用，依赖恢复即自行闭合，不需要人工干预。
+    sources:
+      - doc_id: azure-pattern-circuit-breaker
+        quote: |-
+          Half-Open: A limited number of requests from the application are allowed to pass through and invoke the operation. If these requests are successful, the circuit breaker assumes that the fault that caused the failure is fixed, and the circuit breaker switches to the Closed state.
+        location: Circuit Breaker pattern > Half-Open
+      - doc_id: azure-pattern-circuit-breaker
+        quote: |-
+          The Half-Open state helps prevent a recovering service from suddenly being flooded with requests.
+        location: Circuit Breaker pattern > Half-Open
+      - doc_id: resilience4j-circuitbreaker
+        quote: |-
+          After a wait time duration has elapsed, the CircuitBreaker state changes from OPEN to HALF_OPEN and permits a configurable number of calls to see if the backend is still unavailable or has become available again.
+        location: CircuitBreaker > Failure rate and slow call rate thresholds
+  locate:
+    applies_when:
+      - 对某个依赖启用了熔断或被动实例剔除
+    roles:
+      defect_site: 熔断器的等待时长与半开探测配置
+      injection_site: 该依赖
+      manifest_site: 该服务对该依赖的调用量
+    instantiations:
+      - component: Resilience4j
+        how: waitDurationInOpenState、permittedNumberOfCallsInHalfOpenState、automaticTransitionFromOpenToHalfOpenEnabled
+        config_or_code: resilience4j.circuitbreaker 配置
+      - component: Polly
+        how: BreakDuration 到期后进入半开
+        config_or_code: 源码
+      - component: Envoy
+        how: outlier detection 的 base_ejection_time 到期后自动解除剔除
+        config_or_code: cluster.outlier_detection.base_ejection_time
+      - component: gobreaker
+        how: Settings.Timeout 决定 open 停留多久，Settings.MaxRequests 决定半开放行多少
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 熔断器被设成需要人工复位（FORCED_OPEN、等待时长缺失或设成极大值）
+        checker: manifest
+        query: resilience4j.circuitbreaker.instances.*.[waitDurationInOpenState, permittedNumberOfCallsInHalfOpenState]
+      - id: C2
+        kind: 反证
+        statement: 存在外部的自动复位路径（定时任务、控制面下发规则）
+        checker: llm
+        query: 是否存在会在依赖恢复后自动复位该熔断器的代码或配置？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 附注
+        statement: 等待时长的取值（决定恢复观察窗口要开多长）
+        checker: manifest
+        query: waitDurationInOpenState 或 base_ejection_time 的取值
+  experiment:
+    actions:
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 先让依赖不可达足够长，确保熔断打开
+      - action: 依赖恢复
+        type: 离散·无可比参数
+        target_role: injection_site
+        primitive_hint: 撤销注入，观察调用量是否自行回到基线
+  verdict:
+    expected_behavior: 依赖恢复后，在数倍等待时长之内调用量自行回到基线，无需重启实例或人工操作。
+    signals:
+      - {signal: 熔断器状态变迁事件的时间线（OPEN → HALF_OPEN → CLOSED）, source: metrics}
+      - {signal: 依赖恢复时刻到调用量恢复时刻的间隔, source: metrics}
+      - {signal: 半开期间放行的探测调用数, source: metrics}
+      - {signal: 恢复期内被熔断拒绝的请求数是否归零, source: logs}
+    alternative_explanations:
+      - 调用量恢复是因为实例被重启，而不是熔断自行闭合（需检查重启计数）
+      - 上游流量本身在此期间下降
+    mitigation:
+      family: 配置 open 等待时长与半开探测数，让熔断自动复位
+      level: config
+  violation_manifestation: 依赖早已恢复，调用方仍在熔断，必须重启实例才恢复调用——故障范围被自己的保护机制延长。
+
+- template_id: T-CIRCUIT-03
+  name: 调不同依赖共用同一个资源池
+  mechanism_group: circuit_isolation
+  mechanism: bulkhead
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 调用不同依赖所用的线程、连接与信号量应当彼此隔离，一个依赖变慢不能把共用池占光。
+    sources:
+      - doc_id: azure-pattern-bulkhead
+        quote: |-
+          A consumer can also partition resources to ensure that resources used to call one service don't affect the resources used to call another service. For example, a consumer that calls multiple services might be assigned a connection pool for each service. If a service begins to fail, it only affects the connection pool assigned for that service.
+        location: Bulkhead pattern > Solution
+      - doc_id: azure-pattern-bulkhead
+        quote: |-
+          When the consumer sends a request to a misconfigured or unresponsive service, the resources that the client's request uses might remain unavailable for an extended period. As requests to the service continue, those resources might be exhausted.
+        location: Bulkhead pattern > Context and problem
+    defaults:
+      - {symbol: maxConcurrentCalls, value: 25, unit: 并发, doc_id: resilience4j-bulkhead}
+  locate:
+    applies_when:
+      - 一个进程同步调用两个及以上外部依赖
+    roles:
+      defect_site: 该服务的线程池 / 连接池 / 信号量配置
+      injection_site: 其中一个依赖
+      manifest_site: 与被注入依赖无关的另一条业务路径
+    instantiations:
+      - component: Resilience4j
+        how: 是否每个依赖一个 Bulkhead 实例（SemaphoreBulkhead 或 FixedThreadPoolBulkhead）
+        config_or_code: resilience4j.bulkhead 配置
+      - component: Istio
+        how: DestinationRule 的 connectionPool 是按 host 配置的，天然每上游一组配额
+        config_or_code: spec.trafficPolicy.connectionPool
+      - component: Envoy
+        how: circuit_breakers 阈值按 cluster 生效
+        config_or_code: cluster.circuit_breakers
+      - component: HikariCP
+        how: 每个数据源一个独立池，不要多库共用一个池
+        config_or_code: spring.datasource.*.hikari.maximumPoolSize
+      - component: Go net/http
+        how: 每个下游一个 http.Client / Transport，分别限 MaxConnsPerHost
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 多个依赖的出站调用走同一个线程池、连接池或同一个 http.Client
+        checker: codegraph
+        query: 起点为各出站客户端实例的构造点，查它们是否共享同一个池对象或执行器（0 跳，看构造与注入关系）
+      - id: C2
+        kind: 必要
+        statement: 该共用池没有按依赖维度的并发上限
+        checker: manifest
+        query: 线程池与连接池的上限配置，以及是否存在按依赖划分的 bulkhead 配置
+      - id: C3
+        kind: 反证
+        statement: 各依赖已经各有独立的池或 bulkhead
+        checker: manifest
+        query: resilience4j.bulkhead.instances 的键集合与依赖集合是否一一对应
+      - id: C4
+        kind: 附注
+        statement: 共用池的容量与各路径的基线并发（决定占满所需的注入幅值）
+        checker: runtime
+        query: 无注入时各路径的并发数与池使用率
+  experiment:
+    actions:
+      - action: 单个依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 只对其中一个依赖注入网络延迟，另一条路径不动
+    parameter_relation:
+      symbols:
+        - {symbol: P, meaning: 共用池的容量, source: manifest|default}
+        - {symbol: qa, meaning: 被注入依赖那条路径的 QPS, source: measured}
+        - {symbol: ba, meaning: 该路径的基线耗时, source: measured}
+        - {symbol: qb, meaning: 另一条路径的 QPS, source: measured}
+        - {symbol: bb, meaning: 另一条路径的基线耗时, source: measured}
+      boundary: d* = (P - qa * ba - qb * bb) / qa
+      worst_case_multiplier: 1
+      hold: 2 * (P / qa)
+      recovery_window: 2 * (P / qa)
+  verdict:
+    expected_behavior: 只有被注入的那条路径受影响，与它无关的另一条路径的成功率与耗时保持不变。
+    signals:
+      - {signal: 未被注入的那条路径的成功率与 p99, source: metrics}
+      - {signal: 共用池的使用率与等待队列长度, source: metrics}
+      - {signal: 未被注入路径上出现的「获取连接超时」或「线程池拒绝」错误, source: logs}
+    alternative_explanations:
+      - 两条路径其实共享同一个下游，影响是真实依赖关系而非池耦合
+      - 注入同时抬高了整机 CPU，影响是资源争抢而非池耦合
+    mitigation:
+      family: 每依赖独立资源池，并给每个池设并发上限
+      level: config
+  violation_manifestation: 只注入依赖 A 的延迟，与 A 完全无关的依赖 B 的调用也开始超时——故障跨依赖传播。
+
+- template_id: T-CIRCUIT-04
+  name: 到上游的并发上限沿用框架默认或被设成不限
+  mechanism_group: circuit_isolation
+  mechanism: concurrency limit
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 对每个上游的并发、连接与挂起请求数都应有上限，且取值要出自本进程的容量，而不是沿用框架默认或调成最大值。
+    sources:
+      - doc_id: envoy-circuit-breaking
+        quote: |-
+          Circuit breakers are enabled by default and have modest default values, e.g. 1024 connections per cluster. To disable circuit breakers, set the thresholds to the highest allowed values.
+        location: Circuit breaking > Overview
+      - doc_id: resilience4j-bulkhead
+        quote: |-
+          maxConcurrentCalls | 25 | Max amount of parallel executions allowed by the bulkhead
+        location: Bulkhead > Create and configure a Bulkhead
+    defaults:
+      - {symbol: envoy_max_connections, value: 1024, unit: 连接, doc_id: envoy-circuit-breaking}
+      - {symbol: maxConcurrentCalls, value: 25, unit: 并发, doc_id: resilience4j-bulkhead}
+  locate:
+    applies_when:
+      - 存在到某个上游的并发调用
+    roles:
+      defect_site: 该上游对应的并发 / 连接 / 挂起请求上限配置
+      injection_site: 该上游
+      manifest_site: 该服务自身的内存与线程占用
+    instantiations:
+      - component: Envoy
+        how: cluster circuit_breakers 的 max_connections / max_pending_requests / max_requests / max_retries
+        config_or_code: cluster.circuit_breakers.thresholds
+      - component: Istio
+        how: connectionPool.tcp.maxConnections 与 http.http1MaxPendingRequests / http2MaxRequests
+        config_or_code: spec.trafficPolicy.connectionPool
+      - component: Resilience4j
+        how: Bulkhead.maxConcurrentCalls 与 maxWaitDuration
+        config_or_code: resilience4j.bulkhead 配置
+      - component: Go net/http
+        how: Transport 的 MaxConnsPerHost；不设即无上限
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 并发或连接上限未显式设置，或被设成框架允许的最大值
+        checker: manifest
+        query: spec.trafficPolicy.connectionPool 与 cluster.circuit_breakers.thresholds[*].[max_connections, max_pending_requests, max_requests]
+      - id: C2
+        kind: 必要
+        statement: 代码侧的 HTTP / DB 客户端没有设每主机连接上限
+        checker: semgrep
+        query: checkers/semgrep/go-http-client-no-timeout.yaml（同一处构造点同时看 MaxConnsPerHost）；其余语言交 llm
+      - id: C3
+        kind: 反证
+        statement: 上游侧已有按调用方维度的限流，能替代调用方的并发上限
+        checker: manifest
+        query: 上游的限流规则是否按调用方维度配置
+      - id: C4
+        kind: 附注
+        statement: 该服务的线程数与内存限额（判断上限取值是否与容量相称）
+        checker: manifest
+        query: spec.template.spec.containers[*].resources.limits 与线程池配置
+  experiment:
+    actions:
+      - action: 上游变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，把在途请求数推高
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: manifest_site
+        primitive_hint: 提高该路径的入站 QPS，与延迟叠加逼近上限
+    parameter_relation:
+      symbols:
+        - {symbol: C, meaning: 到该上游的并发上限，未设时视为无穷, source: manifest|default}
+        - {symbol: q, meaning: 该路径的入站 QPS, source: measured}
+        - {symbol: b, meaning: 该调用的基线耗时, source: measured}
+        - {symbol: L, meaning: 该容器的内存限额, source: manifest}
+      boundary: d* = C / q - b
+      worst_case_multiplier: 1
+      hold: 3 * (C / q)
+      recovery_window: 2 * (C / q)
+  verdict:
+    expected_behavior: 上游变慢后在途请求数被压在上限处，超出的请求立即失败而不是无限堆积。
+    signals:
+      - {signal: 到该上游的在途请求数是否停在某个值, source: metrics}
+      - {signal: 并发上限溢出计数器（upstream_rq_pending_overflow 一类）, source: metrics}
+      - {signal: 该容器的内存用量与线程数是否随注入持续增长, source: metrics}
+      - {signal: 是否出现 OOMKilled, source: status}
+    alternative_explanations:
+      - 上限其实由上游的限流决定，不是调用方自己压住的
+      - 入站流量本身有限，还没到能撞上限的水位
+    mitigation:
+      family: 按本进程容量推导每上游并发上限，溢出即快速失败
+      level: config
+  violation_manifestation: 上游变慢后在途请求无限堆积，调用方的内存与线程被吃光，最后被 OOM 杀掉或整体无响应。
+
+- template_id: T-CIRCUIT-05
+  name: 剔除比例上限与副本数不相容
+  mechanism_group: circuit_isolation
+  mechanism: outlier detection
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 一次最多能剔除的实例比例必须与副本数相容：既要保证单个坏实例摘得掉，也要保证全局性故障不会把整个上游摘空。
+    sources:
+      - doc_id: envoy-outlier-detection
+        quote: |-
+          It checks to make sure the number of ejected hosts is below the allowed threshold (specified via the outlier_detection.max_ejection_percent setting). If the number of ejected hosts is above the threshold, the host is not ejected.
+        location: Outlier detection > Ejection algorithm
+      - doc_id: istio-destinationrule
+        quote: |-
+          Maximum % of hosts in the load balancing pool for the upstream service that can be ejected. Defaults to 10%.
+        location: DestinationRule > OutlierDetection > maxEjectionPercent
+      - doc_id: envoy-outlier-detection
+        quote: |-
+          An ejected host will automatically be brought back into service after the ejection time has been satisfied.
+        location: Outlier detection > Ejection algorithm
+    defaults:
+      - {symbol: maxEjectionPercent, value: "10%", unit: 比例, doc_id: istio-destinationrule}
+  locate:
+    applies_when:
+      - 上游服务有多个实例
+      - 启用了被动异常实例剔除
+    roles:
+      defect_site: 该上游的 outlierDetection 配置与它的副本数
+      injection_site: 该上游的一个实例（单实例故障）或全部实例（全局故障）
+      manifest_site: 调用方看到的错误率与可用后端数
+    instantiations:
+      - component: Envoy
+        how: outlier_detection 的 consecutive_5xx、interval、base_ejection_time、max_ejection_percent
+        config_or_code: cluster.outlier_detection
+      - component: Istio
+        how: outlierDetection 的 consecutive5xxErrors、baseEjectionTime、maxEjectionPercent、minHealthPercent
+        config_or_code: spec.trafficPolicy.outlierDetection
+      - component: ingress-nginx
+        how: upstream 的被动失败计数与失败窗口
+        config_or_code: nginx.ingress.kubernetes.io/* 注解
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 上游副本数 × maxEjectionPercent 小于 1，单个坏实例其实摘不掉
+        checker: manifest
+        query: spec.trafficPolicy.outlierDetection.maxEjectionPercent 与对应 Deployment 的 spec.replicas
+      - id: C2
+        kind: 反证
+        statement: maxEjectionPercent 被设成 100%，单实例摘得掉，但此时应改看「全体被摘空」这一面
+        checker: manifest
+        query: spec.trafficPolicy.outlierDetection.maxEjectionPercent 的取值
+      - id: C3
+        kind: 附注
+        statement: minHealthPercent 的取值（决定全体不健康时是否还会继续剔除）
+        checker: manifest
+        query: spec.trafficPolicy.outlierDetection.minHealthPercent
+  experiment:
+    actions:
+      - action: 单实例持续返回错误
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 只让上游的一个实例返回 5xx，观察它是否被摘掉
+      - action: 全部实例同时变坏
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让上游全部实例同时返回 5xx，观察是否出现「无可用后端」
+    parameter_relation:
+      symbols:
+        - {symbol: n, meaning: 上游副本数, source: manifest}
+        - {symbol: P, meaning: maxEjectionPercent, source: manifest|default}
+        - {symbol: k, meaning: 触发剔除所需的连续错误数, source: manifest|default}
+        - {symbol: I, meaning: 检测间隔, source: manifest|default}
+        - {symbol: E, meaning: 基础剔除时长, source: manifest|default}
+      boundary: "d* = 1（注入一个坏实例即可；判定看 floor(n * P) 是否 ≥ 1）"
+      worst_case_multiplier: n
+      hold: k * I + E
+      recovery_window: 2 * E
+  verdict:
+    expected_behavior: 单个坏实例在若干次失败后被摘掉、剔除期满自动回来；全部实例同时变坏时仍保留可路由的后端。
+    signals:
+      - {signal: 按上游实例分组的入站 QPS，坏实例是否归零, source: metrics}
+      - {signal: 剔除与恢复事件的时间线, source: metrics}
+      - {signal: 全体变坏时是否出现 no healthy upstream 类错误, source: logs}
+      - {signal: 调用方错误率是否稳定在 1/n 附近（说明坏实例没被摘掉）, source: metrics}
+    alternative_explanations:
+      - 坏实例同时被就绪探针摘出了 EndpointSlice，剔除其实由探针完成
+      - 负载均衡算法本身把流量挪走了（如最少请求数）
+    mitigation:
+      family: 让 maxEjectionPercent × 副本数 ≥ 1，并配 minHealthPercent 防止摘空
+      level: config
+  violation_manifestation: 副本少时一个坏实例摘不掉，错误率稳定卡在 1/n 不降；比例放大到 100% 后，全局性故障又会把整个上游摘空，本来还能处理部分请求的实例也拿不到流量。
