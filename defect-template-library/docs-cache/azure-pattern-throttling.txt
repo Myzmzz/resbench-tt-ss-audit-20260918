@@ -3,4 +3,9 @@
 # 许可：© Microsoft，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] Problems and considerations
+...
+Shed load proactively, not at the edge of collapse. A throttle that only rejects after a component saturates causes latency to spike before callers see any back-pressure.
+...
+Include a Retry-After HTTP header so that the client can pick a retry strategy. Return enough context for the caller to retry deliberately instead of guessing. For example, name the limit that the caller exceeds, clarify the affected scope, or suggest a rate that would succeed. Unexplained rejections don't help callers adapt.
+Propagate overload signals from your dependencies instead of absorbing them. A service that throttles its callers must also honor the throttling responses that it receives from its own downstream dependencies. If your service hides a downstream 429 or 503 response by retrying silently or by returning a generic HTTP 500 (Internal Server Error) response, callers can't slow down, retries amplify, and the overload cascades back upstream. The Retry Storm antipattern describes this failure mode. Surface back-pressure to upstream callers so that the entire call chain sheds load together.

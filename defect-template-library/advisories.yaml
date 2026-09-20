@@ -33,3 +33,39 @@ advisories:
         location: Circuit Breaker pattern > Comparison to the Retry pattern
   why_not_supported: 判定要看熔断器当时处于哪个状态、以及重试是否把「熔断拒绝」计入了失败，属状态相关；同样的配置在闭合态与打开态下的正确行为不同，无法只凭静态配置判出违反。
   what_is_needed: 需要能在运行时读取熔断器状态机的当前状态与状态变迁时刻，并能把每次重试决策与当时的状态对齐。
+
+- advisory_id: A-SHED-01
+  name: 过载解除后系统回不到正常态（亚稳态）
+  mechanism_group: load_shedding_admission
+  parameter_kind: 滞后型
+  rule:
+    statement: 触发过载的条件消失之后，系统可能仍停在低吞吐的过载态，需要显著降低负载或切断流量才能恢复。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Even if the rate of calls to MakeRequest decreases to pre-meltdown levels (9,000 QPS, for example), depending on how much returning a failure costs the backend, the problem might not go away.
+        location: Retries
+      - doc_id: sre-cascading-failures
+        quote: |-
+          If either of these conditions is true, in order to dig out of this outage, you must dramatically reduce or eliminate the load on the frontends until the retries stop and the backends stabilize.
+        location: Retries
+  why_not_supported: 判定要看「撤销注入之后系统是否自行回到基线」，而进入与退出的负载阈值不同（滞后），退出阈值取决于队列里积压了多少、重试预算恢复得多快，无法从配置参数算出一个边界。
+  what_is_needed: 需要在撤销注入后持续观测足够长的窗口，并能比较进入过载与退出过载两个方向的负载阈值；还需要能测出积压深度随时间的衰减速率。
+
+- advisory_id: A-SHED-02
+  name: 客户端自适应节流
+  mechanism_group: load_shedding_admission
+  parameter_kind: 状态型
+  rule:
+    statement: 后端开始拒绝时，客户端应当按后端的接受率自适应地降低发出量，而不是把拒绝的开销全留给后端。
+    sources:
+      - doc_id: sre-handling-overload
+        quote: |-
+          As the rate at which the application attempts requests to the client grows (relative to the rate at which the backend accepts them), we want to increase the probability of dropping new requests.
+        location: Client-Side Throttling > Client request rejection probability
+      - doc_id: sre-handling-overload
+        quote: |-
+          We've found adaptive throttling to work well in practice, leading to stable rates of requests overall.
+        location: Client-Side Throttling > Client request rejection probability
+  why_not_supported: 是否违反取决于客户端本地统计的「请求数 / 接受数」滑动状态，而这个状态既不在配置里也不在代码常量里；同一份代码在不同后端拒绝率下表现不同，静态查不出，运行时也需要客户端自报该状态才能判。
+  what_is_needed: 需要客户端暴露自适应节流的内部状态（请求数、接受数、本地丢弃数）作为指标，或在实验中能按已知比例控制后端的拒绝率并观测客户端发出量的响应曲线。

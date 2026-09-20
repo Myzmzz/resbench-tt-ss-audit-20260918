@@ -1884,3 +1884,361 @@ templates:
       family: 让 maxEjectionPercent × 副本数 ≥ 1，并配 minHealthPercent 防止摘空
       level: config
   violation_manifestation: 副本少时一个坏实例摘不掉，错误率稳定卡在 1/n 不降；比例放大到 100% 后，全局性故障又会把整个上游摘空，本来还能处理部分请求的实例也拿不到流量。
+
+# ============================================================ load_shedding_admission
+- template_id: T-SHED-01
+  name: 服务端没有准入控制，过载时全体一起变慢
+  mechanism_group: load_shedding_admission
+  mechanism: admission control
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 服务端应当在自己饱和之前主动拒掉多余请求，让被接受的请求仍在延迟目标内完成，而不是照单全收后集体变慢。
+    sources:
+      - doc_id: aws-builders-load-shedding
+        quote: |-
+          When a server approaches overload, it should start rejecting excess requests so that it can focus on the requests it decides to let in. The goal of load shedding is to keep latency low for the requests that the server decides to accept so that the service replies before the client times out.
+        location: Using load shedding to avoid overload > 概述
+      - doc_id: sre-cascading-failures
+        quote: |-
+          One straightforward way to shed load is to do per-task throttling based on CPU, memory, or queue length; limiting queue length as discussed in Queue Management is a form of this strategy.
+        location: Preventing Server Overload > Load Shedding and Graceful Degradation
+      - doc_id: azure-pattern-throttling
+        quote: |-
+          Shed load proactively, not at the edge of collapse. A throttle that only rejects after a component saturates causes latency to spike before callers see any back-pressure.
+        location: Throttling pattern > Issues and considerations
+  locate:
+    applies_when:
+      - 服务对外暴露同步接口
+      - 入站流量不完全受本服务控制（来自网关、外部调用方或异步消费）
+    roles:
+      defect_site: 该服务的限流 / 并发上限 / 过载保护配置
+      injection_site: 该服务自身（抬升入站流量或制造资源压力）
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Envoy
+        how: 本地或全局 rate limit filter；overload manager 按内存与在途请求数减载
+        config_or_code: http_filters 的 local_ratelimit / ratelimit 与 overload_manager
+      - component: ingress-nginx
+        how: limit-rps、limit-connections 注解
+        config_or_code: nginx.ingress.kubernetes.io/limit-rps
+      - component: Polly
+        how: RateLimiter 或 ConcurrencyLimiter 策略
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 服务端线程池上限与队列上限共同决定准入
+        config_or_code: server.tomcat.threads.max 与 server.tomcat.accept-count
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 该服务入口既没有限流规则，也没有并发上限
+        checker: manifest
+        query: 该服务对应的 Ingress / VirtualService / EnvoyFilter 上的限流配置，以及服务端线程池上限
+      - id: C2
+        kind: 必要
+        statement: 服务端的工作队列是无界的，请求会一直堆积而不是被拒绝
+        checker: semgrep
+        query: checkers/semgrep/java-unbounded-work-queue.yaml、checkers/semgrep/go-unbounded-channel-worker.yaml
+      - id: C3
+        kind: 反证
+        statement: 上游或网关侧已经有针对该服务的限流，实际准入由外层完成
+        checker: manifest
+        query: 入口网关上与该服务路由匹配的限流注解或规则
+      - id: C4
+        kind: 附注
+        statement: 该服务的容量拐点（吞吐随并发上升到不再增长的位置）
+        checker: runtime
+        query: 阶梯加压下吞吐与延迟随并发的变化曲线
+  experiment:
+    actions:
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 阶梯提高该服务入口的 QPS，越过容量拐点
+      - action: CPU 压力
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在该容器内占用 CPU，等效降低容量，使较低的 QPS 也能越过拐点
+    parameter_relation:
+      symbols:
+        - {symbol: C, meaning: 该服务的容量（拐点处的 QPS）, source: measured}
+        - {symbol: q, meaning: 注入的入站 QPS, source: measured}
+        - {symbol: L, meaning: 上游对本服务的延迟目标或超时, source: requirement|manifest}
+        - {symbol: N, meaning: 服务端工作线程数, source: manifest|default}
+      boundary: d* = C（把 QPS 抬到容量以上即触发）
+      worst_case_multiplier: 1
+      hold: 3 * L
+      recovery_window: 3 * L
+  verdict:
+    expected_behavior: 入站流量越过容量后出现拒绝，被接受请求的延迟仍在目标内，吞吐持平而不是塌陷。
+    signals:
+      - {signal: 吞吐随入站 QPS 的曲线是否持平（而非先升后塌）, source: metrics}
+      - {signal: 被接受请求的 p99 延迟是否仍在 L 以内, source: metrics}
+      - {signal: 拒绝计数与拒绝率, source: metrics}
+      - {signal: 上游侧看到的超时比例, source: traces}
+    alternative_explanations:
+      - 吞吐塌陷来自下游依赖被打满，而不是本服务缺准入控制
+      - 压测客户端自身成为瓶颈
+    mitigation:
+      family: 按压测得到的容量设准入阈值，过载时快速拒绝而不是排队
+      level: config
+  violation_manifestation: 压力上去后吞吐不是持平而是塌陷，所有请求一起超时，服务从「部分可用」直接掉成「完全不可用」。
+
+- template_id: T-SHED-02
+  name: 请求队列无界或相对线程池过长
+  mechanism_group: load_shedding_admission
+  mechanism: bounded queue
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 服务端的请求队列必须有界；流量平稳的服务队列长度还应显著小于线程池规模，宁可早拒绝也不要让请求排到超时。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          For a system with fairly steady traffic over time, it is usually better to have small queue lengths relative to the thread pool size (e.g., 50% or less), which results in the server rejecting requests early when it can’t sustain the rate of incoming requests.
+        location: Preventing Server Overload > Queue Management
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Queued requests consume memory and increase latency.
+        location: Preventing Server Overload > Queue Management
+  locate:
+    applies_when:
+      - 服务端在工作线程前面有请求队列（线程池队列、accept 队列、消息拉取缓冲）
+    roles:
+      defect_site: 该服务的队列长度与线程池规模配置
+      injection_site: 该服务自身（抬升入站流量）或它的下游依赖（拉长单请求耗时）
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Spring Boot
+        how: server.tomcat.threads.max 与 server.tomcat.accept-count 的比值
+        config_or_code: application 配置
+      - component: Envoy
+        how: max_pending_requests 即队列上限，溢出立即拒绝
+        config_or_code: cluster.circuit_breakers.thresholds[*].max_pending_requests
+      - component: ingress-nginx
+        how: worker_connections 与 backlog 决定内核层排队深度
+        config_or_code: ConfigMap 的 worker-connections
+      - component: Go net/http
+        how: 每请求一协程且无并发上限，等价于无界队列
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 队列无界（无参 LinkedBlockingQueue、每请求起协程且无信号量、未设 max_pending_requests）
+        checker: semgrep
+        query: checkers/semgrep/java-unbounded-work-queue.yaml、checkers/semgrep/go-unbounded-channel-worker.yaml
+      - id: C2
+        kind: 必要
+        statement: 清单侧也没有给出队列上限
+        checker: manifest
+        query: cluster.circuit_breakers.thresholds[*].max_pending_requests 与 server.tomcat.accept-count
+      - id: C3
+        kind: 反证
+        statement: 队列虽有界但长度远大于线程池规模，属于同一问题的程度差异，应记录实际比值而非直接判违反
+        checker: manifest
+        query: 队列长度与线程数的比值
+      - id: C4
+        kind: 附注
+        statement: 单请求的平均处理时长（用于把队列长度换算成排队时长）
+        checker: runtime
+        query: 无注入时该接口的处理耗时均值
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 注入下游延迟，拉长单请求占用线程的时间，使队列快速堆积
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 提高入站 QPS 直到超过线程池的处理能力
+    parameter_relation:
+      symbols:
+        - {symbol: Q, meaning: 队列长度，无界时视为无穷, source: manifest|code|default}
+        - {symbol: N, meaning: 工作线程数, source: manifest|default}
+        - {symbol: p, meaning: 单请求处理时长, source: measured}
+        - {symbol: U, meaning: 上游对本服务的超时, source: manifest|requirement}
+        - {symbol: q, meaning: 入站 QPS, source: measured}
+      boundary: d* = (N * U / p - N) * p（注入延迟使 (Q/N) * (p + d) 超过 U 即触发）
+      worst_case_multiplier: 1
+      hold: (Q / N) * p + U
+      recovery_window: 2 * ((Q / N) * p + U)
+  verdict:
+    expected_behavior: 过载时新请求在队列上限处被立即拒绝，被接受请求的排队时长不超过上游还愿意等待的时间。
+    signals:
+      - {signal: 队列深度随时间的变化是否收敛到上限, source: metrics}
+      - {signal: 排队时长分布与上游超时的关系, source: traces}
+      - {signal: 拒绝计数是否随过载出现, source: metrics}
+      - {signal: 容器内存用量是否随队列堆积持续上涨, source: metrics}
+    alternative_explanations:
+      - 内存上涨来自业务对象缓存，而不是排队请求
+      - 拒绝来自上游网关而不是本服务
+    mitigation:
+      family: 有界队列加明确的拒绝策略，队列长度按上游预算反推
+      level: config
+  violation_manifestation: 过载时内存被排队请求吃光，或所有请求都排到上游超时之后才被处理，有效吞吐降到接近零。
+
+- template_id: T-SHED-03
+  name: 过载拒绝没有用可识别的状态码，下游过载信号被吞掉
+  mechanism_group: load_shedding_admission
+  mechanism: backpressure signalling
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 过载拒绝必须用调用方能识别的状态表示，并且下游返回的过载信号要如实向上传递，不能被统一改写成通用错误或被静默重试掩盖。
+    sources:
+      - doc_id: azure-pattern-throttling
+        quote: |-
+          Propagate overload signals from your dependencies instead of absorbing them. A service that throttles its callers must also honor the throttling responses that it receives from its own downstream dependencies. If your service hides a downstream 429 or 503 response by retrying silently or by returning a generic HTTP 500 (Internal Server Error) response, callers can't slow down, retries amplify, and the overload cascades back upstream.
+        location: Throttling pattern > Issues and considerations
+      - doc_id: azure-pattern-throttling
+        quote: |-
+          Include a Retry-After HTTP header so that the client can pick a retry strategy.
+        location: Throttling pattern > Issues and considerations
+  locate:
+    applies_when:
+      - 该服务有限流，或它的下游可能返回过载类响应
+    roles:
+      defect_site: 该服务的限流响应配置与异常映射层
+      injection_site: 该服务的下游依赖
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Envoy
+        how: 限流拒绝返回的状态码与响应头
+        config_or_code: local_ratelimit 的 status 与 response_headers_to_add
+      - component: Spring Boot
+        how: 全局异常处理器是否把下游 429 / 503 统一改写成 500
+        config_or_code: 源码（@ControllerAdvice）
+      - component: gRPC
+        how: RESOURCE_EXHAUSTED 与 UNAVAILABLE 的区分，以及是否被放进可重试状态码
+        config_or_code: 源码与 service config
+      - component: ingress-nginx
+        how: 限流拒绝的返回码注解
+        config_or_code: nginx.ingress.kubernetes.io/limit-*
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 异常映射层把下游的过载状态统一改写成了通用错误
+        checker: llm
+        query: 该服务的全局异常处理是否把下游 429 / 503 映射成了 500 或统一错误码？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C2
+        kind: 必要
+        statement: 本服务自己的限流拒绝没有用可识别的状态码
+        checker: manifest
+        query: 限流过滤器配置里的拒绝状态码取值
+      - id: C3
+        kind: 反证
+        statement: 过载状态被如实透传，且带了 Retry-After 或等价信息
+        checker: runtime
+        query: 注入下游过载后，观察本服务向上返回的状态码与响应头
+  experiment:
+    actions:
+      - action: 下游返回过载状态
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游在一段时间内稳定返回 429 或 503
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: defect_site
+        primitive_hint: 把本服务的入站 QPS 抬过它自己的限流阈值，检查它拒绝时用的状态码
+  verdict:
+    expected_behavior: 下游的过载状态被如实传到上游，上游能据此退避；本服务自己的限流拒绝也用可识别的状态码。
+    signals:
+      - {signal: 本服务出站收到的状态码分布, source: metrics}
+      - {signal: 本服务入站返回的状态码分布, source: metrics}
+      - {signal: 上游在注入期间的重试率变化, source: metrics}
+      - {signal: 响应头中是否带 Retry-After, source: logs}
+    alternative_explanations:
+      - 下游本身没有返回过载状态，而是直接超时（信号源头就没有）
+      - 上游不看状态码，只按超时判断，透传与否都不影响其行为
+    mitigation:
+      family: 用专门的过载状态码并把它一路透传上去
+      level: code
+  violation_manifestation: 上游无从得知下游在过载，继续加压甚至重试，过载沿调用链反向放大。
+
+- template_id: T-SHED-04
+  name: 排到超时的请求出队后仍被处理
+  mechanism_group: load_shedding_admission
+  mechanism: queue admission by deadline
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 请求出队开始处理前应当先看它是否已经超出调用方还愿意等待的时间，过期的直接丢弃，而不是照先进先出处理完。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          If handling a request is performed over multiple stages (e.g., there are a few callbacks and RPC calls), the server should check the deadline left at each stage before attempting to perform any more work on the request.
+        location: Latency and Deadlines > Missing deadlines
+      - doc_id: aws-builders-load-shedding
+        quote: |-
+          In some extreme overload scenarios, huge volumes of requests can queue up in Transmission Control Protocol (TCP) buffers, so by the time the server reads the requests from its buffers, the client has already timed out.
+        location: Using load shedding to avoid overload > Watching the clock
+  locate:
+    applies_when:
+      - 服务端存在排队（线程池队列、消息拉取、内核 accept 队列）
+      - 调用方对该接口设置了超时
+    roles:
+      defect_site: 该服务的出队处理入口
+      injection_site: 该服务自身（抬升入站流量制造排队）或它的下游（拉长处理时长）
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: gRPC
+        how: 服务端出队后是否检查 context 是否已取消或已过期
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 队列里是否记录了入队时刻，处理前是否比对上游超时
+        config_or_code: 源码
+      - component: Envoy
+        how: route timeout 与 max_pending_requests 配合，超时的挂起请求被取消
+        config_or_code: route.timeout 与 cluster.circuit_breakers
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 出队处没有「已过期就丢弃」的判断
+        checker: codegraph
+        query: 起点为工作线程的任务取出点，沿调用边查 2 跳内是否存在对 context 取消状态或入队时间戳的检查
+      - id: C2
+        kind: 必要
+        statement: 队列里没有携带入队时刻或截止时间，想判也判不了
+        checker: llm
+        query: 入队的任务对象是否携带入队时刻或截止时间字段？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 队列极短（相对线程池不足以排出超过上游超时的等待），过期请求本就很少
+        checker: manifest
+        query: 队列长度与线程数的比值，以及单请求处理时长
+  experiment:
+    actions:
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 把 QPS 抬到超过处理能力，让队列稳定堆满
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 注入下游延迟，拉长单请求处理时长，加速排队
+    parameter_relation:
+      symbols:
+        - {symbol: U, meaning: 上游对本服务的超时, source: manifest|requirement}
+        - {symbol: Q, meaning: 队列长度, source: manifest|code|default}
+        - {symbol: N, meaning: 工作线程数, source: manifest|default}
+        - {symbol: p, meaning: 单请求处理时长, source: measured}
+        - {symbol: q, meaning: 入站 QPS, source: measured}
+      boundary: d* = (U * N / Q) - p（排队时长 (Q/N)*(p+d) 越过 U 即触发）
+      worst_case_multiplier: 1
+      hold: 2 * (Q / N) * p
+      recovery_window: 2 * (Q / N) * p
+  verdict:
+    expected_behavior: 过载时服务端把已过期的排队请求直接丢弃，有效吞吐（上游还愿意接收的那部分）保持非零。
+    signals:
+      - {signal: 有效吞吐（上游未超时的成功响应数）是否随过载降到零, source: metrics}
+      - {signal: 服务端 CPU 使用率与有效吞吐的背离程度, source: metrics}
+      - {signal: 上游已超时但服务端仍完成的请求比例, source: traces}
+      - {signal: 出队即丢弃的计数, source: metrics}
+    alternative_explanations:
+      - 有效吞吐为零是因为服务端确实处理不过来，而不是在处理过期请求
+      - 上游超时设得过短，任何排队都会过期
+    mitigation:
+      family: 出队即校验截止时间，或改用 LIFO / CoDel 之类的排队策略
+      level: code
+  violation_manifestation: 过载期间服务端满负荷运转，有效吞吐却接近零——处理的全是上游早已放弃的请求。

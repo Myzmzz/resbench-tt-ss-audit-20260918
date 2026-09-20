@@ -62,7 +62,7 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
   retrieved_at: '2026-09-20'
-  sha256: 013bf6cb3c32beac93b4221f20e027c772d8abd24a3cbd9d06975eca9680774c
+  sha256: daf9091b6f01877b2d447c0870e4b82c321ba54f1bd078341992f8f76da48891
   source_sha256: ''
   license: © Amazon，文档未授权再分发
   redistribution: restricted
@@ -205,7 +205,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling
   retrieved_at: '2026-09-20'
-  sha256: 6bce4bc658562f289699652031041f16fc8a098a69e4099b1cf709ea022f31b5
+  sha256: 7f07e3044f943da489edae66cf30447a0e1af1f8710411dc1c9bda109a44071a
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -1245,7 +1245,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/addressing-cascading-failures/
   retrieved_at: '2026-09-20'
-  sha256: 8fd7a4151817815ebd4f8f8fda02e0f4d68e3b002172de30de1328a1deb631ac
+  sha256: cd0146f7bfaf52174462923c09ace6d73563836171da2745f24be70c307b4127
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
   redistribution: restricted
@@ -1258,7 +1258,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/handling-overload/
   retrieved_at: '2026-09-20'
-  sha256: e8a3bb287132143fe7cb25ecac6158c785b79af963aa3a114f1872f65061d84b
+  sha256: 8bc1c6b2e53354653983b7f36d10a6a9e690df997ad9c4491aef1a8f2e06dd95
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
   redistribution: restricted

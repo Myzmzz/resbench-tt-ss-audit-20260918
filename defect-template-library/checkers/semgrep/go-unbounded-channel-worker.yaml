@@ -1,0 +1,15 @@
+rules:
+  - id: go-unbounded-channel-worker
+    languages: [go]
+    severity: WARNING
+    message: >-
+      请求处理路径上对每个请求直接 go 一个协程，没有并发上限也没有有界队列，
+      过载时协程数随入站速率无上限增长。
+    patterns:
+      - pattern-inside: |
+          func $F($W http.ResponseWriter, $R *http.Request) { ... }
+      - pattern: |
+          go $CALL(...)
+      - pattern-not-inside: |
+          $SEM <- struct{}{}
+          ...

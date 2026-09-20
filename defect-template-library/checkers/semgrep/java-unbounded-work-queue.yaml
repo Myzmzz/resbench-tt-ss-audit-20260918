@@ -1,0 +1,15 @@
+rules:
+  - id: java-unbounded-work-queue
+    languages: [java]
+    severity: WARNING
+    message: >-
+      线程池用了无界队列。Executors.newFixedThreadPool / newSingleThreadExecutor 内部是
+      无参的 LinkedBlockingQueue（容量 Integer.MAX_VALUE），过载时请求会一直堆进队列，
+      直到内存耗尽，而不是被及时拒绝。
+    patterns:
+      - pattern-either:
+          - pattern: Executors.newFixedThreadPool(...)
+          - pattern: Executors.newSingleThreadExecutor(...)
+          - pattern: new LinkedBlockingQueue()
+          - pattern: new LinkedBlockingDeque()
+          - pattern: new ThreadPoolExecutor($C, $M, $K, $U, new LinkedBlockingQueue())

@@ -3,4 +3,10 @@
 # 许可：© Amazon，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] The anatomy of overload
+...
+On the surface, load shedding is simple. When a server approaches overload, it should start rejecting excess requests so that it can focus on the requests it decides to let in. The goal of load shedding is to keep latency low for the requests that the server decides to accept so that the service replies before the client times out. With this approach, the server maintains high availability for the requests it accepts, and only the excess traffic’s availability is affected.
+...
+[[H2]] Load shedding mechanisms
+...
+The other way to “watch the clock” is to measure a duration on a single machine. Servers are good at measuring elapsed durations locally because they do not need to gain consensus with other servers. Unfortunately, expressing timeouts in terms of durations has its problems, too. For one, the timer you use must be monotonic and not go backward when the server syncs with the Network Time Protocol (NTP). A far more difficult problem is that in order to measure a duration, the server has to know when to start a stopwatch. In some extreme overload scenarios, huge volumes of requests can queue up in Transmission Control Protocol (TCP) buffers, so by the time the server reads the requests from its buffers, the client has already timed out.
