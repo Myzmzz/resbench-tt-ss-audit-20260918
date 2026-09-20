@@ -2652,3 +2652,345 @@ templates:
       family: 按「剩余副本仍够用」反推 maxUnavailable，必要时提高 maxSurge
       level: config
   violation_manifestation: 更新过程中容量最低的那一刻撑不住当前流量，出现一段错误率台阶，看起来像「一发布就抖」。
+
+# ============================================================ resource_limit
+- template_id: T-RESOURCE-01
+  name: 容器没有声明资源请求与限额
+  mechanism_group: resource_limit
+  mechanism: resource requests and limits
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 每个容器都应声明资源请求与限额；调度按请求决定放在哪台节点，内核按限额约束实际用量。
+    sources:
+      - doc_id: k8s-resources
+        quote: |-
+          When you specify the resource request for containers in a Pod, the kube-scheduler uses this information to decide which node to place the Pod on. When you specify a resource limit for a container, the kubelet enforces those limits so that the running container is not allowed to use more of that resource than the limit you set.
+        location: Resource Management for Pods and Containers > 概述
+      - doc_id: k8s-resources
+        quote: |-
+          If a container exceeds its memory request and the node that it runs on becomes short of memory overall, it is likely that the Pod the container belongs to will be evicted.
+        location: Resource Management for Pods and Containers > Memory requests and limits
+      - doc_id: kube-score-checks
+        quote: |-
+          | container-resources | Pod | Makes sure that all pods have resource limits and requests set. The --ignore-container-cpu-limit flag can be used to disable the requirement of having a CPU limit | default |
+        location: kube-score checks 列表
+  locate:
+    applies_when:
+      - 该工作负载与其他负载共享节点
+    roles:
+      defect_site: 该容器的 resources 字段
+      injection_site: 承载该容器的节点（制造资源压力）
+      manifest_site: 该服务自身的重启计数与上游错误率
+    instantiations:
+      - component: Kubernetes
+        how: resources.requests 与 resources.limits 的 cpu、memory、ephemeral-storage
+        config_or_code: spec.template.spec.containers[*].resources
+      - component: kube-score
+        how: container-resources 与 container-ephemeral-storage-request-and-limit
+        config_or_code: kube-score 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 容器没有设置 requests 或 limits（任一缺失）
+        checker: manifest
+        query: spec.template.spec.containers[*].resources.[requests, limits]
+      - id: C2
+        kind: 反证
+        statement: 集群有 LimitRange 会为该命名空间补上默认值
+        checker: manifest
+        query: 该命名空间下 LimitRange[*].spec.limits
+      - id: C3
+        kind: 附注
+        statement: 该容器的实测稳态用量（判断 requests 取值是否离谱）
+        checker: runtime
+        query: 稳态下该容器的 CPU 与内存用量
+  experiment:
+    actions:
+      - action: 节点内存压力
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在该节点上占用内存，逼近节点可分配量
+      - action: 同节点 CPU 争抢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在同节点起占 CPU 的负载
+  verdict:
+    expected_behavior: 节点出现资源压力时，该服务按其声明的请求量获得保障，不被优先驱逐也不被 OOM 杀。
+    signals:
+      - {signal: 该容器是否出现 OOMKilled, source: status}
+      - {signal: 驱逐事件及被驱逐 Pod 的 QoS 等级, source: events}
+      - {signal: CPU 节流时间占比, source: metrics}
+      - {signal: 注入期间该服务的错误率, source: metrics}
+    alternative_explanations:
+      - 驱逐来自节点维护而非资源压力
+      - OOM 来自应用自身的内存泄漏，与限额声明无关
+    mitigation:
+      family: 按实测用量设置 requests 与 limits
+      level: config
+  violation_manifestation: 节点资源一紧张，这个服务先被驱逐或反复 OOMKilled，而同节点上不重要的负载活得好好的。
+
+- template_id: T-RESOURCE-02
+  name: 运行时堆上限与容器内存限额脱钩
+  mechanism_group: resource_limit
+  mechanism: runtime heap vs container limit
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 运行时的堆上限应当由容器内存限额推导并为堆外留出余量，否则容器会在运行时自认为内存还够的时候被内核杀掉。
+    sources:
+      - doc_id: jvm-launcher
+        quote: |-
+          The maximum amount of available memory to the JVM process is the minimum of the machine's physical memory and any constraints set by the environment (e.g. container).
+        location: java command > Advanced Runtime Options
+      - doc_id: jvm-launcher
+        quote: |-
+          Linux only: The VM now provides automatic container detection support, which allows the VM to determine the amount of memory and number of processors that are available to a Java process running in docker containers.
+        location: java command > Advanced Runtime Options > -XX:-UseContainerSupport
+      - doc_id: k8s-resources
+        quote: |-
+          memory limits are enforced by the kernel with out of memory (OOM) kills. When a container uses more than its memory limit, the kernel may terminate it.
+        location: Resource Management for Pods and Containers > Resource units
+  locate:
+    applies_when:
+      - 容器内跑的是自带堆或内存池的运行时（JVM、Node.js、.NET 等）
+      - 容器声明了内存限额
+    roles:
+      defect_site: 运行时的堆参数与容器内存限额
+      injection_site: 该容器（制造内存压力或抬高业务内存占用）
+      manifest_site: 该服务自身的重启计数与上游错误率
+    instantiations:
+      - component: JVM
+        how: 是否用 -XX:MaxRAMPercentage 之类按比例取值；是否显式关掉了 UseContainerSupport
+        config_or_code: 容器启动参数 JAVA_OPTS / JAVA_TOOL_OPTIONS
+      - component: Node.js
+        how: --max-old-space-size 是否按容器限额设置
+        config_or_code: 容器启动参数
+      - component: Kubernetes
+        how: resources.limits.memory 是内核 OOM 的判据；以内存为介质的 emptyDir 也计入
+        config_or_code: spec.template.spec.containers[*].resources.limits.memory
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 堆上限写死为绝对值或完全未设，没有与容器内存限额挂钩
+        checker: manifest
+        query: spec.template.spec.containers[*].[env, args] 中的堆参数，与 resources.limits.memory 比对
+      - id: C2
+        kind: 必要
+        statement: 显式关闭了容器感知（-XX:-UseContainerSupport 或等价设置）
+        checker: manifest
+        query: 容器启动参数里是否出现 -XX:-UseContainerSupport
+      - id: C3
+        kind: 反证
+        statement: 堆上限加上实测堆外占用之和明显小于内存限额，余量充足
+        checker: runtime
+        query: 稳态下进程 RSS 与堆占用之差，对比内存限额
+      - id: C4
+        kind: 附注
+        statement: 实测堆外占用（元空间、线程栈、直接内存、本地库）
+        checker: runtime
+        query: RSS 减去堆内占用
+  experiment:
+    actions:
+      - action: 容器内存压力
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在容器内占用内存，把 RSS 推向限额
+      - action: 业务内存占用抬升
+        type: 连续幅值
+        target_role: manifest_site
+        primitive_hint: 抬高并发或请求体大小，抬高堆外与堆内占用
+    parameter_relation:
+      symbols:
+        - {symbol: L, meaning: 容器内存限额, source: manifest}
+        - {symbol: H, meaning: 运行时堆上限, source: manifest|default}
+        - {symbol: O, meaning: 实测堆外占用, source: measured}
+        - {symbol: R, meaning: 稳态 RSS, source: measured}
+      boundary: d* = L - R（再占这么多内存就会触到限额）
+      worst_case_multiplier: 1
+      hold: 120
+      recovery_window: 300
+  verdict:
+    expected_behavior: 内存压力上来时，运行时先抛出自己的内存不足错误（可观测、可降级），而不是被内核直接杀掉。
+    signals:
+      - {signal: 容器是否被 OOMKilled, source: status}
+      - {signal: 运行时是否记录了内存不足异常, source: logs}
+      - {signal: RSS 与内存限额的比值随注入的变化, source: metrics}
+      - {signal: GC 频率与停顿时长（JVM）, source: metrics}
+    alternative_explanations:
+      - OOM 来自以内存为介质的 emptyDir 占用而非进程堆
+      - 节点整体内存压力导致的驱逐，而不是容器超限
+    mitigation:
+      family: 按容器限额推导堆上限并为堆外留余量
+      level: config
+  violation_manifestation: 容器被内核 OOMKilled，而运行时日志里没有任何内存不足的迹象，重启后周期性复发。
+
+- template_id: T-RESOURCE-03
+  name: 连接池没有上限，或取连接不设等待上限
+  mechanism_group: resource_limit
+  mechanism: connection pool limits
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 连接池必须有连接数上限，且从池中获取连接的等待本身要有超时，否则依赖变慢会让调用方的线程全部阻塞在取连接上。
+    sources:
+      - doc_id: go-database-sql
+        quote: |-
+          If n <= 0, then there is no limit on the number of open connections. The default is 0 (unlimited).
+        location: database/sql > DB.SetMaxOpenConns
+      - doc_id: hikaricp
+        quote: |-
+          This property controls the maximum number of milliseconds that a client (that's you) will wait
+          for a connection from the pool. If this time is exceeded without a connection becoming
+          available, a SQLException will be thrown. Lowest acceptable connection timeout is 250 ms.
+        location: HikariCP README > Essentials > connectionTimeout
+    defaults:
+      - {symbol: hikari_connectionTimeout, value: 30000, unit: ms, doc_id: hikaricp}
+      - {symbol: go_maxOpenConns, value: 0, unit: "连接（0 表示不限）", doc_id: go-database-sql}
+  locate:
+    applies_when:
+      - 该服务通过连接池访问数据库、缓存或下游服务
+    roles:
+      defect_site: 该连接池的上限与获取超时配置
+      injection_site: 池后面的数据库、缓存或服务
+      manifest_site: 该服务自身的线程占用与上游错误率
+    instantiations:
+      - component: HikariCP
+        how: maximumPoolSize 与 connectionTimeout（默认 30 秒，通常远大于上游预算）
+        config_or_code: spring.datasource.hikari.*
+      - component: Go database/sql
+        how: SetMaxOpenConns 默认不限；获取等待要靠传入 context 的 deadline
+        config_or_code: 源码
+      - component: go-redis
+        how: PoolSize 与 PoolTimeout
+        config_or_code: 源码
+      - component: Jedis
+        how: JedisPoolConfig 的 maxTotal 与 maxWaitMillis
+        config_or_code: 源码
+      - component: Lettuce
+        how: 连接共享模型下靠命令超时兜底，需确认是否配了 timeout
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 池没有设连接数上限（或设成不限）
+        checker: semgrep
+        query: checkers/semgrep/go-sql-open-dsn-no-timeout.yaml（同一处构造点同时看 SetMaxOpenConns）；Java 侧交 manifest 读 maximumPoolSize
+      - id: C2
+        kind: 必要
+        statement: 获取连接的等待没有超时，或超时值大于上游对本服务的超时
+        checker: manifest
+        query: spring.datasource.hikari.connectionTimeout 与上游对本服务的超时值
+      - id: C3
+        kind: 反证
+        statement: 调用点传入了带 deadline 的 context，获取等待受它约束
+        checker: llm
+        query: 该数据库或缓存调用是否通过带 deadline 的 context 发起？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 池大小与该路径的并发量（决定占满所需的注入幅值）
+        checker: runtime
+        query: 稳态下池的活跃连接数与该路径 QPS
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 对数据库或缓存注入网络延迟，拉长每条连接的占用时长
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让依赖端口拒绝连接，观察建连是否也无限等
+    parameter_relation:
+      symbols:
+        - {symbol: N, meaning: 池的连接数上限，不设时视为无穷, source: manifest|code|default}
+        - {symbol: W, meaning: 获取连接的等待上限, source: manifest|default}
+        - {symbol: q, meaning: 该路径的 QPS, source: measured}
+        - {symbol: b, meaning: 单次数据库调用的基线耗时, source: measured}
+        - {symbol: U, meaning: 上游对本服务的超时, source: manifest|requirement}
+      boundary: d* = N / q - b
+      worst_case_multiplier: 1
+      hold: W + U
+      recovery_window: 2 * (W + U)
+  verdict:
+    expected_behavior: 依赖变慢把池占满后，新请求在获取超时处快速失败，服务的线程不会全部阻塞在取连接上。
+    signals:
+      - {signal: 池的活跃连接数与等待队列长度, source: metrics}
+      - {signal: 获取连接超时类错误计数, source: metrics}
+      - {signal: 应用线程池的活跃线程数, source: metrics}
+      - {signal: 该服务对所有接口（包括不走数据库的）的错误率, source: metrics}
+    alternative_explanations:
+      - 下游数据库自身拒绝新连接，问题在服务端而非池配置
+      - 线程阻塞来自锁竞争而不是取连接
+    mitigation:
+      family: 给池设连接数上限与获取等待上限，并把等待计入上游预算
+      level: config
+  violation_manifestation: 数据库一变慢，应用线程全部卡在「等连接」上，连不碰数据库的接口也一起无响应。
+
+- template_id: T-RESOURCE-04
+  name: 关键负载的 QoS 等级使其先被驱逐
+  mechanism_group: resource_limit
+  mechanism: QoS class
+  defect_class: 需求相对型
+  parameter_kind: 离散动作
+  rule:
+    statement: 需要在节点资源压力下活下来的负载，其 requests 与 limits 的写法应当落在最后才被驱逐的那一档上。
+    sources:
+      - doc_id: k8s-qos
+        quote: |-
+          When a Node runs out of resources, Kubernetes will first evict BestEffort Pods running on that Node, followed by Burstable and finally Guaranteed Pods.
+        location: Pod Quality of Service Classes > 概述
+      - doc_id: k8s-qos
+        quote: |-
+          Pods that are Guaranteed have the strictest resource limits and are least likely to face eviction.
+        location: Pod Quality of Service Classes > Guaranteed
+  locate:
+    applies_when:
+      - 节点上混布了不同重要性的负载
+      - 节点可能出现内存或磁盘压力
+    roles:
+      defect_site: 该容器的 requests 与 limits 写法所决定的 QoS 等级
+      injection_site: 承载该容器的节点
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Kubernetes
+        how: requests 等于 limits 且两者都设为 Guaranteed；只设 requests 为 Burstable；都不设为 BestEffort
+        config_or_code: spec.template.spec.containers[*].resources
+      - component: kube-score
+        how: container-resource-requests-equal-limits（可选检查，用于要求 Guaranteed）
+        config_or_code: kube-score 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 该工作负载落在 BestEffort 或 Burstable 档，而同节点存在更高档的非关键负载
+        checker: manifest
+        query: spec.template.spec.containers[*].resources 推导出的 QoS 等级，与同节点其他工作负载比较
+      - id: C2
+        kind: 反证
+        statement: 该负载本就是可牺牲的批处理类工作
+        checker: llm
+        query: 该工作负载是否属于可被随时驱逐的离线或批处理任务？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 附注
+        statement: 该节点上各工作负载的 QoS 等级分布
+        checker: manifest
+        query: 该节点上所有 Pod 的 status.qosClass
+  experiment:
+    actions:
+      - action: 节点内存压力
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在该节点上逐步占用内存，触发 kubelet 的节点压力驱逐
+  verdict:
+    expected_behavior: 节点资源压力下先驱逐低档负载，关键服务保持在位。
+    signals:
+      - {signal: 驱逐事件的顺序与被驱逐 Pod 的 qosClass, source: events}
+      - {signal: 关键服务的就绪副本数是否下降, source: status}
+      - {signal: 节点的 MemoryPressure 状态变化时刻, source: status}
+    alternative_explanations:
+      - 驱逐顺序还受 Pod 优先级影响，需同时看 priorityClassName
+      - 被驱逐的是超出 requests 最多的 Pod，而不是 QoS 最低的
+    mitigation:
+      family: 关键负载写成 Guaranteed，非关键负载压到低档
+      level: config
+  violation_manifestation: 节点内存一紧张，关键服务先被驱逐，批处理任务反而留在节点上继续跑。

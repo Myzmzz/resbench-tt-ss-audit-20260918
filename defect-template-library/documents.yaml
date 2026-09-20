@@ -595,7 +595,7 @@ documents:
   version: unversioned
   url: https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html
   retrieved_at: '2026-09-20'
-  sha256: e2c129e37d63dc6f184ddb26e0c3d0736d0c193a1df686063057ef65a348d3dd
+  sha256: d9ecbc1659d028a48b4f354bbe7ce0a155ed55116511bbffeeea5fb8975a78e7
   source_sha256: ''
   license: © Oracle，文档未授权再分发
   redistribution: restricted

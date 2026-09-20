@@ -3,4 +3,10 @@
 # 许可：© Oracle，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] Advanced Runtime Options for Java
+...
+Linux only: The VM now provides automatic container detection support, which allows the VM to determine the amount of memory and number of processors that are available to a Java process running in docker containers. It uses this information to allocate system resources. The default for this flag is true, and container support is enabled by default. It can be disabled with -XX:-UseContainerSupport.
+...
+[[H2]] Advanced Garbage Collection Options for Java
+...
+The maximum amount of available memory to the JVM process is the minimum of the machine's physical memory and any constraints set by the environment (e.g. container).
