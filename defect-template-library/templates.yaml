@@ -2242,3 +2242,413 @@ templates:
       family: 出队即校验截止时间，或改用 LIFO / CoDel 之类的排队策略
       level: code
   violation_manifestation: 过载期间服务端满负荷运转，有效吞吐却接近零——处理的全是上游早已放弃的请求。
+
+# ============================================================ replica_disruption
+- template_id: T-REPLICA-01
+  name: 需要持续可用的工作负载只有一个副本
+  mechanism_group: replica_disruption
+  mechanism: replica count
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 需要在丢掉一个实例后继续提供服务的工作负载，副本数不能是 1。
+    sources:
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          deploymentMissingReplicas | warning | Fails when there is only one replica for a deployment.
+        location: Polaris Checks > Reliability 检查表
+      - doc_id: kube-score-checks
+        quote: |-
+          | deployment-replicas | Deployment | Makes sure that Deployment has multiple replicas. The --min-replicas-deployment flag can be used to specify the required minimum. Default is 2. | default |
+        location: kube-score checks 列表
+  locate:
+    applies_when:
+      - 该工作负载被某个 Service 选中并承担同步流量
+      - 该工作负载不是单例语义（不是需要全局唯一实例的组件）
+    roles:
+      defect_site: 该工作负载的副本数声明
+      injection_site: 该工作负载的实例
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Kubernetes
+        how: Deployment / StatefulSet 的 spec.replicas；被 HPA 管的看 minReplicas
+        config_or_code: spec.replicas
+      - component: Polaris
+        how: deploymentMissingReplicas 检查
+        config_or_code: Polaris 配置
+      - component: kube-score
+        how: deployment-replicas 检查
+        config_or_code: kube-score 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: spec.replicas 等于 1（被 HPA 管的看 minReplicas 等于 1）
+        checker: manifest
+        query: spec.replicas
+      - id: C2
+        kind: 反证
+        statement: 该工作负载是单例语义组件（领导者选举、单写入者），多副本反而不正确
+        checker: llm
+        query: 该工作负载是否依赖「同一时刻只有一个实例在运行」的语义？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 附注
+        statement: 该工作负载是否被 Service 选中（不接流量时影响面不同）
+        checker: manifest
+        query: spec.template.metadata.labels 与集群内各 Service 的 spec.selector 的交集
+  experiment:
+    actions:
+      - action: 实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 删除该工作负载的一个 Pod
+  verdict:
+    expected_behavior: 杀掉一个实例后服务仍可用，上游错误率只有短暂抖动。
+    signals:
+      - {signal: 杀实例期间上游对该服务的错误率, source: metrics}
+      - {signal: 就绪副本数在注入窗内是否跌到 0, source: status}
+      - {signal: 从实例被删到新实例就绪的时长, source: events}
+    alternative_explanations:
+      - 上游有重试或缓存兜底，掩盖了短暂的完全不可用
+      - 该服务本就无人调用
+    mitigation:
+      family: 多副本部署，副本数按「丢一个仍够用」反推
+      level: config
+  violation_manifestation: 杀掉唯一的实例即 100% 不可用，恢复时间等于镜像拉取加冷启动的全过程。
+
+- template_id: T-REPLICA-02
+  name: 多副本工作负载没有中断预算
+  mechanism_group: replica_disruption
+  mechanism: pod disruption budget
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 多副本工作负载应当有中断预算，限制主动中断同时带走的副本数。
+    sources:
+      - doc_id: k8s-disruptions
+        quote: |-
+          As an application owner, you can create a PodDisruptionBudget (PDB) for each application. A PDB limits the number of Pods of a replicated application that are down simultaneously from voluntary disruptions.
+        location: Disruptions > Pod disruption budgets
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          missingPodDisruptionBudget | warning | Fails when PDB is missing.
+        location: Polaris Checks > Reliability 检查表
+      - doc_id: kube-score-checks
+        quote: |-
+          | deployment-has-poddisruptionbudget | Deployment | Makes sure that all Deployments are targeted by a PDB | default |
+        location: kube-score checks 列表
+  locate:
+    applies_when:
+      - 该工作负载副本数大于 1
+      - 集群会发生节点维护、缩容或重调度这类主动中断
+    roles:
+      defect_site: 该工作负载与集群内 PDB 的匹配关系
+      injection_site: 承载该工作负载的节点
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Kubernetes
+        how: 是否存在 selector 能匹配到该工作负载的 PDB，且指定了 minAvailable 或 maxUnavailable
+        config_or_code: policy/v1 PodDisruptionBudget
+      - component: Polaris
+        how: missingPodDisruptionBudget 检查
+        config_or_code: Polaris 配置
+      - component: kube-score
+        how: deployment-has-poddisruptionbudget 与 poddisruptionbudget-has-policy
+        config_or_code: kube-score 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 没有任何 PDB 的 selector 能匹配到该工作负载的 Pod 标签
+        checker: manifest
+        query: 集群内 PodDisruptionBudget[*].spec.selector 与该工作负载 spec.template.metadata.labels 的交集
+      - id: C2
+        kind: 必要
+        statement: 即便存在 PDB，也没有指定 minAvailable 或 maxUnavailable
+        checker: manifest
+        query: PodDisruptionBudget[*].spec.[minAvailable, maxUnavailable]
+      - id: C3
+        kind: 反证
+        statement: 该工作负载只有一个副本，PDB 无法同时满足「不中断」与「可维护」，应改用 T-REPLICA-01
+        checker: manifest
+        query: spec.replicas
+      - id: C4
+        kind: 附注
+        statement: PDB 的 unhealthyPodEvictionPolicy 取值（影响不健康 Pod 能否被驱逐）
+        checker: manifest
+        query: PodDisruptionBudget[*].spec.unhealthyPodEvictionPolicy
+  experiment:
+    actions:
+      - action: 节点排空
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 对承载该工作负载多数副本的节点调用 Eviction API 逐出 Pod
+      - action: 实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 同时删除多个副本，模拟一次带走多个实例的主动中断
+  verdict:
+    expected_behavior: 主动中断期间可用副本数始终不低于预算，服务不出现完全中断。
+    signals:
+      - {signal: 驱逐期间就绪副本数的最低值, source: status}
+      - {signal: Eviction API 被拒绝的次数（说明 PDB 在起作用）, source: events}
+      - {signal: 驱逐窗内上游看到的错误率, source: metrics}
+    alternative_explanations:
+      - 调度器恰好把副本分散在多个节点上，单节点排空本就不会全带走
+      - 驱逐工具直接删除 Pod 而没有走 Eviction API，PDB 本就不生效
+    mitigation:
+      family: 为每个多副本工作负载配 PDB，并核对 selector 确实匹配
+      level: config
+  violation_manifestation: 节点维护时整组副本被一次性驱逐，服务出现完全中断，而各个副本自身都「健康」。
+
+- template_id: T-REPLICA-03
+  name: 中断预算与副本数或扩缩下限不相容
+  mechanism_group: replica_disruption
+  mechanism: pod disruption budget
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 中断预算必须留出至少驱逐一个副本的余地，且与自动扩缩的副本下限相容，否则主动中断会被永久阻塞。
+    sources:
+      - doc_id: k8s-disruptions
+        quote: |-
+          A PDB specifies the number of replicas that an application can tolerate having, relative to how many it is intended to have. For example, a Deployment which has a .spec.replicas: 5 is supposed to have 5 pods at any given time. If its PDB allows for there to be 4 at a time, then the Eviction API will allow voluntary disruption of one (but not two) pods at a time.
+        location: Disruptions > How disruption budgets work
+      - doc_id: k8s-pdb-task
+        quote: |-
+          PodDisruptionBudget guarding an application ensures that .status.currentHealthy number of pods does not fall below the number specified in .status.desiredHealthy by disallowing eviction of healthy pods.
+        location: Specifying a Disruption Budget > Unhealthy Pod eviction policy
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          pdbMinAvailableGreaterThanHPAMinReplicas | warning | Fails when PDB minAvailable is greater than HPA minReplicas
+        location: Polaris Checks > Reliability 检查表
+  locate:
+    applies_when:
+      - 该工作负载已配置 PDB
+    roles:
+      defect_site: PDB 的 minAvailable / maxUnavailable 与副本数、HPA 下限三者的关系
+      injection_site: 承载该工作负载的节点
+      manifest_site: 集群的节点维护流程与该服务的可用性
+    instantiations:
+      - component: Kubernetes
+        how: minAvailable 必须小于副本数；maxUnavailable 必须大于 0
+        config_or_code: PodDisruptionBudget.spec
+      - component: Polaris
+        how: pdbMinAvailableGreaterThanHPAMinReplicas 交叉检查
+        config_or_code: Polaris 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: minAvailable 大于等于副本数，或 maxUnavailable 等于 0
+        checker: manifest
+        query: PodDisruptionBudget[*].spec.[minAvailable, maxUnavailable] 与被选中工作负载的 spec.replicas
+      - id: C2
+        kind: 必要
+        statement: PDB.minAvailable 大于 HPA.minReplicas（缩容到下限后驱逐被永久阻塞）
+        checker: manifest
+        query: PodDisruptionBudget[*].spec.minAvailable 与 HorizontalPodAutoscaler[*].spec.minReplicas
+      - id: C3
+        kind: 反证
+        statement: PDB 用的是百分比且在任何副本数下都留有余地
+        checker: manifest
+        query: PodDisruptionBudget[*].spec.minAvailable 的百分比取值与副本数区间
+  experiment:
+    actions:
+      - action: 节点排空
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 对承载该工作负载的节点调用 Eviction API，观察是否始终被拒绝
+      - action: 缩容到下限
+        type: 离散·有数量
+        target_role: defect_site
+        primitive_hint: 把副本数降到 HPA 的 minReplicas，再尝试驱逐
+    parameter_relation:
+      symbols:
+        - {symbol: n, meaning: 当前副本数, source: manifest}
+        - {symbol: m, meaning: PDB 的 minAvailable, source: manifest}
+        - {symbol: u, meaning: PDB 的 maxUnavailable, source: manifest}
+        - {symbol: h, meaning: HPA 的 minReplicas, source: manifest}
+      boundary: "违反条件为 m >= n 或 u == 0 或 m > h；注入幅值为尝试驱逐的副本数 1"
+      worst_case_multiplier: 1
+      hold: 300（一次节点排空的常规观察窗，单位秒）
+      recovery_window: 300
+  verdict:
+    expected_behavior: 驱逐请求在合理时间内被允许若干个，节点排空能够完成。
+    signals:
+      - {signal: Eviction API 返回 429 被拒的次数与持续时长, source: events}
+      - {signal: 节点处于 cordon 状态但 Pod 数不下降的时长, source: status}
+      - {signal: 排空操作的总耗时, source: events}
+    alternative_explanations:
+      - 驱逐被拒是因为当前确实有副本不健康，预算本身没问题
+      - 集群没有足够节点容纳被驱逐的 Pod，卡在调度而不是 PDB
+    mitigation:
+      family: 让 PDB 的下限与副本数、HPA 下限三者相容
+      level: config
+  violation_manifestation: 节点维护永远排不掉 Pod，集群升级卡死；在故障演练里表现为「驱逐类注入完全无效」。
+
+- template_id: T-REPLICA-04
+  name: 多副本没有跨故障域打散
+  mechanism_group: replica_disruption
+  mechanism: topology spread
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 同一工作负载的多个副本应当跨故障域打散；调度器默认按装箱放置，不保证副本分散。
+    sources:
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          By default, the Kubernetes scheduler uses a bin-packing algorithm to fit as many pods as possible into a cluster. The scheduler prefers a more evenly distributed general node load to app replicas precisely spread across nodes. Therefore, by default, multi-replica is not guaranteed to be spread across multiple availability zones.
+        location: Polaris Checks > Reliability > Background > Topology Spread Constraints
+      - doc_id: k8s-topology-spread
+        quote: |-
+          maxSkew describes the degree to which Pods may be unevenly distributed. You must specify this field and the number must be greater than zero.
+        location: Pod Topology Spread Constraints > Spread constraint definition
+      - doc_id: polaris-checks-reliability
+        quote: |-
+          topologySpreadConstraint | warning | Fails when there is no topology spread constraint on the pod
+        location: Polaris Checks > Reliability 检查表
+  locate:
+    applies_when:
+      - 该工作负载副本数大于 1
+      - 集群有多个节点（若有多可用区则按可用区判）
+    roles:
+      defect_site: 该工作负载的 topologySpreadConstraints 与 podAntiAffinity 配置
+      injection_site: 承载该工作负载多数副本的节点或可用区
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Kubernetes
+        how: topologySpreadConstraints 的 maxSkew、topologyKey、whenUnsatisfiable，或 podAntiAffinity
+        config_or_code: spec.template.spec.[topologySpreadConstraints, affinity.podAntiAffinity]
+      - component: Polaris
+        how: topologySpreadConstraint 检查
+        config_or_code: Polaris 配置
+      - component: kube-score
+        how: deployment-has-host-podantiaffinity 与 pod-topology-spread-constraints
+        config_or_code: kube-score 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 既没有 topologySpreadConstraints 也没有 podAntiAffinity
+        checker: manifest
+        query: spec.template.spec.[topologySpreadConstraints, affinity.podAntiAffinity]
+      - id: C2
+        kind: 反证
+        statement: 虽然没配约束，但集群只有一个节点，打散无从谈起
+        checker: manifest
+        query: 集群节点数与可用区标签的取值集合
+      - id: C3
+        kind: 附注
+        statement: whenUnsatisfiable 是 DoNotSchedule 还是 ScheduleAnyway（后者只是尽力而为）
+        checker: manifest
+        query: spec.template.spec.topologySpreadConstraints[*].whenUnsatisfiable
+      - id: C4
+        kind: 附注
+        statement: 实际的副本落点分布
+        checker: runtime
+        query: 各节点与各可用区上该工作负载的 Pod 数
+  experiment:
+    actions:
+      - action: 整节点实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 删除落在同一节点上的该工作负载全部 Pod
+      - action: 节点不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 切断该节点的网络，模拟整节点失效
+  verdict:
+    expected_behavior: 单个节点或可用区失效后仍有足够副本在服务，上游错误率只有短暂抖动。
+    signals:
+      - {signal: 每节点与每可用区的副本分布, source: status}
+      - {signal: 整节点失效后剩余的就绪副本数, source: status}
+      - {signal: 注入期间上游对该服务的错误率, source: metrics}
+    alternative_explanations:
+      - 调度器恰好把副本放散了，并非配置保证
+      - 上游有缓存或兜底，掩盖了后端全灭
+    mitigation:
+      family: 按节点与可用区两级配置拓扑分散约束
+      level: config
+  violation_manifestation: 所有副本落在同一节点或同一可用区，该域一失效服务整体不可用，而副本数看起来是「够的」。
+
+- template_id: T-REPLICA-05
+  name: 滚动更新参数允许一次带走过多副本
+  mechanism_group: replica_disruption
+  mechanism: rolling update
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 滚动更新时允许同时不可用的副本数必须与该服务的容量需求相容，剩下的副本要能独立承担当前流量。
+    sources:
+      - doc_id: k8s-deployment
+        quote: |-
+          .spec.strategy.rollingUpdate.maxUnavailable is an optional field that specifies the maximum number of Pods that can be unavailable during the update process.
+        location: Deployments > Rolling Update Deployment > Max Unavailable
+      - doc_id: k8s-deployment
+        quote: |-
+          .spec.strategy.rollingUpdate.maxSurge is an optional field that specifies the maximum number of Pods that can be created over the desired number of Pods.
+        location: Deployments > Rolling Update Deployment > Max Surge
+  locate:
+    applies_when:
+      - 该工作负载是 Deployment 且策略为 RollingUpdate
+      - 该工作负载承担同步流量
+    roles:
+      defect_site: 该工作负载的 rollingUpdate 参数与副本数
+      injection_site: 该工作负载的实例
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Kubernetes
+        how: maxUnavailable 与 maxSurge 的取值，以及它们相对 replicas 的比例
+        config_or_code: spec.strategy.rollingUpdate
+    checks:
+      - id: C1
+        kind: 必要
+        statement: maxUnavailable 换算成绝对值后占副本数的比例过高，剩余副本不足以承担当前流量
+        checker: manifest
+        query: spec.strategy.rollingUpdate.maxUnavailable 与 spec.replicas
+      - id: C2
+        kind: 必要
+        statement: maxSurge 为 0，更新期间没有额外容量补位
+        checker: manifest
+        query: spec.strategy.rollingUpdate.maxSurge
+      - id: C3
+        kind: 反证
+        statement: 该工作负载不接同步流量，短暂容量下降没有可观测影响
+        checker: manifest
+        query: spec.template.metadata.labels 与各 Service 的 spec.selector 的交集
+      - id: C4
+        kind: 附注
+        statement: 单副本容量与当前 QPS（决定剩余副本够不够）
+        checker: runtime
+        query: 稳态下单副本承担的 QPS 与该服务的总 QPS
+  experiment:
+    actions:
+      - action: 同时终止 maxUnavailable 个副本
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 一次删除与 maxUnavailable 等量的 Pod，等效于滚动更新中容量最低的那一刻
+      - action: 入站流量抬升
+        type: 连续幅值
+        target_role: manifest_site
+        primitive_hint: 在副本减少的同时维持或抬高流量，逼出容量缺口
+    parameter_relation:
+      symbols:
+        - {symbol: n, meaning: 副本数, source: manifest}
+        - {symbol: u, meaning: maxUnavailable 换算后的绝对副本数, source: manifest|default}
+        - {symbol: s, meaning: maxSurge 换算后的绝对副本数, source: manifest|default}
+        - {symbol: C1, meaning: 单副本容量, source: measured}
+        - {symbol: q, meaning: 该服务当前 QPS, source: measured}
+      boundary: "d* = u（同时带走的副本数；当 (n - u + s) * C1 < q 时出现容量缺口）"
+      worst_case_multiplier: 1
+      hold: 120
+      recovery_window: 240
+  verdict:
+    expected_behavior: 容量最低的那一刻剩余副本仍能承担当前流量，上游错误率与延迟不出现明显台阶。
+    signals:
+      - {signal: 注入窗内就绪副本数的最低值, source: status}
+      - {signal: 同期上游的错误率与 p99 延迟, source: metrics}
+      - {signal: 剩余副本的 CPU 使用率是否触到限额, source: metrics}
+    alternative_explanations:
+      - 错误来自新实例冷启动而非容量不足
+      - 上游本身在同期流量下降，掩盖了缺口
+    mitigation:
+      family: 按「剩余副本仍够用」反推 maxUnavailable，必要时提高 maxSurge
+      level: config
+  violation_manifestation: 更新过程中容量最低的那一刻撑不住当前流量，出现一段错误率台阶，看起来像「一发布就抖」。
