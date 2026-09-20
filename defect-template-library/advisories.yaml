@@ -69,3 +69,31 @@ advisories:
         location: Client-Side Throttling > Client request rejection probability
   why_not_supported: 是否违反取决于客户端本地统计的「请求数 / 接受数」滑动状态，而这个状态既不在配置里也不在代码常量里；同一份代码在不同后端拒绝率下表现不同，静态查不出，运行时也需要客户端自报该状态才能判。
   what_is_needed: 需要客户端暴露自适应节流的内部状态（请求数、接受数、本地丢弃数）作为指标，或在实验中能按已知比例控制后端的拒绝率并观测客户端发出量的响应曲线。
+
+- advisory_id: A-CONN-01
+  name: 连接或资源泄漏导致的缓慢耗尽
+  mechanism_group: connection_lifecycle
+  parameter_kind: 累积型
+  rule:
+    statement: 派生出的 context、连接与游标若没有在所有控制流路径上释放，会随请求量累积，直到资源耗尽。
+    sources:
+      - doc_id: go-context
+        quote: |-
+          Failing to call the CancelFunc leaks the child and its children until the parent is canceled. The go vet tool checks that CancelFuncs are used on all control-flow paths.
+        location: context package > Overview
+  why_not_supported: 是否出问题取决于泄漏速率与总量的乘积随时间的累积，同一处泄漏在低流量下几个月都不发作、在高流量下几分钟就耗尽；注入一次故障看不出结论，需要长时间基线对比。
+  what_is_needed: 需要在恒定负载下长时间观测资源占用的斜率（连接数、协程数、文件描述符随时间的增长），并能把斜率归因到具体的代码路径。
+
+- advisory_id: A-IDEM-01
+  name: 副作用与确认之间的时序窗口
+  mechanism_group: idempotency_compensation
+  parameter_kind: 时机型
+  rule:
+    statement: 业务副作用与对外确认之间存在一个时间窗，在这个窗口内中断会造成「做了但没记」或「记了但没做」。
+    sources:
+      - doc_id: aws-builders-idempotency
+        quote: |-
+          An important consideration is that the process that combines recording the idempotent token and all mutating operations related to servicing the request must meet the properties for an atomic, consistent, isolated, and durable (ACID) operation.
+        location: Making retries safe with idempotent APIs > Reducing client complexity with idempotent API design
+  why_not_supported: 触发与否取决于中断恰好落在哪个毫秒级窗口内，是时机相关而非幅值相关；现有的实例终止原语无法把中断精确对齐到那个窗口，反复注入也只是概率命中。
+  what_is_needed: 需要能在指定代码点暂停或终止进程的注入能力（故障点注入），或能在测试环境里对该窗口加锁放大，才能把它变成可稳定复现的场景。

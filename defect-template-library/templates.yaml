@@ -515,6 +515,24 @@ templates:
       - component: Istio
         how: VirtualService 的 http.timeout 是否配置；默认不启用
         config_or_code: spec.http[*].timeout
+      - component: Python httpx
+        how: 是否显式给了 Timeout(connect / read / write / pool)，还是靠 5 秒默认值
+        config_or_code: 源码
+      - component: axios
+        how: 请求或实例是否设置了 timeout（缺省为 0，含义是不超时）
+        config_or_code: 源码
+      - component: undici
+        how: headersTimeout / bodyTimeout / connectTimeout 是否显式设置
+        config_or_code: 源码
+      - component: Ruby Net::HTTP
+        how: open_timeout 与 read_timeout 是否显式设置
+        config_or_code: 源码
+      - component: Spring Cloud OpenFeign
+        how: Request.Options 的 connectTimeout 与 readTimeout
+        config_or_code: 源码或 feign.client.config.* 配置
+      - component: MongoDB driver
+        how: 连接串的 connectTimeoutMS / socketTimeoutMS / serverSelectionTimeoutMS
+        config_or_code: 连接串
     checks:
       - id: C1
         kind: 必要
@@ -1006,6 +1024,9 @@ templates:
       - component: Spring Boot
         how: "@Retryable 是否带 @Backoff，是否用了 ExponentialRandomBackOffPolicy"
         config_or_code: 源码
+      - component: Microsoft.Extensions.Http.Resilience
+        how: AddStandardResilienceHandler 自带的重试段落是否被改成了无退避
+        config_or_code: 源码
     checks:
       - id: C1
         kind: 必要
@@ -1467,6 +1488,9 @@ templates:
       - component: gobreaker
         how: ReadyToTrip 回调默认只数连续失败，慢调用需自行计入
         config_or_code: 源码
+      - component: Microsoft.Extensions.Http.Resilience
+        how: 标准弹性处理器把超时段落放在断路器之前，慢调用先被转成失败再计入断路器
+        config_or_code: 源码
     checks:
       - id: C1
         kind: 必要
@@ -1833,6 +1857,9 @@ templates:
       - component: ingress-nginx
         how: upstream 的被动失败计数与失败窗口
         config_or_code: nginx.ingress.kubernetes.io/* 注解
+      - component: Spring Cloud LoadBalancer
+        how: 是否启用了基于健康检查的实例过滤，决定坏实例能否被客户端负载均衡摘掉
+        config_or_code: spring.cloud.loadbalancer.* 配置
     checks:
       - id: C1
         kind: 必要
@@ -2870,6 +2897,15 @@ templates:
       - component: Lettuce
         how: 连接共享模型下靠命令超时兜底，需确认是否配了 timeout
         config_or_code: 源码
+      - component: PostgreSQL
+        how: 连接串的 connect_timeout 与会话级 statement_timeout
+        config_or_code: 连接串与会话参数
+      - component: go-sql-driver/mysql
+        how: DSN 的 timeout / readTimeout / writeTimeout，三者缺省都不设上限
+        config_or_code: DSN
+      - component: StackExchange.Redis
+        how: ConnectTimeout 与 SyncTimeout
+        config_or_code: 源码（ConfigurationOptions）
     checks:
       - id: C1
         kind: 必要
@@ -3794,3 +3830,281 @@ templates:
       family: 队列与消息都声明持久化，数据目录挂持久卷，重要数据用复制型队列
       level: config
   violation_manifestation: 中间件实例一重建，队列里积压的消息全部消失，生产端却已经把它们当成投递成功了。
+
+# ============================================================ connection_lifecycle（新增机制组，理由见 CHANGES.md）
+- template_id: T-CONN-01
+  name: 长连接没有保活探测，死连接要等到请求超时才暴露
+  mechanism_group: connection_lifecycle
+  mechanism: connection keepalive
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 长连接应当有周期性的保活探测，使对端静默消失时连接能被及时判死并重建，而不是等到下一次请求超时才发现。
+    sources:
+      - doc_id: grpc-keepalive
+        quote: |-
+          HTTP/2 PING-based keepalives are a way to keep an HTTP/2 connection alive even when there is no data being transferred. This is done by periodically sending a PING frame to the other end of the connection.
+        location: Keepalive > Overview
+      - doc_id: grpc-keepalive
+        quote: |-
+          TCP keepalive is a well-known method of maintaining connections and detecting broken connections.
+        location: Keepalive > Background
+  locate:
+    applies_when:
+      - 该服务与下游之间使用长连接（HTTP/2、gRPC、数据库连接池、Redis 连接）
+      - 中间可能存在会静默丢弃连接的设备（云负载均衡、NAT 网关、防火墙）
+    roles:
+      defect_site: 该客户端的保活参数
+      injection_site: 该服务与下游之间的网络路径
+      manifest_site: 该服务对下游调用的失败检测耗时
+    instantiations:
+      - component: gRPC
+        how: keepalive_time 与 keepalive_timeout 是否设置
+        config_or_code: 源码（channel 参数）
+      - component: HikariCP
+        how: keepaliveTime 是否设置，用于对空闲连接做保活探测
+        config_or_code: spring.datasource.hikari.keepaliveTime
+      - component: Lettuce
+        how: 是否保留了默认的 PING 握手与自动重连
+        config_or_code: 源码（ClientOptions）
+      - component: Node.js
+        how: http.Agent 的 keepAlive 与 keepAliveMsecs
+        config_or_code: 源码
+      - component: Envoy
+        how: 上游连接的 idle_timeout 与 HTTP/2 connection keepalive
+        config_or_code: cluster 的 typed_extension_protocol_options
+      - component: StackExchange.Redis
+        how: AbortOnConnectFail 与 ConnectTimeout 决定连接不可用时是放弃还是后台重连
+        config_or_code: 源码（ConfigurationOptions）
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 客户端没有启用保活探测（相关参数缺失或被显式关闭）
+        checker: manifest
+        query: 客户端的 keepalive 相关配置项取值
+      - id: C2
+        kind: 必要
+        statement: 该连接确实是长连接而非每次新建
+        checker: codegraph
+        query: 起点为该客户端的构造点，检查它是否被复用（单例或池化）而不是每次调用新建
+      - id: C3
+        kind: 反证
+        statement: 请求超时已经足够短，靠它发现死连接的代价可以接受
+        checker: manifest
+        query: 该调用的请求超时值
+      - id: C4
+        kind: 附注
+        statement: 中间设备的空闲断连时间（决定保活间隔的上界）
+        checker: llm
+        query: 该服务到下游之间是否经过会在空闲若干时间后断开连接的设备？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 对端静默消失
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 单向丢弃该服务到下游的报文，制造既不回包也不发 RST 的黑洞
+      - action: 空闲后首次调用
+        type: 离散·无可比参数
+        target_role: injection_site
+        primitive_hint: 让连接空闲超过中间设备的断连时间，再发起一次调用
+    parameter_relation:
+      symbols:
+        - {symbol: K, meaning: 保活探测间隔，未启用时视为无穷, source: manifest|default}
+        - {symbol: Kt, meaning: 保活探测的等待上限, source: manifest|default}
+        - {symbol: T, meaning: 该调用的请求超时, source: manifest|code|default}
+        - {symbol: N, meaning: 中间设备的空闲断连时间, source: measured|assumed_worst}
+      boundary: "d* = N（空闲超过它即触发静默断连）；故障检测耗时应为 K + Kt 而不是 T"
+      worst_case_multiplier: 1
+      hold: 2 * max(K + Kt, T)
+      recovery_window: 2 * (K + Kt)
+  verdict:
+    expected_behavior: 对端静默消失后，连接在保活探测的时间量级内被判死并重建，而不是让请求一直挂到超时。
+    signals:
+      - {signal: 故障注入后首个失败请求的耗时（接近 K + Kt 还是接近 T）, source: traces}
+      - {signal: 连接重建计数, source: metrics}
+      - {signal: 低峰期后首次调用的失败率, source: metrics}
+      - {signal: 是否出现 GOAWAY 或 too_many_pings 类日志, source: logs}
+    alternative_explanations:
+      - 请求超时本就很短，看不出保活与否的差别
+      - 客户端每次调用新建连接，本就不受保活影响
+    mitigation:
+      family: 启用保活探测，间隔短于中间设备的空闲断连时间
+      level: config
+  violation_manifestation: 对端消失后请求全部卡满整个超时才失败；或者低峰期过后第一批请求成片失败，重试一次又好了。
+
+- template_id: T-CONN-02
+  name: 池中连接的寿命长于对端允许的连接时限
+  mechanism_group: connection_lifecycle
+  mechanism: connection max lifetime
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 池中连接的最长寿命必须短于对端（数据库、代理、网络设备）施加的连接时限，否则池里会留下已被对端单方面关闭的连接。
+    sources:
+      - doc_id: hikaricp
+        quote: |-
+          **We strongly recommend
+          setting this value, and it should be several seconds shorter than any database or infrastructure imposed
+          connection time limit.**
+        location: HikariCP README > Essentials > maxLifetime
+      - doc_id: envoy-timeouts
+        quote: |-
+          The TCP proxy idle_timeout is the amount of time that the TCP proxy will allow a connection to exist with no upstream or downstream activity.
+        location: Envoy timeouts > Connection timeouts
+    defaults:
+      - {symbol: hikari_maxLifetime, value: 1800000, unit: ms, doc_id: hikaricp}
+  locate:
+    applies_when:
+      - 该服务用连接池访问有连接时限或空闲断连策略的对端
+    roles:
+      defect_site: 连接池的 maxLifetime / idleTimeout 配置
+      injection_site: 该服务与对端之间的网络路径，或对端自身
+      manifest_site: 该服务对该对端调用的失败率
+    instantiations:
+      - component: HikariCP
+        how: maxLifetime 需短于数据库的 wait_timeout 或云负载均衡的空闲断连时间
+        config_or_code: spring.datasource.hikari.maxLifetime
+      - component: go-redis
+        how: ConnMaxLifetime 与 ConnMaxIdleTime
+        config_or_code: 源码
+      - component: Go database/sql
+        how: SetConnMaxLifetime 与 SetConnMaxIdleTime
+        config_or_code: 源码
+      - component: Lettuce
+        how: 连接被对端关闭后是否会自动重连（autoReconnect）
+        config_or_code: 源码（ClientOptions）
+      - component: ioredis
+        how: connectTimeout 与 maxRetriesPerRequest 决定连接失效后的行为
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 没有设置连接最长寿命（缺失或设为 0，含义是无上限）
+        checker: manifest
+        query: spring.datasource.hikari.maxLifetime 与源码里的 SetConnMaxLifetime 调用
+      - id: C2
+        kind: 必要
+        statement: 取用连接前没有可用性校验（没有 keepalive、没有 validation query、没有 PING 握手）
+        checker: manifest
+        query: 连接池的连接校验相关配置项
+      - id: C3
+        kind: 反证
+        statement: 客户端设置的寿命已经明显短于对端时限
+        checker: llm
+        query: 该连接池的最长寿命是否小于对端施加的连接时限？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 对端的连接时限实测值
+        checker: runtime
+        query: 让连接空闲不同时长后取用，观察从多长的空闲开始出现连接重置
+  experiment:
+    actions:
+      - action: 连接空闲超过对端时限
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 停止该路径的流量，空闲超过对端时限后再恢复流量
+      - action: 对端单方面关闭连接
+        type: 离散·无可比参数
+        target_role: injection_site
+        primitive_hint: 在对端侧断开已建立的连接，不通知客户端
+    parameter_relation:
+      symbols:
+        - {symbol: L, meaning: 池的连接最长寿命，未设视为无穷, source: manifest|code|default}
+        - {symbol: D, meaning: 对端施加的连接时限, source: measured|assumed_worst}
+        - {symbol: t, meaning: 实际空闲时长, source: measured}
+        - {symbol: N, meaning: 池中连接数, source: manifest|measured}
+      boundary: d* = D（空闲超过对端时限即触发；L > D 时池中连接必然命中已断连接）
+      worst_case_multiplier: N
+      hold: D + 60
+      recovery_window: 2 * D
+  verdict:
+    expected_behavior: 恢复流量后首批请求正常返回，池能在取用前识别并替换掉已失效的连接。
+    signals:
+      - {signal: 恢复流量后首批请求的失败率, source: metrics}
+      - {signal: connection reset / broken pipe 类错误计数, source: logs}
+      - {signal: 失败次数与池中连接数的关系（每条坏连接一次）, source: metrics}
+      - {signal: 池的连接回收与新建计数, source: metrics}
+    alternative_explanations:
+      - 对端确实在这段时间内不可用，失败与连接寿命无关
+      - 客户端有重试，掩盖了首次失败
+    mitigation:
+      family: 让池中连接寿命短于对端时限，并开启取用前的连接校验
+      level: config
+  violation_manifestation: 低峰期过后第一批请求成片报连接重置，重试一次就好——每条坏连接换来一次失败，看起来像随机抖动。
+
+- template_id: T-CONN-03
+  name: 客户端保活参数与服务端允许的下限冲突
+  mechanism_group: connection_lifecycle
+  mechanism: keepalive negotiation
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 客户端的保活间隔必须落在服务端愿意接受的范围内，否则服务端会主动断开这些连接，保活反而变成故障源。
+    sources:
+      - doc_id: grpc-keepalive
+        quote: |-
+          It’s not required for service owners to support keepalive. Client authors must coordinate with service owners for whether a particular client-side setting is acceptable.
+        location: Keepalive > How configuring keepalive affects a call
+  locate:
+    applies_when:
+      - 客户端启用了连接保活
+      - 服务端对保活频率有策略限制
+    roles:
+      defect_site: 客户端的保活间隔与服务端的保活策略
+      injection_site: 该服务与下游之间的连接
+      manifest_site: 该服务对下游调用的失败率与连接重建频率
+    instantiations:
+      - component: gRPC
+        how: 客户端 keepalive_time 是否小于服务端允许的最小间隔；触发时服务端回 GOAWAY 且 debug data 为 too_many_pings
+        config_or_code: 源码（客户端 channel 参数与服务端 keepalive enforcement 策略）
+      - component: Envoy
+        how: 作为客户端时的 HTTP/2 keepalive 设置与上游服务端策略的匹配
+        config_or_code: cluster 的 typed_extension_protocol_options
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 客户端保活间隔小于服务端声明的最小允许间隔
+        checker: manifest
+        query: 客户端 keepalive_time 与服务端 keepalive enforcement 的最小间隔配置
+      - id: C2
+        kind: 必要
+        statement: 客户端在没有在途请求时也发送保活（服务端策略对这种情况通常更严）
+        checker: manifest
+        query: 客户端的 keepalive_without_calls 类参数取值
+      - id: C3
+        kind: 反证
+        statement: 服务端没有启用保活频率限制
+        checker: llm
+        query: 下游服务端是否配置了对客户端保活频率的限制？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 连接长时间空闲
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让该路径长时间无请求，使客户端只发保活而不发业务请求
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 注入延迟延长在途时间，改变保活与业务请求的交错节奏
+    parameter_relation:
+      symbols:
+        - {symbol: K, meaning: 客户端保活间隔, source: manifest|code|default}
+        - {symbol: Ks, meaning: 服务端允许的最小保活间隔, source: manifest|assumed_worst}
+        - {symbol: t_idle, meaning: 连接的空闲时长, source: measured}
+      boundary: "d* = t_idle（空闲越久越容易只发保活）；K < Ks 时服务端会断开连接"
+      worst_case_multiplier: 1
+      hold: 4 * K
+      recovery_window: 4 * K
+  verdict:
+    expected_behavior: 空闲期间连接保持可用，不出现被服务端主动断开后又重建的循环。
+    signals:
+      - {signal: GOAWAY 事件计数与其 debug data 内容, source: logs}
+      - {signal: 连接重建频率是否与保活间隔成比例, source: metrics}
+      - {signal: 空闲期后首个请求的失败率, source: metrics}
+    alternative_explanations:
+      - 连接重建来自服务端的滚动更新，而不是保活策略
+      - 中间设备断连（与 T-CONN-01 同源，需要用日志里的 GOAWAY 区分）
+    mitigation:
+      family: 与服务端对齐保活间隔，或关闭无在途请求时的保活
+      level: config
+  violation_manifestation: 空闲期间连接被服务端反复断开重建，日志里成片的 too_many_pings，业务请求在重建窗口内成批失败。
