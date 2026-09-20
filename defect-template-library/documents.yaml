@@ -1,0 +1,1279 @@
+# 文档登记表。由 build_cache.py 依据 sources.tsv 与 fetch-log.json 生成，请勿手改。
+# redistribution=permissive 的文档入库全文；restricted 的只入库被引用到的段落（摘录），
+# 两种情况下 sha256 都是对 local_copy 指向的文件计算的，validate.py 按它核对引用。
+# source_sha256 是抓回的完整正文的摘要，用于判断原站点是否已改版。
+documents:
+- doc_id: aspnet-health-checks
+  title: Health checks in ASP.NET Core
+  component: ASP.NET Core
+  layer: 健康端点
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks
+  retrieved_at: '2026-09-20'
+  sha256: d9a83d034e119264f1c1120f45ff9c8527d114674a5aaaffb74d1809b61416d0
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aspnet-health-checks.txt
+  local_copy_kind: excerpt
+- doc_id: aws-builders-avoiding-fallback
+  title: Avoiding fallback in distributed systems
+  component: AWS Builders Library
+  layer: 通用准则
+  version: unversioned
+  url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/
+  retrieved_at: '2026-09-20'
+  sha256: 1ab216e2fa01ac7b21f981d63ee3e31416bbbc7e83201d740f5967e711caf5a4
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-builders-avoiding-fallback.txt
+  local_copy_kind: excerpt
+- doc_id: aws-builders-health-checks
+  title: Implementing health checks
+  component: AWS Builders Library
+  layer: 通用准则
+  version: unversioned
+  url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/implementing-health-checks/
+  retrieved_at: '2026-09-20'
+  sha256: 03462801deeeb6754f244a073b7707e3541d23e413e45a144721549e4c029b92
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-builders-health-checks.txt
+  local_copy_kind: excerpt
+- doc_id: aws-builders-idempotency
+  title: Making retries safe with idempotent APIs
+  component: AWS Builders Library
+  layer: 通用准则
+  version: unversioned
+  url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
+  retrieved_at: '2026-09-20'
+  sha256: a7bfd234b72a905b9c4dcb9fd1b47e23a5b131093201958c42eefa620dd14f55
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-builders-idempotency.txt
+  local_copy_kind: excerpt
+- doc_id: aws-builders-load-shedding
+  title: Using load shedding to avoid overload
+  component: AWS Builders Library
+  layer: 通用准则
+  version: unversioned
+  url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
+  retrieved_at: '2026-09-20'
+  sha256: 013bf6cb3c32beac93b4221f20e027c772d8abd24a3cbd9d06975eca9680774c
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-builders-load-shedding.txt
+  local_copy_kind: excerpt
+- doc_id: aws-builders-timeouts
+  title: Timeouts, retries and backoff with jitter
+  component: AWS Builders Library
+  layer: 通用准则
+  version: unversioned
+  url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
+  retrieved_at: '2026-09-20'
+  sha256: 0c04a3639dfdabc07834c03265c96093d5d1d504253b5e0b38c5bad3487bef1b
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-builders-timeouts.txt
+  local_copy_kind: excerpt
+- doc_id: aws-war-reliability
+  title: 'Reliability Pillar: graceful degradation'
+  component: AWS Well-Architected
+  layer: 通用准则
+  version: latest
+  url: https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html
+  retrieved_at: '2026-09-20'
+  sha256: 45922338e218e628902b71d148a68ae9472e224afa991c5d013ebce6b3e50dac
+  source_sha256: ''
+  license: © Amazon，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/aws-war-reliability.txt
+  local_copy_kind: excerpt
+- doc_id: axios
+  title: axios request config
+  component: axios
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/axios/axios/v1.x/README.md
+  retrieved_at: '2026-09-20'
+  sha256: bf13a86c3d5073e0b2de57232e33622b888f75e8cdac00e4ac22a6f3f2a5fa86
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/axios.txt
+  local_copy_kind: full
+- doc_id: azure-pattern-bulkhead
+  title: Bulkhead pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead
+  retrieved_at: '2026-09-20'
+  sha256: 746419ab64870cf28add587546ac30944da748ca5120927b0974753a8a180f7c
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-bulkhead.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-cache-aside
+  title: Cache-Aside pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside
+  retrieved_at: '2026-09-20'
+  sha256: e274decaa134cedb561d211af9ad3cc61c4eb08e69f9fbe8486ce32851548669
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-cache-aside.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-circuit-breaker
+  title: Circuit Breaker pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker
+  retrieved_at: '2026-09-20'
+  sha256: 990b9ceecd30d139162fb01e09875b9c896e090eeb8fa979981a1243f40f5839
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-circuit-breaker.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-compensating
+  title: Compensating Transaction pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction
+  retrieved_at: '2026-09-20'
+  sha256: e151797530ac32cef16e25b5e388cfdb3f1e318577ab2fae731dfde7f8b3ef93
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-compensating.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-health-endpoint
+  title: Health Endpoint Monitoring pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring
+  retrieved_at: '2026-09-20'
+  sha256: 749c644b625176ab95b6c73f752d567b0a352ea7dc45cf14bbf254b0a03a3eb1
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-health-endpoint.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-queue-leveling
+  title: Queue-Based Load Leveling pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling
+  retrieved_at: '2026-09-20'
+  sha256: 47d5a7933886ba2f18f7bf2cb0de710d2af6bb9cd3e182faa7e405a4d1fc8b1c
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-queue-leveling.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-retry
+  title: Retry pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/retry
+  retrieved_at: '2026-09-20'
+  sha256: 53553852819dd1d3906b5a117d786c63086968ec36324398288aa5e0e5a1201f
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-retry.txt
+  local_copy_kind: excerpt
+- doc_id: azure-pattern-throttling
+  title: Throttling pattern
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling
+  retrieved_at: '2026-09-20'
+  sha256: 6bce4bc658562f289699652031041f16fc8a098a69e4099b1cf709ea022f31b5
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-pattern-throttling.txt
+  local_copy_kind: excerpt
+- doc_id: azure-transient-faults
+  title: Transient fault handling
+  component: Azure Architecture Center
+  layer: 通用准则
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults
+  retrieved_at: '2026-09-20'
+  sha256: 64994a84ccbe3e6b4f20f432a6892f610f2719fd36deaacd8e219c51d03615ad
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/azure-transient-faults.txt
+  local_copy_kind: excerpt
+- doc_id: chaos-principles
+  title: Principles of Chaos Engineering
+  component: Principles of Chaos Engineering
+  layer: 通用准则
+  version: unversioned
+  url: https://principlesofchaos.org/
+  retrieved_at: '2026-09-20'
+  sha256: 83708eb1a0253ebd71e4856669bd994c9d38c61425bb38a8de11f6f4790adc13
+  source_sha256: ''
+  license: 页面未标注许可，按不可再分发处理
+  redistribution: restricted
+  local_copy: docs-cache/chaos-principles.txt
+  local_copy_kind: excerpt
+- doc_id: dotnet-http-resilience
+  title: Build resilient HTTP apps
+  component: Microsoft.Extensions.Http.Resilience
+  layer: 容错库
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/dotnet/core/resilience/http-resilience
+  retrieved_at: '2026-09-20'
+  sha256: 2e2f80c4f2a8e4a7af584dfb4bda6ef9ed560468643d1e24a5a9e34c7ecda4b5
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/dotnet-http-resilience.txt
+  local_copy_kind: excerpt
+- doc_id: dotnet-httpclient-factory
+  title: IHttpClientFactory with .NET
+  component: .NET HttpClient
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/dotnet/core/extensions/httpclient-factory
+  retrieved_at: '2026-09-20'
+  sha256: d95bfa88e66bc63c48785a41121fac3951ee2186aee20866931959c2a2759af3
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/dotnet-httpclient-factory.txt
+  local_copy_kind: excerpt
+- doc_id: dotnet-httpclient-guidelines
+  title: HttpClient guidelines for .NET
+  component: .NET HttpClient
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines
+  retrieved_at: '2026-09-20'
+  sha256: a360efb224a2c0760d2d5d4a93d03135104886f0c6e1793f49d06c6c6d0f69d4
+  source_sha256: ''
+  license: © Microsoft，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/dotnet-httpclient-guidelines.txt
+  local_copy_kind: excerpt
+- doc_id: envoy-circuit-breaking
+  title: Circuit breaking
+  component: Envoy
+  layer: 入口与代理
+  version: latest
+  url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking
+  retrieved_at: '2026-09-20'
+  sha256: ad1a20aeb0e16766efb9f30da197c2c9c869e8c45ebfa43cd2c2797817e25fab
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/envoy-circuit-breaking.txt
+  local_copy_kind: full
+- doc_id: envoy-health-checking
+  title: Health checking
+  component: Envoy
+  layer: 入口与代理
+  version: latest
+  url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking
+  retrieved_at: '2026-09-20'
+  sha256: d64437a7ee19ffae4e5b6ea0848e243c8400d38e3711dfbada66af848d1e3d71
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/envoy-health-checking.txt
+  local_copy_kind: full
+- doc_id: envoy-outlier-detection
+  title: Outlier detection
+  component: Envoy
+  layer: 入口与代理
+  version: latest
+  url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier
+  retrieved_at: '2026-09-20'
+  sha256: 719909629196b25eb474a346caa7aafc64c729e217dbc19178892939607b9ba6
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/envoy-outlier-detection.txt
+  local_copy_kind: full
+- doc_id: envoy-route-retry
+  title: HTTP route components (timeout, retry_policy)
+  component: Envoy
+  layer: 入口与代理
+  version: latest
+  url: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto
+  retrieved_at: '2026-09-20'
+  sha256: 642ec9537533b5c0367d5a6ba09fb0fb2c00f348946c93dc410f92a5c74251ea
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/envoy-route-retry.txt
+  local_copy_kind: full
+- doc_id: envoy-timeouts
+  title: 'FAQ: Envoy timeouts'
+  component: Envoy
+  layer: 入口与代理
+  version: latest
+  url: https://www.envoyproxy.io/docs/envoy/latest/faq/configuration/timeouts
+  retrieved_at: '2026-09-20'
+  sha256: 069f0fc6e70b7bbaf910d3359cd31ece9940d18d284b67c97d2958a078374d11
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Envoy 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/envoy-timeouts.txt
+  local_copy_kind: full
+- doc_id: go-context
+  title: context package
+  component: Go context
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://pkg.go.dev/context
+  retrieved_at: '2026-09-20'
+  sha256: 6d354bc87941964de4d9f18c47be6a6a663ea28d3b83b760d8816f3334426e90
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/go-context.txt
+  local_copy_kind: full
+- doc_id: go-database-sql
+  title: database/sql package
+  component: Go database/sql
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://pkg.go.dev/database/sql
+  retrieved_at: '2026-09-20'
+  sha256: 841eebeb5e19eef31178c6fff86fc93798e2077c758bb9ae0c8681b94885dc01
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/go-database-sql.txt
+  local_copy_kind: full
+- doc_id: go-net-http
+  title: net/http package
+  component: Go net/http
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://pkg.go.dev/net/http
+  retrieved_at: '2026-09-20'
+  sha256: d1b1f76b0bd46af8470bb5851a7322ef75f4a189308db64fe25a2d54b951f584
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/go-net-http.txt
+  local_copy_kind: full
+- doc_id: go-redis
+  title: go-redis v9 Options
+  component: go-redis
+  layer: 缓存客户端
+  version: unversioned
+  url: https://pkg.go.dev/github.com/redis/go-redis/v9
+  retrieved_at: '2026-09-20'
+  sha256: 3c77a501c2998a959c9ec229fad648b7d4cab3362cb6e3eef805e9d7f9bcdb67
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/go-redis.txt
+  local_copy_kind: full
+- doc_id: go-retryablehttp
+  title: hashicorp/go-retryablehttp package
+  component: go-retryablehttp
+  layer: 容错库
+  version: unversioned
+  url: https://pkg.go.dev/github.com/hashicorp/go-retryablehttp
+  retrieved_at: '2026-09-20'
+  sha256: 9fb2ce8e5e006012fdb8b58fd4edc51ea1604f044e01b576d2ad5d6bd64d300e
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/go-retryablehttp.txt
+  local_copy_kind: full
+- doc_id: go-sql-driver-mysql
+  title: DSN parameters
+  component: go-sql-driver/mysql
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://raw.githubusercontent.com/go-sql-driver/mysql/master/README.md
+  retrieved_at: '2026-09-20'
+  sha256: 5b9da2e9af50dfc4acf9c6320d721398d350bb80042d0893fc7a3867cf5b6947
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/go-sql-driver-mysql.txt
+  local_copy_kind: full
+- doc_id: gobreaker
+  title: sony/gobreaker package
+  component: gobreaker
+  layer: 容错库
+  version: unversioned
+  url: https://pkg.go.dev/github.com/sony/gobreaker
+  retrieved_at: '2026-09-20'
+  sha256: e882880ba3401ef5f0e8fe3a43afa2656a1048af10c0d14f1d443ae67285ab70
+  source_sha256: ''
+  license: 随所属模块的开源许可（标准库为 BSD-3-Clause）
+  redistribution: permissive
+  local_copy: docs-cache/gobreaker.txt
+  local_copy_kind: full
+- doc_id: grpc-cancellation
+  title: Cancellation
+  component: gRPC
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://grpc.io/docs/guides/cancellation/
+  retrieved_at: '2026-09-20'
+  sha256: 9c27f8b30735d10ed0e9bbd909342ddca8d7b08219e6c51110d5eb32a87fdd43
+  source_sha256: ''
+  license: CC BY 4.0（gRPC 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/grpc-cancellation.txt
+  local_copy_kind: full
+- doc_id: grpc-deadlines
+  title: Deadlines
+  component: gRPC
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://grpc.io/docs/guides/deadlines/
+  retrieved_at: '2026-09-20'
+  sha256: a91677b7615b681fdadf57e2d19e63304011a12df2a7eba4920390e7d6907e04
+  source_sha256: ''
+  license: CC BY 4.0（gRPC 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/grpc-deadlines.txt
+  local_copy_kind: full
+- doc_id: grpc-keepalive
+  title: Keepalive
+  component: gRPC
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://grpc.io/docs/guides/keepalive/
+  retrieved_at: '2026-09-20'
+  sha256: 5b68ae963720514f7486d276c0e5bd50e9d6b04174a9d960bb0d954697a05a5d
+  source_sha256: ''
+  license: CC BY 4.0（gRPC 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/grpc-keepalive.txt
+  local_copy_kind: full
+- doc_id: grpc-retry
+  title: Retry
+  component: gRPC
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://grpc.io/docs/guides/retry/
+  retrieved_at: '2026-09-20'
+  sha256: 71168830dc6ed4ddea6188812aad18e5f3d513ca422f32a5e63c6b6ea937eb9c
+  source_sha256: ''
+  license: CC BY 4.0（gRPC 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/grpc-retry.txt
+  local_copy_kind: full
+- doc_id: grpc-retry-grfc
+  title: 'gRFC A6: client retries'
+  component: gRPC
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/grpc/proposal/master/A6-client-retries.md
+  retrieved_at: '2026-09-20'
+  sha256: 62fd71920c9af052deada20af8ecc6bb614ad280d586da4895b96f3cf5a15191
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/grpc-retry-grfc.txt
+  local_copy_kind: full
+- doc_id: hikaricp
+  title: HikariCP configuration
+  component: HikariCP
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://raw.githubusercontent.com/brettwooldridge/HikariCP/dev/README.md
+  retrieved_at: '2026-09-20'
+  sha256: dbc49b8d01f6957d0a16674a62ea2041d31dce362dac6652a5be0b6e1d0f8706
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/hikaricp.txt
+  local_copy_kind: full
+- doc_id: ingress-nginx-annotations
+  title: NGINX Ingress annotations
+  component: ingress-nginx
+  layer: 入口与代理
+  version: unversioned
+  url: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/
+  retrieved_at: '2026-09-20'
+  sha256: 068121ee7bc5277c698a32d66ee24d8b9f12da320cdafa1473c76bcf90fb723e
+  source_sha256: ''
+  license: Apache-2.0（ingress-nginx 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/ingress-nginx-annotations.txt
+  local_copy_kind: full
+- doc_id: ioredis
+  title: ioredis README
+  component: ioredis
+  layer: 缓存客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/redis/ioredis/main/README.md
+  retrieved_at: '2026-09-20'
+  sha256: cde462174b2c0ff412f6a43090033585779ff27b185707c85181d952793710a4
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/ioredis.txt
+  local_copy_kind: full
+- doc_id: istio-destinationrule
+  title: DestinationRule reference (connectionPool, outlierDetection)
+  component: Istio
+  layer: 入口与代理
+  version: latest
+  url: https://istio.io/latest/docs/reference/config/networking/destination-rule/
+  retrieved_at: '2026-09-20'
+  sha256: f545675147e064722a64db7a70966164257754c133fba69250cc45066f2f8f3a
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/istio-destinationrule.txt
+  local_copy_kind: full
+- doc_id: istio-request-timeouts
+  title: Request Timeouts
+  component: Istio
+  layer: 入口与代理
+  version: latest
+  url: https://istio.io/latest/docs/tasks/traffic-management/request-timeouts/
+  retrieved_at: '2026-09-20'
+  sha256: 26dbb05c9732aba29887aba8dc2a25ddcb7f67a28c14f77b0df06d2071e8a303
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/istio-request-timeouts.txt
+  local_copy_kind: full
+- doc_id: istio-virtualservice
+  title: VirtualService reference (HTTPRetry, timeout)
+  component: Istio
+  layer: 入口与代理
+  version: latest
+  url: https://istio.io/latest/docs/reference/config/networking/virtual-service/
+  retrieved_at: '2026-09-20'
+  sha256: b82b3b683b71da9e040855c0772c02b4ce66bdbbceed1beafbcbb9a44273014c
+  source_sha256: ''
+  license: Apache-2.0 / CC BY 4.0（Istio 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/istio-virtualservice.txt
+  local_copy_kind: full
+- doc_id: jedis
+  title: Jedis README (pool, timeouts)
+  component: Jedis
+  layer: 缓存客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/redis/jedis/master/README.md
+  retrieved_at: '2026-09-20'
+  sha256: e49041b1977ee3012d3a656d73e8534be28a9c600efa2135847164b454577668
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/jedis.txt
+  local_copy_kind: full
+- doc_id: jvm-launcher
+  title: java command (UseContainerSupport, MaxRAMPercentage)
+  component: JVM
+  layer: 语言运行时
+  version: unversioned
+  url: https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html
+  retrieved_at: '2026-09-20'
+  sha256: e2c129e37d63dc6f184ddb26e0c3d0736d0c193a1df686063057ef65a348d3dd
+  source_sha256: ''
+  license: © Oracle，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/jvm-launcher.txt
+  local_copy_kind: excerpt
+- doc_id: k8s-affinity
+  title: Assigning Pods to Nodes
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+  retrieved_at: '2026-09-20'
+  sha256: 9460420ddc579eebde43e794ba73c30b7705fd06defb103234734cc9e37b51a3
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-affinity.txt
+  local_copy_kind: full
+- doc_id: k8s-config-best-practices
+  title: Configuration Best Practices
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/configuration/overview/
+  retrieved_at: '2026-09-20'
+  sha256: ce98242f7fd9d646a0aba097c5284768e72d6c7293650c3cdd8aed05fd1f7289
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-config-best-practices.txt
+  local_copy_kind: full
+- doc_id: k8s-deployment
+  title: Deployments (rolling update parameters)
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+  retrieved_at: '2026-09-20'
+  sha256: 4e742e77caefb0461392d80f7c1d7f8fe277e943ed4f193cbadf66c7675b7dae
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-deployment.txt
+  local_copy_kind: full
+- doc_id: k8s-disruptions
+  title: Disruptions
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  retrieved_at: '2026-09-20'
+  sha256: cf2ebe75b5a678b90a4da4803e599dee1db664693012bfd3fbc92646dce09886
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-disruptions.txt
+  local_copy_kind: full
+- doc_id: k8s-eviction
+  title: Node-pressure Eviction
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
+  retrieved_at: '2026-09-20'
+  sha256: 5ff5c2f09069aca02f2f5782e565b1fa2af3d9894d42931d01b053da320d4c30
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-eviction.txt
+  local_copy_kind: full
+- doc_id: k8s-hpa
+  title: Horizontal Pod Autoscaling
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  retrieved_at: '2026-09-20'
+  sha256: 32f0c63eaa06f65a4efa3e9efc486fa6af541c3873bcda65daba76ec374e822f
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-hpa.txt
+  local_copy_kind: full
+- doc_id: k8s-pdb-task
+  title: Specifying a Disruption Budget for your Application
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  retrieved_at: '2026-09-20'
+  sha256: 17c3b41bb6e2a7d1fd1c4eece61d8a22608f6d9365f10c92d9f4c58163ba6707
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-pdb-task.txt
+  local_copy_kind: full
+- doc_id: k8s-pod-lifecycle
+  title: Pod Lifecycle
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+  retrieved_at: '2026-09-20'
+  sha256: 3ebfdf05fac1ea665a850b7d132a9fdc301cd113a5b11be1e64bcc0b42280327
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-pod-lifecycle.txt
+  local_copy_kind: full
+- doc_id: k8s-probes-concept
+  title: Liveness, Readiness, and Startup Probes
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/
+  retrieved_at: '2026-09-20'
+  sha256: 13c24f5ed7f9cb0266acd435f6e6a1cecbda6f228b276485cd03f9edb8b89522
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-probes-concept.txt
+  local_copy_kind: full
+- doc_id: k8s-probes-task
+  title: Configure Liveness, Readiness and Startup Probes
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  retrieved_at: '2026-09-20'
+  sha256: cd97d8844b82e8914acbbcc3039582a38d9921a01b88820549819a05547281a3
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-probes-task.txt
+  local_copy_kind: full
+- doc_id: k8s-qos
+  title: Pod Quality of Service Classes
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
+  retrieved_at: '2026-09-20'
+  sha256: 1af4675353934ee5eef9f95def82e8bc5eab0efec8e8a3bd90d049f5a6269e32
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-qos.txt
+  local_copy_kind: full
+- doc_id: k8s-resources
+  title: Resource Management for Pods and Containers
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  retrieved_at: '2026-09-20'
+  sha256: 5a3e6d203615e552e5f90780d20063c678f517fb17fd821921d80dd161df3933
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-resources.txt
+  local_copy_kind: full
+- doc_id: k8s-topology-spread
+  title: Pod Topology Spread Constraints
+  component: Kubernetes
+  layer: 容器编排
+  version: unversioned
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+  retrieved_at: '2026-09-20'
+  sha256: 3c13f93877eaada784eb2a6b6371f32410c6650d61a0fc59b94a25f2042cca00
+  source_sha256: ''
+  license: CC BY 4.0（Kubernetes 官方文档）
+  redistribution: permissive
+  local_copy: docs-cache/k8s-topology-spread.txt
+  local_copy_kind: full
+- doc_id: kafka-consumer-config
+  title: Consumer configs
+  component: Kafka
+  layer: 消息
+  version: unversioned
+  url: https://kafka.apache.org/40/generated/consumer_config.html
+  retrieved_at: '2026-09-20'
+  sha256: 8ef8697fbfc6fec0d21952986caad71532ce8ef8baf13a9e70c8ae182c3eb5b9
+  source_sha256: ''
+  license: Apache-2.0（Apache 软件基金会项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/kafka-consumer-config.txt
+  local_copy_kind: full
+- doc_id: kafka-producer-config
+  title: Producer configs
+  component: Kafka
+  layer: 消息
+  version: unversioned
+  url: https://kafka.apache.org/40/generated/producer_config.html
+  retrieved_at: '2026-09-20'
+  sha256: ec2aa931ecfd061ea9c8b91969f1fa1683e514d28bc3ee0def9a64ef298325cb
+  source_sha256: ''
+  license: Apache-2.0（Apache 软件基金会项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/kafka-producer-config.txt
+  local_copy_kind: full
+- doc_id: kafka-topic-config
+  title: Topic configs
+  component: Kafka
+  layer: 消息
+  version: unversioned
+  url: https://kafka.apache.org/40/generated/topic_config.html
+  retrieved_at: '2026-09-20'
+  sha256: a75058e4b4f8cf0cb8856c5c2eff0cdd8f902bbfc6f3a4ba0f9c22913af50aa3
+  source_sha256: ''
+  license: Apache-2.0（Apache 软件基金会项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/kafka-topic-config.txt
+  local_copy_kind: full
+- doc_id: kube-score-checks
+  title: kube-score checks list
+  component: kube-score
+  layer: 通用准则
+  version: unversioned
+  url: https://raw.githubusercontent.com/zegl/kube-score/master/README_CHECKS.md
+  retrieved_at: '2026-09-20'
+  sha256: 80478381adba8ae35c1ca793c39e70822394982ae590153daf88e85a12d80475
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/kube-score-checks.txt
+  local_copy_kind: full
+- doc_id: lettuce
+  title: Lettuce Client Options (timeout, auto-reconnect)
+  component: Lettuce
+  layer: 缓存客户端
+  version: unversioned
+  url: https://redis.github.io/lettuce/advanced-usage/client-options/
+  retrieved_at: '2026-09-20'
+  sha256: 885942cf83868153c82019b757a82e096b385d99f893f0e692f679ccad78eb37
+  source_sha256: ''
+  license: MIT（Lettuce 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/lettuce.txt
+  local_copy_kind: full
+- doc_id: mongodb-connection-options
+  title: Connection String Options
+  component: MongoDB driver
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://www.mongodb.com/docs/manual/reference/connection-string-options/
+  retrieved_at: '2026-09-20'
+  sha256: 40ea2ba9b340bcc2e677f2f74200d10d182af52ca4b6f84a752a1517b5520a74
+  source_sha256: ''
+  license: © MongoDB，文档未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/mongodb-connection-options.txt
+  local_copy_kind: excerpt
+- doc_id: nacos-instance-lifecycle
+  title: 实例生命周期
+  component: Nacos
+  layer: 服务发现
+  version: latest
+  url: https://nacos.io/docs/latest/manual/user/naming/instance-lifecycle/
+  retrieved_at: '2026-09-20'
+  sha256: c40551b6ec788570d55f0df455c119011a0c47dc4c9370e1e0f357029fc2f635
+  source_sha256: ''
+  license: Apache-2.0（Nacos 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/nacos-instance-lifecycle.txt
+  local_copy_kind: full
+- doc_id: nacos-java-failover
+  title: Java SDK 容灾
+  component: Nacos
+  layer: 服务发现
+  version: latest
+  url: https://nacos.io/docs/latest/manual/user/java-sdk/failover/
+  retrieved_at: '2026-09-20'
+  sha256: 372e7f4f75f93a6d7bb30de12eaf70b0edce7335f5423fd09181e91e2cafdc9d
+  source_sha256: ''
+  license: Apache-2.0（Nacos 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/nacos-java-failover.txt
+  local_copy_kind: full
+- doc_id: nacos-java-properties
+  title: Java SDK 配置项
+  component: Nacos
+  layer: 服务发现
+  version: latest
+  url: https://nacos.io/docs/latest/manual/user/java-sdk/properties/
+  retrieved_at: '2026-09-20'
+  sha256: 934c80c8fdc928f461adfda955c0144b5690b7a6fe9d5a25c249fc4095deac76
+  source_sha256: ''
+  license: Apache-2.0（Nacos 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/nacos-java-properties.txt
+  local_copy_kind: full
+- doc_id: node-http
+  title: HTTP (agent, keepAlive, timeouts)
+  component: Node.js
+  layer: 语言运行时
+  version: unversioned
+  url: https://nodejs.org/api/http.html
+  retrieved_at: '2026-09-20'
+  sha256: 1d92a4487ac34966a4bb955e4b6edcbbcdf386a85de317ca79607c405ea159e3
+  source_sha256: ''
+  license: MIT（Node.js 文档）
+  redistribution: permissive
+  local_copy: docs-cache/node-http.txt
+  local_copy_kind: full
+- doc_id: node-undici
+  title: undici Dispatcher / Client API
+  component: undici
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/nodejs/undici/main/docs/docs/api/Client.md
+  retrieved_at: '2026-09-20'
+  sha256: 72ad4c3c389b5e64d5482186380d85a151973273fe82f3671c59a6fe60e95fd0
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/node-undici.txt
+  local_copy_kind: full
+- doc_id: php-guzzle
+  title: Guzzle request options
+  component: Guzzle
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://docs.guzzlephp.org/en/stable/request-options.html
+  retrieved_at: '2026-09-20'
+  sha256: ec32ee7ec18933c5ded3fa380147f79012562afb61ce208287c5f6de9b8a376d
+  source_sha256: ''
+  license: MIT（Guzzle 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/php-guzzle.txt
+  local_copy_kind: full
+- doc_id: polaris-checks-reliability
+  title: 'Polaris Checks: Reliability'
+  component: Polaris
+  layer: 通用准则
+  version: unversioned
+  url: https://polaris.docs.fairwinds.com/checks/reliability/
+  retrieved_at: '2026-09-20'
+  sha256: 2c12a56424988baa33c04be7ca27a2847f7700f634210ad8bc7898a4fd6ad0a9
+  source_sha256: ''
+  license: Apache-2.0（Polaris 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/polaris-checks-reliability.txt
+  local_copy_kind: full
+- doc_id: polly-circuit-breaker
+  title: Circuit breaker resilience strategy
+  component: Polly
+  layer: 容错库
+  version: unversioned
+  url: https://www.pollydocs.org/strategies/circuit-breaker.html
+  retrieved_at: '2026-09-20'
+  sha256: ee520da661d4bd449ea7a36c759c0c92d0d93706b3462d491efd5dbf50b23818
+  source_sha256: ''
+  license: BSD-3-Clause（Polly 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/polly-circuit-breaker.txt
+  local_copy_kind: full
+- doc_id: polly-retry
+  title: Retry resilience strategy
+  component: Polly
+  layer: 容错库
+  version: unversioned
+  url: https://www.pollydocs.org/strategies/retry.html
+  retrieved_at: '2026-09-20'
+  sha256: 6de628f01fa45e6cc47ad3c61c2d54027a5bd39fcf8ddf12206f9b09e0df6e49
+  source_sha256: ''
+  license: BSD-3-Clause（Polly 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/polly-retry.txt
+  local_copy_kind: full
+- doc_id: polly-timeout
+  title: Timeout resilience strategy
+  component: Polly
+  layer: 容错库
+  version: unversioned
+  url: https://www.pollydocs.org/strategies/timeout.html
+  retrieved_at: '2026-09-20'
+  sha256: 5767fd699e5852309146859d11e50abe6a6eb6cdfc2012ada69eb757ba51ecb7
+  source_sha256: ''
+  license: BSD-3-Clause（Polly 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/polly-timeout.txt
+  local_copy_kind: full
+- doc_id: postgres-libpq-connect
+  title: libpq connection parameters (connect_timeout)
+  component: PostgreSQL
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://www.postgresql.org/docs/current/libpq-connect.html
+  retrieved_at: '2026-09-20'
+  sha256: bb1f75077765650a1e1ab0dc99784ca0ad0f87609b7f4fc7e33dadaabe15d25f
+  source_sha256: ''
+  license: PostgreSQL License
+  redistribution: permissive
+  local_copy: docs-cache/postgres-libpq-connect.txt
+  local_copy_kind: full
+- doc_id: postgres-runtime-client
+  title: Client connection defaults (statement_timeout)
+  component: PostgreSQL
+  layer: 数据库客户端与连接池
+  version: unversioned
+  url: https://www.postgresql.org/docs/current/runtime-config-client.html
+  retrieved_at: '2026-09-20'
+  sha256: fb71f91cf100687b9d9b0ce8afa25e25a4e18a01e66cc021787af8e36528b0d6
+  source_sha256: ''
+  license: PostgreSQL License
+  redistribution: permissive
+  local_copy: docs-cache/postgres-runtime-client.txt
+  local_copy_kind: full
+- doc_id: python-httpx-timeouts
+  title: Timeouts
+  component: Python httpx
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://www.python-httpx.org/advanced/timeouts/
+  retrieved_at: '2026-09-20'
+  sha256: 3e76b16afdd77261bdbf830f6004f18e81a8c27ceda43a6aca56df537f69d406
+  source_sha256: ''
+  license: BSD-3-Clause（HTTPX 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/python-httpx-timeouts.txt
+  local_copy_kind: full
+- doc_id: python-requests-advanced
+  title: Advanced Usage (timeouts)
+  component: Python requests
+  layer: RPC 与 HTTP 客户端
+  version: latest
+  url: https://requests.readthedocs.io/en/latest/user/advanced/
+  retrieved_at: '2026-09-20'
+  sha256: acba2d2d6442de0f2c3753475ecb6e1c7a3673578017d2e6382f9f02a9293727
+  source_sha256: ''
+  license: Apache-2.0（Requests 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/python-requests-advanced.txt
+  local_copy_kind: full
+- doc_id: rabbitmq-confirms
+  title: Consumer Acknowledgements and Publisher Confirms
+  component: RabbitMQ
+  layer: 消息
+  version: unversioned
+  url: https://www.rabbitmq.com/docs/confirms
+  retrieved_at: '2026-09-20'
+  sha256: cba9e87da8e2d3231a0ae86f09e90f06131d2e99fe57d833c8501146582d0498
+  source_sha256: ''
+  license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/rabbitmq-confirms.txt
+  local_copy_kind: full
+- doc_id: rabbitmq-dlx
+  title: Dead Letter Exchanges
+  component: RabbitMQ
+  layer: 消息
+  version: unversioned
+  url: https://www.rabbitmq.com/docs/dlx
+  retrieved_at: '2026-09-20'
+  sha256: 313895650a48d420e62cb10ab1cd20d5a1cd556532a52989d3f61095bf5607b3
+  source_sha256: ''
+  license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/rabbitmq-dlx.txt
+  local_copy_kind: full
+- doc_id: rabbitmq-prefetch
+  title: Consumer Prefetch
+  component: RabbitMQ
+  layer: 消息
+  version: unversioned
+  url: https://www.rabbitmq.com/docs/consumer-prefetch
+  retrieved_at: '2026-09-20'
+  sha256: d0142aad0474e222afbe2d8990ef9822f7c4152f51c8f2df848283c8e594522b
+  source_sha256: ''
+  license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/rabbitmq-prefetch.txt
+  local_copy_kind: full
+- doc_id: rabbitmq-reliability
+  title: Reliability Guide
+  component: RabbitMQ
+  layer: 消息
+  version: unversioned
+  url: https://www.rabbitmq.com/docs/reliability
+  retrieved_at: '2026-09-20'
+  sha256: d884264271b9aca3b02cefe00a8dbd3331b4bdc6ea315059319bf07868426e13
+  source_sha256: ''
+  license: Apache-2.0 / MPL-2.0（RabbitMQ 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/rabbitmq-reliability.txt
+  local_copy_kind: full
+- doc_id: redis-py
+  title: redis-py connection examples
+  component: redis-py
+  layer: 缓存客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/redis/redis-py/master/README.md
+  retrieved_at: '2026-09-20'
+  sha256: f3cf8fab1933ed7b7587d49002e131db4b5cc788b2b8a104ed04c0af76f94c71
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/redis-py.txt
+  local_copy_kind: full
+- doc_id: resilience4j-bulkhead
+  title: Bulkhead
+  component: Resilience4j
+  layer: 容错库
+  version: unversioned
+  url: https://resilience4j.readme.io/docs/bulkhead
+  retrieved_at: '2026-09-20'
+  sha256: 818a4940de55df4c7f911bc574ec71d7cb53e01efc139dfceba80ac923791395
+  source_sha256: ''
+  license: Apache-2.0（Resilience4j 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/resilience4j-bulkhead.txt
+  local_copy_kind: full
+- doc_id: resilience4j-circuitbreaker
+  title: CircuitBreaker
+  component: Resilience4j
+  layer: 容错库
+  version: unversioned
+  url: https://resilience4j.readme.io/docs/circuitbreaker
+  retrieved_at: '2026-09-20'
+  sha256: d7f5d3a472f896d6e75ca10576c5db1442169a6fb31d00ede10c07f9723bab87
+  source_sha256: ''
+  license: Apache-2.0（Resilience4j 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/resilience4j-circuitbreaker.txt
+  local_copy_kind: full
+- doc_id: resilience4j-ratelimiter
+  title: RateLimiter
+  component: Resilience4j
+  layer: 容错库
+  version: unversioned
+  url: https://resilience4j.readme.io/docs/ratelimiter
+  retrieved_at: '2026-09-20'
+  sha256: 3187a67e573dd945ef2d305e6645b664569beea6d276bb6e5db2f376c6ed874a
+  source_sha256: ''
+  license: Apache-2.0（Resilience4j 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/resilience4j-ratelimiter.txt
+  local_copy_kind: full
+- doc_id: resilience4j-retry
+  title: Retry
+  component: Resilience4j
+  layer: 容错库
+  version: unversioned
+  url: https://resilience4j.readme.io/docs/retry
+  retrieved_at: '2026-09-20'
+  sha256: 29af85f4c368af79b1402271d638a73ee7db6517652f60dd105b39778fc28020
+  source_sha256: ''
+  license: Apache-2.0（Resilience4j 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/resilience4j-retry.txt
+  local_copy_kind: full
+- doc_id: resilience4j-timelimiter
+  title: TimeLimiter
+  component: Resilience4j
+  layer: 容错库
+  version: unversioned
+  url: https://resilience4j.readme.io/docs/timeout
+  retrieved_at: '2026-09-20'
+  sha256: 856b971652e1ddadbc478b6ecbd97e67f6e465c8839953b5e0037ce8751c9d21
+  source_sha256: ''
+  license: Apache-2.0（Resilience4j 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/resilience4j-timelimiter.txt
+  local_copy_kind: full
+- doc_id: ruby-net-http
+  title: Net::HTTP
+  component: Ruby Net::HTTP
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://docs.ruby-lang.org/en/master/Net/HTTP.html
+  retrieved_at: '2026-09-20'
+  sha256: 4136949061abce5219b0589de8ed4c382e92c7591a9fca3d56f650ce01239518
+  source_sha256: ''
+  license: Ruby License / BSD-2-Clause（Ruby 文档）
+  redistribution: permissive
+  local_copy: docs-cache/ruby-net-http.txt
+  local_copy_kind: full
+- doc_id: rust-reqwest
+  title: reqwest ClientBuilder
+  component: reqwest
+  layer: RPC 与 HTTP 客户端
+  version: latest
+  url: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html
+  retrieved_at: '2026-09-20'
+  sha256: 1ed5721b632a37bbaa267da0d8e55fbd8779d0d4cf7ab7a5b2e05f0b930a3e2e
+  source_sha256: ''
+  license: 随 crate 许可（reqwest 为 MIT OR Apache-2.0）
+  redistribution: permissive
+  local_copy: docs-cache/rust-reqwest.txt
+  local_copy_kind: full
+- doc_id: spring-boot-actuator
+  title: Actuator endpoints (health groups, Kubernetes probes)
+  component: Spring Boot Actuator
+  layer: 健康端点
+  version: unversioned
+  url: https://docs.spring.io/spring-boot/reference/actuator/endpoints.html
+  retrieved_at: '2026-09-20'
+  sha256: 338e18c8ab0e6f8f228bbd6a021c6947c0d8cce5b044f3fe202824f2d60a483b
+  source_sha256: ''
+  license: Apache-2.0（Spring 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/spring-boot-actuator.txt
+  local_copy_kind: full
+- doc_id: spring-cloud-loadbalancer
+  title: 'Spring Cloud Commons: LoadBalancer'
+  component: Spring Cloud LoadBalancer
+  layer: 服务发现
+  version: unversioned
+  url: https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html
+  retrieved_at: '2026-09-20'
+  sha256: c1bd64c0515767b552a18fe88a7c902583b40386913d893868b52d40f2d7d6d5
+  source_sha256: ''
+  license: Apache-2.0（Spring 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/spring-cloud-loadbalancer.txt
+  local_copy_kind: full
+- doc_id: spring-cloud-openfeign
+  title: Spring Cloud OpenFeign reference
+  component: Spring Cloud OpenFeign
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://docs.spring.io/spring-cloud-openfeign/reference/spring-cloud-openfeign.html
+  retrieved_at: '2026-09-20'
+  sha256: 7ee1854916d43f295695f7db322ec14abd0ff8663475c92ea698cb76688933db
+  source_sha256: ''
+  license: Apache-2.0（Spring 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/spring-cloud-openfeign.txt
+  local_copy_kind: full
+- doc_id: spring-rest-clients
+  title: REST Clients
+  component: Spring Boot
+  layer: RPC 与 HTTP 客户端
+  version: unversioned
+  url: https://docs.spring.io/spring-boot/reference/io/rest-client.html
+  retrieved_at: '2026-09-20'
+  sha256: bea1e70e1d8deb731abd9e6bb8aee1a865ff92f4e5001dcc0f22466b15339259
+  source_sha256: ''
+  license: Apache-2.0（Spring 项目文档）
+  redistribution: permissive
+  local_copy: docs-cache/spring-rest-clients.txt
+  local_copy_kind: full
+- doc_id: sre-cascading-failures
+  title: SRE Book ch.22 Addressing Cascading Failures
+  component: Google SRE
+  layer: 通用准则
+  version: unversioned
+  url: https://sre.google/sre-book/addressing-cascading-failures/
+  retrieved_at: '2026-09-20'
+  sha256: 33ed18569db28e6e2bc8725983a617891e2d76a6aeefd73f95f6f69391ef54ec
+  source_sha256: ''
+  license: © Google / O'Reilly，可在线免费阅读，未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/sre-cascading-failures.txt
+  local_copy_kind: excerpt
+- doc_id: sre-handling-overload
+  title: SRE Book ch.21 Handling Overload
+  component: Google SRE
+  layer: 通用准则
+  version: unversioned
+  url: https://sre.google/sre-book/handling-overload/
+  retrieved_at: '2026-09-20'
+  sha256: e8a3bb287132143fe7cb25ecac6158c785b79af963aa3a114f1872f65061d84b
+  source_sha256: ''
+  license: © Google / O'Reilly，可在线免费阅读，未授权再分发
+  redistribution: restricted
+  local_copy: docs-cache/sre-handling-overload.txt
+  local_copy_kind: excerpt
+- doc_id: stackexchange-redis
+  title: Configuration options
+  component: StackExchange.Redis
+  layer: 缓存客户端
+  version: unversioned
+  url: https://raw.githubusercontent.com/StackExchange/StackExchange.Redis/main/docs/Configuration.md
+  retrieved_at: '2026-09-20'
+  sha256: 74729f9b1ba4ea0ad2e88444cdd6c2a8c9d2a759da40de7b3b6d7353c4b6fda3
+  source_sha256: ''
+  license: 随所属仓库的开源许可（见 url 指向的仓库）
+  redistribution: permissive
+  local_copy: docs-cache/stackexchange-redis.txt
+  local_copy_kind: full

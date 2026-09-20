@@ -1,0 +1,6 @@
+# dotnet-httpclient-guidelines —— 引用核对副本（摘录）
+# 来源：https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines
+# 许可：© Microsoft，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
+#      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
+# ----------------------------------------------------------------------
+（本次提交尚无引用落在该文档上）

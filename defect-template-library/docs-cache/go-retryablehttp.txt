@@ -1,0 +1,333 @@
+Discover Packages
+github.com/hashicorp/go-retryablehttp
+[[H1]] retryablehttp
+package module
+Version: v0.7.8
+Opens a new window with list of versions in this module.
+Latest Latest
+This package is not in the latest version of its module.
+Go to latest Published: Jun 18, 2025 License: MPL-2.0
+Opens a new window with license information.
+Imports: 18
+Opens a new window with list of imports.
+Imported by: 2,571
+Opens a new window with list of known importers.
+Main Versions Licenses Imports Imported By
+[[H2]] Details
+Valid go.mod file
+The Go module system was introduced in Go 1.11 and is the official dependency management solution for Go.
+Redistributable license
+Redistributable licenses place minimal restrictions on how software can be used, modified, and redistributed.
+Tagged version
+Modules with tagged versions give importers more predictable builds.
+Stable version
+When a project reaches major version v1 it is considered stable.
+Learn more about best practices
+[[H2]] Repository
+github.com/hashicorp/go-retryablehttp
+[[H2]] Links
+Open Source Insights
+Jump to ...
+README
+go-retryablehttp
+Example Use
+Getting a stdlib *http.Client with retries
+Documentation
+Overview
+Index
+Constants
+Variables
+Functions
+DefaultBackoff(min, max, attemptNum, resp)
+DefaultRetryPolicy(ctx, resp, err)
+ErrorPropagatedRetryPolicy(ctx, resp, err)
+Get(url)
+Head(url)
+LinearJitterBackoff(min, max, attemptNum, resp)
+PassthroughErrorHandler(resp, err, _)
+Post(url, bodyType, body)
+PostForm(url, data)
+RateLimitLinearJitterBackoff(min, max, attemptNum, resp)
+Types
+type Backoff
+type CheckRetry
+type Client
+NewClient()
+(c) Do(req)
+(c) Get(url)
+(c) Head(url)
+(c) Post(url, bodyType, body)
+(c) PostForm(url, data)
+(c) StandardClient()
+type ErrorHandler
+type LenReader
+type LeveledLogger
+type Logger
+type PrepareRetry
+type ReaderFunc
+type Request
+FromRequest(r)
+NewRequest(method, url, rawBody)
+NewRequestWithContext(ctx, method, url, rawBody)
+(r) BodyBytes()
+(r) SetBody(rawBody)
+(r) SetResponseHandler(fn)
+(r) WithContext(ctx)
+(r) WriteTo(w)
+type RequestLogHook
+type ResponseHandlerFunc
+type ResponseLogHook
+type RoundTripper
+(rt) RoundTrip(req)
+Source Files
+README
+[[H2]] README ¶
+[[H3]] go-retryablehttp
+The retryablehttp package provides a familiar HTTP client interface with automatic retries and exponential backoff. It is a thin wrapper over the standard net/http client library and exposes nearly the same public API. This makes retryablehttp very easy to drop into existing programs.
+retryablehttp performs automatic retries under certain conditions. Mainly, if an error is returned by the client (connection errors, etc.), or if a 500-range response code is received (except 501), then a retry is invoked after a wait period. Otherwise, the response is returned and left to the caller to interpret.
+The main difference from net/http is that requests which take a request body (POST/PUT et. al) can have the body provided in a number of ways (some more or less efficient) that allow "rewinding" the request body if the initial request fails so that the full request can be attempted again. See the godoc for more details.
+Version 0.6.0 and before are compatible with Go prior to 1.12. From 0.6.1 onward, Go 1.12+ is required. From 0.6.7 onward, Go 1.13+ is required.
+[[H3]] Example Use
+Using this library should look almost identical to what you would do with net/http. The most simple example of a GET request is shown below:
+resp, err := retryablehttp.Get("/foo")
+if err != nil {
+panic(err)
+}
+The returned response object is an *http.Response, the same thing you would usually get from net/http. Had the request failed one or more times, the above call would block and retry with exponential backoff.
+[[H4]] Getting a stdlib *http.Client with retries
+It's possible to convert a *retryablehttp.Client directly to a *http.Client. This makes use of retryablehttp broadly applicable with minimal effort. Simply configure a *retryablehttp.Client as you wish, and then call StandardClient():
+retryClient := retryablehttp.NewClient()
+retryClient.RetryMax = 10
+standardClient := retryClient.StandardClient() // *http.Client
+For more usage and examples see the pkg.go.dev.
+Expand ▾ Collapse ▴
+[[H2]] Documentation ¶
+[[H3]] Overview ¶
+Package retryablehttp provides a familiar HTTP client interface with automatic retries and exponential backoff. It is a thin wrapper over the standard net/http client library and exposes nearly the same public API. This makes retryablehttp very easy to drop into existing programs.
+retryablehttp performs automatic retries under certain conditions. Mainly, if an error is returned by the client (connection errors etc), or if a 500-range response is received, then a retry is invoked. Otherwise, the response is returned and left to the caller to interpret.
+Requests which take a request body should provide a non-nil function parameter. The best choice is to provide either a function satisfying ReaderFunc which provides multiple io.Readers in an efficient manner, a *bytes.Buffer (the underlying raw byte slice will be used) or a raw byte slice. As it is a reference type, and we will wrap it as needed by readers, we can efficiently re-use the request body without needing to copy it. If an io.Reader (such as a *bytes.Reader) is provided, the full body will be read prior to the first request, and will be efficiently re-used for any retries. ReadSeeker can be used, but some users have observed occasional data races between the net/http library and the Seek functionality of some implementations of ReadSeeker, so should be avoided if possible.
+[[H3]] Index ¶
+func DefaultBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+func DefaultRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error)
+func ErrorPropagatedRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error)
+func Get(url string) (*http.Response, error)
+func Head(url string) (*http.Response, error)
+func LinearJitterBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+func PassthroughErrorHandler(resp *http.Response, err error, _ int) (*http.Response, error)
+func Post(url, bodyType string, body interface{}) (*http.Response, error)
+func PostForm(url string, data url.Values) (*http.Response, error)
+func RateLimitLinearJitterBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+type Backoff
+type CheckRetry
+type Client
+func NewClient() *Client
+func (c *Client) Do(req *Request) (*http.Response, error)
+func (c *Client) Get(url string) (*http.Response, error)
+func (c *Client) Head(url string) (*http.Response, error)
+func (c *Client) Post(url, bodyType string, body interface{}) (*http.Response, error)
+func (c *Client) PostForm(url string, data url.Values) (*http.Response, error)
+func (c *Client) StandardClient() *http.Client
+type ErrorHandler
+type LenReader
+type LeveledLogger
+type Logger
+type PrepareRetry
+type ReaderFunc
+type Request
+func FromRequest(r *http.Request) (*Request, error)
+func NewRequest(method, url string, rawBody interface{}) (*Request, error)
+func NewRequestWithContext(ctx context.Context, method, url string, rawBody interface{}) (*Request, error)
+func (r *Request) BodyBytes() ([]byte, error)
+func (r *Request) SetBody(rawBody interface{}) error
+func (r *Request) SetResponseHandler(fn ResponseHandlerFunc)
+func (r *Request) WithContext(ctx context.Context) *Request
+func (r *Request) WriteTo(w io.Writer) (int64, error)
+type RequestLogHook
+type ResponseHandlerFunc
+type ResponseLogHook
+type RoundTripper
+func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
+[[H3]] Constants ¶
+This section is empty.
+[[H3]] Variables ¶
+This section is empty.
+[[H3]] Functions ¶
+[[H4]] func DefaultBackoff ¶
+func DefaultBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+DefaultBackoff provides a default callback for Client.Backoff which will perform exponential backoff based on the attempt number and limited by the provided minimum and maximum durations.
+It also tries to parse Retry-After response header when a http.StatusTooManyRequests (HTTP Code 429) is found in the resp parameter. Hence it will return the number of seconds the server states it may be ready to process more requests from this client.
+[[H4]] func DefaultRetryPolicy ¶
+func DefaultRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error)
+DefaultRetryPolicy provides a default callback for Client.CheckRetry, which will retry on connection errors and server errors.
+[[H4]] func ErrorPropagatedRetryPolicy ¶ added in v0.6.7
+func ErrorPropagatedRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error)
+ErrorPropagatedRetryPolicy is the same as DefaultRetryPolicy, except it propagates errors back instead of returning nil. This allows you to inspect why it decided to retry or not.
+[[H4]] func Get ¶
+func Get(url string) (*http.Response, error)
+Get is a shortcut for doing a GET request without making a new client.
+[[H4]] func Head ¶
+func Head(url string) (*http.Response, error)
+Head is a shortcut for doing a HEAD request without making a new client.
+[[H4]] func LinearJitterBackoff ¶
+func LinearJitterBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+LinearJitterBackoff provides a callback for Client.Backoff which will perform linear backoff based on the attempt number and with jitter to prevent a thundering herd.
+min and max here are *not* absolute values. The number to be multiplied by the attempt number will be chosen at random from between them, thus they are bounding the jitter.
+For instance: * To get strictly linear backoff of one second increasing each retry, set both to one second (1s, 2s, 3s, 4s, ...) * To get a small amount of jitter centered around one second increasing each retry, set to around one second, such as a min of 800ms and max of 1200ms (892ms, 2102ms, 2945ms, 4312ms, ...) * To get extreme jitter, set to a very wide spread, such as a min of 100ms and a max of 20s (15382ms, 292ms, 51321ms, 35234ms, ...)
+[[H4]] func PassthroughErrorHandler ¶
+func PassthroughErrorHandler(resp *http.Response, err error, _ int) (*http.Response, error)
+PassthroughErrorHandler is an ErrorHandler that directly passes through the values from the net/http library for the final request. The body is not closed.
+[[H4]] func Post ¶
+func Post(url, bodyType string, body interface{}) (*http.Response, error)
+Post is a shortcut for doing a POST request without making a new client. The bodyType parameter sets the "Content-Type" header of the request.
+[[H4]] func PostForm ¶
+func PostForm(url string, data url.Values) (*http.Response, error)
+PostForm is a shortcut to perform a POST with form data without creating a new client.
+[[H4]] func RateLimitLinearJitterBackoff ¶ added in v0.7.8
+func RateLimitLinearJitterBackoff(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+RateLimitLinearJitterBackoff wraps the retryablehttp.LinearJitterBackoff. It first checks if the response status code is http.StatusTooManyRequests (HTTP Code 429) or http.StatusServiceUnavailable (HTTP Code 503). If it is and the response contains a Retry-After response header, it will wait the amount of time specified by the header. Otherwise, this calls LinearJitterBackoff.
+[[H3]] Types ¶
+[[H4]] type Backoff ¶
+type Backoff func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration
+Backoff specifies a policy for how long to wait between retries. It is called after a failing request to determine the amount of time that should pass before trying again.
+[[H4]] type CheckRetry ¶
+type CheckRetry func(ctx context.Context, resp *http.Response, err error) (bool, error)
+CheckRetry specifies a policy for handling retries. It is called following each request with the response and error values returned by the http.Client. If CheckRetry returns false, the Client stops retrying and returns the response to the caller. If CheckRetry returns an error, that error value is returned in lieu of the error from the request. The Client will close any response body when retrying, but if the retry is aborted it is up to the CheckRetry callback to properly close any response body before returning.
+[[H4]] type Client ¶
+type Client struct {
+HTTPClient *http.Client // Internal HTTP client.
+Logger interface{} // Customer logger instance. Can be either Logger or LeveledLogger
+RetryWaitMin time.Duration // Minimum time to wait
+RetryWaitMax time.Duration // Maximum time to wait
+RetryMax int // Maximum number of retries
+// RequestLogHook allows a user-supplied function to be called
+// before each retry.
+RequestLogHook RequestLogHook
+// ResponseLogHook allows a user-supplied function to be called
+// with the response from each HTTP request executed.
+ResponseLogHook ResponseLogHook
+// CheckRetry specifies the policy for handling retries, and is called
+// after each request. The default policy is DefaultRetryPolicy.
+CheckRetry CheckRetry
+// Backoff specifies the policy for how long to wait between retries
+Backoff Backoff
+// ErrorHandler specifies the custom error handler to use, if any
+ErrorHandler ErrorHandler
+// PrepareRetry can prepare the request for retry operation, for example re-sign it
+PrepareRetry PrepareRetry
+// contains filtered or unexported fields
+}
+Client is used to make HTTP requests. It adds additional functionality like automatic retries to tolerate minor outages.
+[[H4]] func NewClient ¶
+func NewClient() *Client
+NewClient creates a new Client with default settings.
+[[H4]] func (*Client) Do ¶
+func (c *Client) Do(req *Request) (*http.Response, error)
+Do wraps calling an HTTP method with retries.
+[[H4]] func (*Client) Get ¶
+func (c *Client) Get(url string) (*http.Response, error)
+Get is a convenience helper for doing simple GET requests.
+[[H4]] func (*Client) Head ¶
+func (c *Client) Head(url string) (*http.Response, error)
+Head is a convenience method for doing simple HEAD requests.
+[[H4]] func (*Client) Post ¶
+func (c *Client) Post(url, bodyType string, body interface{}) (*http.Response, error)
+Post is a convenience method for doing simple POST requests. The bodyType parameter sets the "Content-Type" header of the request.
+[[H4]] func (*Client) PostForm ¶
+func (c *Client) PostForm(url string, data url.Values) (*http.Response, error)
+PostForm is a convenience method for doing simple POST operations using pre-filled url.Values form data.
+[[H4]] func (*Client) StandardClient ¶ added in v0.6.6
+func (c *Client) StandardClient() *http.Client
+StandardClient returns a stdlib *http.Client with a custom Transport, which shims in a *retryablehttp.Client for added retries.
+[[H4]] type ErrorHandler ¶
+type ErrorHandler func(resp *http.Response, err error, numTries int) (*http.Response, error)
+ErrorHandler is called if retries are expired, containing the last status from the http library. If not specified, default behavior for the library is to close the body and return an error indicating how many tries were attempted. If overriding this, be sure to close the body if needed.
+[[H4]] type LenReader ¶
+type LenReader interface {
+Len() int
+}
+LenReader is an interface implemented by many in-memory io.Reader's. Used for automatically sending the right Content-Length header when possible.
+[[H4]] type LeveledLogger ¶ added in v0.6.4
+type LeveledLogger interface {
+Error(msg string, keysAndValues ...interface{})
+Info(msg string, keysAndValues ...interface{})
+Debug(msg string, keysAndValues ...interface{})
+Warn(msg string, keysAndValues ...interface{})
+}
+LeveledLogger is an interface that can be implemented by any logger or a logger wrapper to provide leveled logging. The methods accept a message string and a variadic number of key-value pairs. For log.Printf style formatting where message string contains a format specifier, use Logger interface.
+[[H4]] type Logger ¶ added in v0.5.1
+type Logger interface {
+Printf(string, ...interface{})
+}
+Logger interface allows to use other loggers than standard log.Logger.
+[[H4]] type PrepareRetry ¶ added in v0.7.6
+type PrepareRetry func(req *http.Request) error
+PrepareRetry is called before retry operation. It can be used for example to re-sign the request
+[[H4]] type ReaderFunc ¶
+type ReaderFunc func() (io.Reader, error)
+ReaderFunc is the type of function that can be given natively to NewRequest
+[[H4]] type Request ¶
+type Request struct {
+// Embed an HTTP request directly. This makes a *Request act exactly
+// like an *http.Request so that all meta methods are supported.
+*http.Request
+// contains filtered or unexported fields
+}
+Request wraps the metadata needed to create HTTP requests.
+[[H4]] func FromRequest ¶ added in v0.5.4
+func FromRequest(r *http.Request) (*Request, error)
+FromRequest wraps an http.Request in a retryablehttp.Request
+[[H4]] func NewRequest ¶
+func NewRequest(method, url string, rawBody interface{}) (*Request, error)
+NewRequest creates a new wrapped request.
+[[H4]] func NewRequestWithContext ¶ added in v0.7.1
+func NewRequestWithContext(ctx context.Context, method, url string, rawBody interface{}) (*Request, error)
+NewRequestWithContext creates a new wrapped request with the provided context.
+The context controls the entire lifetime of a request and its response: obtaining a connection, sending the request, and reading the response headers and body.
+[[H4]] func (*Request) BodyBytes ¶ added in v0.5.2
+func (r *Request) BodyBytes() ([]byte, error)
+BodyBytes allows accessing the request body. It is an analogue to http.Request's Body variable, but it returns a copy of the underlying data rather than consuming it.
+This function is not thread-safe; do not call it at the same time as another call, or at the same time this request is being used with Client.Do.
+[[H4]] func (*Request) SetBody ¶ added in v0.6.5
+func (r *Request) SetBody(rawBody interface{}) error
+SetBody allows setting the request body.
+It is useful if a new body needs to be set without constructing a new Request.
+[[H4]] func (*Request) SetResponseHandler ¶ added in v0.7.1
+func (r *Request) SetResponseHandler(fn ResponseHandlerFunc)
+SetResponseHandler allows setting the response handler.
+[[H4]] func (*Request) WithContext ¶
+func (r *Request) WithContext(ctx context.Context) *Request
+WithContext returns wrapped Request with a shallow copy of underlying *http.Request with its context changed to ctx. The provided ctx must be non-nil.
+[[H4]] func (*Request) WriteTo ¶ added in v0.6.5
+func (r *Request) WriteTo(w io.Writer) (int64, error)
+WriteTo allows copying the request body into a writer.
+It writes data to w until there's no more data to write or when an error occurs. The return int64 value is the number of bytes written. Any error encountered during the write is also returned. The signature matches io.WriterTo interface.
+[[H4]] type RequestLogHook ¶
+type RequestLogHook func(Logger, *http.Request, int)
+RequestLogHook allows a function to run before each retry. The HTTP request which will be made, and the retry number (0 for the initial request) are available to users. The internal logger is exposed to consumers.
+[[H4]] type ResponseHandlerFunc ¶ added in v0.7.1
+type ResponseHandlerFunc func(*http.Response) error
+ResponseHandlerFunc is a type of function that takes in a Response, and does something with it. The ResponseHandlerFunc is called when the HTTP client successfully receives a response and the CheckRetry function indicates that a retry of the base request is not necessary. If an error is returned from this function, the CheckRetry policy will be used to determine whether to retry the whole request (including this handler).
+Make sure to check status codes! Even if the request was completed it may have a non-2xx status code.
+The response body is not automatically closed. It must be closed either by the ResponseHandlerFunc or by the caller out-of-band. Failure to do so will result in a memory leak.
+[[H4]] type ResponseLogHook ¶
+type ResponseLogHook func(Logger, *http.Response)
+ResponseLogHook is like RequestLogHook, but allows running a function on each HTTP response. This function will be invoked at the end of every HTTP request executed, regardless of whether a subsequent retry needs to be performed or not. If the response body is read or closed from this method, this will affect the response returned from Do().
+[[H4]] type RoundTripper ¶ added in v0.6.6
+type RoundTripper struct {
+// The client to use during requests. If nil, the default retryablehttp
+// client and settings will be used.
+Client *Client
+// contains filtered or unexported fields
+}
+RoundTripper implements the http.RoundTripper interface, using a retrying HTTP client to execute requests.
+It is important to note that retryablehttp doesn't always act exactly as a RoundTripper should. This is highly dependent on the retryable client's configuration.
+[[H4]] func (*RoundTripper) RoundTrip ¶ added in v0.6.6
+func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
+RoundTrip satisfies the http.RoundTripper interface.
+[[H2]] Source Files ¶
+View all Source files
+cert_error_go120.go
+client.go
+roundtripper.go
+Click to show internal directories.
+Click to hide internal directories.

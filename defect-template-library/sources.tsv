@@ -1,0 +1,99 @@
+# 文档登记的输入。列：doc_id / 层 / 组件 / 标题 / 网址 / reuse（可选，指向上一轮已抓下的原始副本标识）
+k8s-probes-concept	容器编排	Kubernetes	Liveness, Readiness, and Startup Probes	https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/	
+k8s-probes-task	容器编排	Kubernetes	Configure Liveness, Readiness and Startup Probes	https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/	DOC-K8S-PROBES-TASK
+k8s-pod-lifecycle	容器编排	Kubernetes	Pod Lifecycle	https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/	DOC-K8S-POD-LIFECYCLE
+k8s-resources	容器编排	Kubernetes	Resource Management for Pods and Containers	https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/	DOC-K8S-RESOURCES
+k8s-qos	容器编排	Kubernetes	Pod Quality of Service Classes	https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/	DOC-K8S-QOS
+k8s-disruptions	容器编排	Kubernetes	Disruptions	https://kubernetes.io/docs/concepts/workloads/pods/disruptions/	DOC-K8S-DISRUPTIONS
+k8s-pdb-task	容器编排	Kubernetes	Specifying a Disruption Budget for your Application	https://kubernetes.io/docs/tasks/run-application/configure-pdb/	DOC-K8S-PDB-TASK
+k8s-hpa	容器编排	Kubernetes	Horizontal Pod Autoscaling	https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/	DOC-K8S-HPA
+k8s-topology-spread	容器编排	Kubernetes	Pod Topology Spread Constraints	https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/	DOC-K8S-TOPOSPREAD
+k8s-affinity	容器编排	Kubernetes	Assigning Pods to Nodes	https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/	DOC-K8S-AFFINITY
+k8s-eviction	容器编排	Kubernetes	Node-pressure Eviction	https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/	DOC-K8S-EVICTION
+k8s-deployment	容器编排	Kubernetes	Deployments (rolling update parameters)	https://kubernetes.io/docs/concepts/workloads/controllers/deployment/	
+k8s-config-best-practices	容器编排	Kubernetes	Configuration Best Practices	https://kubernetes.io/docs/concepts/configuration/overview/	DOC-K8S-CONFIG-BEST
+envoy-timeouts	入口与代理	Envoy	FAQ: Envoy timeouts	https://www.envoyproxy.io/docs/envoy/latest/faq/configuration/timeouts	DOC-ENVOY-TIMEOUTS
+envoy-route-retry	入口与代理	Envoy	HTTP route components (timeout, retry_policy)	https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto	DOC-ENVOY-ROUTE-PROTO
+envoy-circuit-breaking	入口与代理	Envoy	Circuit breaking	https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking	DOC-ENVOY-CB
+envoy-outlier-detection	入口与代理	Envoy	Outlier detection	https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier	DOC-ENVOY-OUTLIER
+envoy-health-checking	入口与代理	Envoy	Health checking	https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking	DOC-ENVOY-HEALTHCHECK
+istio-virtualservice	入口与代理	Istio	VirtualService reference (HTTPRetry, timeout)	https://istio.io/latest/docs/reference/config/networking/virtual-service/	DOC-ISTIO-VS
+istio-destinationrule	入口与代理	Istio	DestinationRule reference (connectionPool, outlierDetection)	https://istio.io/latest/docs/reference/config/networking/destination-rule/	DOC-ISTIO-DR
+istio-request-timeouts	入口与代理	Istio	Request Timeouts	https://istio.io/latest/docs/tasks/traffic-management/request-timeouts/	DOC-ISTIO-TIMEOUTS
+ingress-nginx-annotations	入口与代理	ingress-nginx	NGINX Ingress annotations	https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/	DOC-INGRESSNGINX-ANNOT
+grpc-deadlines	RPC 与 HTTP 客户端	gRPC	Deadlines	https://grpc.io/docs/guides/deadlines/	DOC-GRPC-DEADLINES
+grpc-cancellation	RPC 与 HTTP 客户端	gRPC	Cancellation	https://grpc.io/docs/guides/cancellation/	DOC-GRPC-CANCELLATION
+grpc-keepalive	RPC 与 HTTP 客户端	gRPC	Keepalive	https://grpc.io/docs/guides/keepalive/	DOC-GRPC-KEEPALIVE
+grpc-retry	RPC 与 HTTP 客户端	gRPC	Retry	https://grpc.io/docs/guides/retry/	DOC-GRPC-RETRY
+grpc-retry-grfc	RPC 与 HTTP 客户端	gRPC	gRFC A6: client retries	https://raw.githubusercontent.com/grpc/proposal/master/A6-client-retries.md	DOC-GRPC-HEDGING
+go-context	RPC 与 HTTP 客户端	Go context	context package	https://pkg.go.dev/context	DOC-GO-CONTEXT
+go-net-http	RPC 与 HTTP 客户端	Go net/http	net/http package	https://pkg.go.dev/net/http	DOC-GO-NETHTTP-CLIENT
+spring-rest-clients	RPC 与 HTTP 客户端	Spring Boot	REST Clients	https://docs.spring.io/spring-boot/reference/io/rest-client.html	DOC-SPRING-RESTCLIENT
+spring-cloud-openfeign	RPC 与 HTTP 客户端	Spring Cloud OpenFeign	Spring Cloud OpenFeign reference	https://docs.spring.io/spring-cloud-openfeign/reference/spring-cloud-openfeign.html	
+node-undici	RPC 与 HTTP 客户端	undici	undici Dispatcher / Client API	https://raw.githubusercontent.com/nodejs/undici/main/docs/docs/api/Client.md	
+axios	RPC 与 HTTP 客户端	axios	axios request config	https://raw.githubusercontent.com/axios/axios/v1.x/README.md	
+dotnet-httpclient-guidelines	RPC 与 HTTP 客户端	.NET HttpClient	HttpClient guidelines for .NET	https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines	DOC-DOTNET-HTTPCLIENT
+dotnet-httpclient-factory	RPC 与 HTTP 客户端	.NET HttpClient	IHttpClientFactory with .NET	https://learn.microsoft.com/en-us/dotnet/core/extensions/httpclient-factory	DOC-DOTNET-HTTPFACTORY
+python-requests-advanced	RPC 与 HTTP 客户端	Python requests	Advanced Usage (timeouts)	https://requests.readthedocs.io/en/latest/user/advanced/	DOC-PY-REQUESTS
+python-httpx-timeouts	RPC 与 HTTP 客户端	Python httpx	Timeouts	https://www.python-httpx.org/advanced/timeouts/	DOC-PY-HTTPX-TIMEOUT
+rust-reqwest	RPC 与 HTTP 客户端	reqwest	reqwest ClientBuilder	https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html	
+ruby-net-http	RPC 与 HTTP 客户端	Ruby Net::HTTP	Net::HTTP	https://docs.ruby-lang.org/en/master/Net/HTTP.html	
+php-guzzle	RPC 与 HTTP 客户端	Guzzle	Guzzle request options	https://docs.guzzlephp.org/en/stable/request-options.html	
+resilience4j-retry	容错库	Resilience4j	Retry	https://resilience4j.readme.io/docs/retry	DOC-R4J-RETRY
+resilience4j-circuitbreaker	容错库	Resilience4j	CircuitBreaker	https://resilience4j.readme.io/docs/circuitbreaker	DOC-R4J-CB
+resilience4j-bulkhead	容错库	Resilience4j	Bulkhead	https://resilience4j.readme.io/docs/bulkhead	DOC-R4J-BULKHEAD
+resilience4j-timelimiter	容错库	Resilience4j	TimeLimiter	https://resilience4j.readme.io/docs/timeout	DOC-R4J-TIMELIMITER
+resilience4j-ratelimiter	容错库	Resilience4j	RateLimiter	https://resilience4j.readme.io/docs/ratelimiter	DOC-R4J-RATELIMITER
+polly-retry	容错库	Polly	Retry resilience strategy	https://www.pollydocs.org/strategies/retry.html	DOC-POLLY-RETRY
+polly-circuit-breaker	容错库	Polly	Circuit breaker resilience strategy	https://www.pollydocs.org/strategies/circuit-breaker.html	DOC-POLLY-CB
+polly-timeout	容错库	Polly	Timeout resilience strategy	https://www.pollydocs.org/strategies/timeout.html	DOC-POLLY-TIMEOUT
+dotnet-http-resilience	容错库	Microsoft.Extensions.Http.Resilience	Build resilient HTTP apps	https://learn.microsoft.com/en-us/dotnet/core/resilience/http-resilience	
+gobreaker	容错库	gobreaker	sony/gobreaker package	https://pkg.go.dev/github.com/sony/gobreaker	DOC-GOBREAKER
+go-retryablehttp	容错库	go-retryablehttp	hashicorp/go-retryablehttp package	https://pkg.go.dev/github.com/hashicorp/go-retryablehttp	
+spring-boot-actuator	健康端点	Spring Boot Actuator	Actuator endpoints (health groups, Kubernetes probes)	https://docs.spring.io/spring-boot/reference/actuator/endpoints.html	DOC-BOOT-ACTUATOR
+aspnet-health-checks	健康端点	ASP.NET Core	Health checks in ASP.NET Core	https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks	
+nacos-java-properties	服务发现	Nacos	Java SDK 配置项	https://nacos.io/docs/latest/manual/user/java-sdk/properties/	DOC-NACOS-JAVA-PROPERTIES
+nacos-java-failover	服务发现	Nacos	Java SDK 容灾	https://nacos.io/docs/latest/manual/user/java-sdk/failover/	DOC-NACOS-JAVA-FAILOVER
+nacos-instance-lifecycle	服务发现	Nacos	实例生命周期	https://nacos.io/docs/latest/manual/user/naming/instance-lifecycle/	DOC-NACOS-INSTANCE-LIFECYCLE
+spring-cloud-loadbalancer	服务发现	Spring Cloud LoadBalancer	Spring Cloud Commons: LoadBalancer	https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html	
+go-database-sql	数据库客户端与连接池	Go database/sql	database/sql package	https://pkg.go.dev/database/sql	DOC-GO-DATABASESQL
+go-sql-driver-mysql	数据库客户端与连接池	go-sql-driver/mysql	DSN parameters	https://raw.githubusercontent.com/go-sql-driver/mysql/master/README.md	
+hikaricp	数据库客户端与连接池	HikariCP	HikariCP configuration	https://raw.githubusercontent.com/brettwooldridge/HikariCP/dev/README.md	DOC-HIKARICP
+postgres-libpq-connect	数据库客户端与连接池	PostgreSQL	libpq connection parameters (connect_timeout)	https://www.postgresql.org/docs/current/libpq-connect.html	
+postgres-runtime-client	数据库客户端与连接池	PostgreSQL	Client connection defaults (statement_timeout)	https://www.postgresql.org/docs/current/runtime-config-client.html	
+mongodb-connection-options	数据库客户端与连接池	MongoDB driver	Connection String Options	https://www.mongodb.com/docs/manual/reference/connection-string-options/	DOC-MONGO-CONNSTR
+jedis	缓存客户端	Jedis	Jedis README (pool, timeouts)	https://raw.githubusercontent.com/redis/jedis/master/README.md	DOC-JEDIS
+lettuce	缓存客户端	Lettuce	Lettuce Client Options (timeout, auto-reconnect)	https://redis.github.io/lettuce/advanced-usage/client-options/	
+go-redis	缓存客户端	go-redis	go-redis v9 Options	https://pkg.go.dev/github.com/redis/go-redis/v9	DOC-GOREDIS
+ioredis	缓存客户端	ioredis	ioredis README	https://raw.githubusercontent.com/redis/ioredis/main/README.md	DOC-IOREDIS
+redis-py	缓存客户端	redis-py	redis-py connection examples	https://raw.githubusercontent.com/redis/redis-py/master/README.md	
+stackexchange-redis	缓存客户端	StackExchange.Redis	Configuration options	https://raw.githubusercontent.com/StackExchange/StackExchange.Redis/main/docs/Configuration.md	
+rabbitmq-reliability	消息	RabbitMQ	Reliability Guide	https://www.rabbitmq.com/docs/reliability	DOC-RABBITMQ-RELIABILITY
+rabbitmq-confirms	消息	RabbitMQ	Consumer Acknowledgements and Publisher Confirms	https://www.rabbitmq.com/docs/confirms	
+rabbitmq-prefetch	消息	RabbitMQ	Consumer Prefetch	https://www.rabbitmq.com/docs/consumer-prefetch	DOC-RABBITMQ-PREFETCH
+rabbitmq-dlx	消息	RabbitMQ	Dead Letter Exchanges	https://www.rabbitmq.com/docs/dlx	DOC-RABBITMQ-DLX
+kafka-producer-config	消息	Kafka	Producer configs	https://kafka.apache.org/40/generated/producer_config.html	DOC-KAFKA-PRODUCER-CFG
+kafka-consumer-config	消息	Kafka	Consumer configs	https://kafka.apache.org/40/generated/consumer_config.html	DOC-KAFKA-CONSUMER-CFG
+kafka-topic-config	消息	Kafka	Topic configs	https://kafka.apache.org/40/generated/topic_config.html	DOC-KAFKA-TOPIC-CFG
+jvm-launcher	语言运行时	JVM	java command (UseContainerSupport, MaxRAMPercentage)	https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html	DOC-JAVA-LAUNCHER
+node-http	语言运行时	Node.js	HTTP (agent, keepAlive, timeouts)	https://nodejs.org/api/http.html	DOC-NODE-HTTP
+sre-handling-overload	通用准则	Google SRE	SRE Book ch.21 Handling Overload	https://sre.google/sre-book/handling-overload/	DOC-SRE-OVERLOAD
+sre-cascading-failures	通用准则	Google SRE	SRE Book ch.22 Addressing Cascading Failures	https://sre.google/sre-book/addressing-cascading-failures/	DOC-SRE-CASCADING
+aws-builders-timeouts	通用准则	AWS Builders Library	Timeouts, retries and backoff with jitter	https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/	DOC-AWS-TIMEOUTS
+aws-builders-idempotency	通用准则	AWS Builders Library	Making retries safe with idempotent APIs	https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/	DOC-AWS-RETRY-IDEMPOTENT
+aws-builders-avoiding-fallback	通用准则	AWS Builders Library	Avoiding fallback in distributed systems	https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/	DOC-AWS-FALLBACK
+aws-builders-load-shedding	通用准则	AWS Builders Library	Using load shedding to avoid overload	https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/	DOC-AWS-LOADSHED
+aws-builders-health-checks	通用准则	AWS Builders Library	Implementing health checks	https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/implementing-health-checks/	DOC-AWS-HEALTHCHECKS
+aws-war-reliability	通用准则	AWS Well-Architected	Reliability Pillar: graceful degradation	https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html	DOC-AWS-WAF-REL
+azure-pattern-retry	通用准则	Azure Architecture Center	Retry pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/retry	DOC-AZ-PATTERN-RETRY
+azure-pattern-circuit-breaker	通用准则	Azure Architecture Center	Circuit Breaker pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker	DOC-AZ-PATTERN-CB
+azure-pattern-bulkhead	通用准则	Azure Architecture Center	Bulkhead pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead	DOC-AZ-PATTERN-BULKHEAD
+azure-pattern-throttling	通用准则	Azure Architecture Center	Throttling pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling	DOC-AZ-PATTERN-THROTTLE
+azure-pattern-health-endpoint	通用准则	Azure Architecture Center	Health Endpoint Monitoring pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring	DOC-AZ-PATTERN-HEM
+azure-pattern-queue-leveling	通用准则	Azure Architecture Center	Queue-Based Load Leveling pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling	DOC-AZ-PATTERN-QBLL
+azure-pattern-compensating	通用准则	Azure Architecture Center	Compensating Transaction pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction	DOC-AZ-PATTERN-COMPENSATE
+azure-pattern-cache-aside	通用准则	Azure Architecture Center	Cache-Aside pattern	https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside	DOC-AZ-PATTERN-CACHEASIDE
+azure-transient-faults	通用准则	Azure Architecture Center	Transient fault handling	https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults	DOC-AZ-TRANSIENT
+polaris-checks-reliability	通用准则	Polaris	Polaris Checks: Reliability	https://polaris.docs.fairwinds.com/checks/reliability/	DOC-POLARIS-RELIABILITY
+kube-score-checks	通用准则	kube-score	kube-score checks list	https://raw.githubusercontent.com/zegl/kube-score/master/README_CHECKS.md	DOC-KUBESCORE-CHECKS
+chaos-principles	通用准则	Principles of Chaos Engineering	Principles of Chaos Engineering	https://principlesofchaos.org/	

@@ -1,0 +1,158 @@
+Lettuce Reference Guide
+GitHub
+Overview
+New & Noteworthy
+Getting Started
+Compatibility & Roadmap
+User Guide
+User Guide
+Connecting Redis
+Asynchronous API
+Reactive API
+Kotlin API
+Publish/Subscribe
+Transactions/Multi
+Hash Import
+Redis Query Engine
+Redis JSON
+Redis Vector Sets
+Probabilistic Data Structures
+Redis programmability
+Redis programmability
+LUA Scripting
+Redis Functions
+High-Availability and Sharding
+Working with dynamic Redis Command Interfaces
+Advanced Usage
+Advanced Usage
+Client Resources
+Client Options Client Options
+Table of contents
+Cluster-specific options
+Request queue size and cluster
+SSL Connections
+Native Transports
+Streaming API
+Events
+Observability
+Pipelining
+Connection Pooling
+Custom Commands
+Graal Native Image
+Command Execution Reliability
+Failover
+Integration and Extension
+Frequently Asked Questions
+API Reference
+Development guide
+Development guide
+Contributing
+Integration Testing
+Benchmark results
+Table of contents
+Cluster-specific options
+Request queue size and cluster
+[[H1]] ClientOptions¶
+ClientOptions allow controlling behavior for some specific features.
+ClientOptions are immutable. Connections inherit the current options at the moment the connection is created. Changes to options will not affect existing connections.
+client.setOptions(ClientOptions.builder()
+.autoReconnect(false)
+.pingBeforeActivateConnection(true)
+.build());
+Name | Method | Default
+PING before activating connection | pingBeforeActivateConnection | true
+Since: 3.1, 4.0
+Perform a lightweight PING connection handshake when establishing a Redis connection. If true (default is true), every connection and reconnect will issue a PING command and await its response before the connection is activated and enabled for use. If the check fails, the connect/reconnect is treated as a failure. This option has no effect unless forced to use the RESP 2 protocol version. RESP 3/protocol discovery performs a HELLO handshake.
+Failed PING's on reconnect are handled as protocol errors and can suspend reconnection if suspendReconnectOnProtocolFailure is enabled.
+The PING handshake validates whether the other end of the connected socket is a service that behaves like a Redis server.
+Auto-Reconnect | autoReconnect | true
+Since: 3.1, 4.0
+Controls auto-reconnect behavior on connections. As soon as a connection gets closed/reset without the intention to close it, the client will try to reconnect, activate the connection and re-issue any queued commands.
+This flag also has the effect that disconnected connections will refuse commands and cancel these with an exception.
+Replay filter | replayFilter | (cmd) -> false
+Since: 6.6
+Controls which commands are to be filtered out in case the driver attempts to reconnect to the server. Returning false means that the command would not be filtered out.
+This flag has no effect in case the autoReconnect feature is not enabled.
+Policy how to reclaim decode buffer memory | decodeBufferPolicy | ratio-based at 75%
+Since: 6.0
+Policy to discard read bytes from the decoding aggregation buffer to reclaim memory. See DecodeBufferPolicies for available strategies.
+Suspend reconnect on protocol failure | suspendReconnectOnProtocolFailure | false (was introduced in 3. 1 with default true)
+Since: 3.1, 4.0
+If this flag is true the reconnect will be suspended on protocol errors. The reconnect itself has two phases: Socket connection and protocol/connection activation. In case a connect timeout occurs, a connection reset, host lookup fails, this does not affect the cancellation of commands. In contrast, where the protocol/connection activation fails due to SSL errors or PING before activating connection failure, queued commands are canceled.
+Reconnection can be activated again, but there is no public API to obtain the ConnectionWatchdog instance.
+Request queue size | requestQueueSize | 2147483647 (Integer#MAX_VALUE)
+Since: 3.4, 4.1
+Controls the per-connection request queue size. The command invocation will lead to a RedisException if the queue size is exceeded. Setting the requestQueueSize to a lower value will lead earlier to exceptions during overload or while the connection is in a disconnected state. A higher value means hitting the boundary will take longer to occur, but more requests will potentially be queued, and more heap space is used.
+Disconnected behavior | disconnectedBehavior | DEFAULT
+Since: 3.4, 4.1
+A connection can behave in a disconnected state in various ways. The auto-connect feature allows in particular to retrigger commands that have been queued while a connection is disconnected. The disconnected behavior setting allows fine-grained control over the behavior. Following settings are available:
+DEFAULT: Accept commands when auto-reconnect is enabled, reject commands when auto-reconnect is disabled.
+ACCEPT_COMMANDS: Accept commands in disconnected state.
+REJECT_COMMANDS: Reject commands in disconnected state.
+Protocol Version | protocolVersion | Latest/Auto-discovery
+Since: 6.0
+Configuration of which protocol version (RESP2/RESP3) to use. Leaving this option unconfigured performs a protocol discovery to use the latest available protocol.
+Script Charset | scriptCharset | UTF-8
+Since: 6.0
+Charset to use for Lua scripts.
+Socket Options | socketOptions | 10 seconds Connection-Timeout, no keep-alive, no TCP noDelay
+Since: 4.3
+Options to configure low-level socket options for the connections kept to Redis servers.
+SSL Options | sslOptions | (none), use JDK defaults
+Since: 4.3
+Configure SSL options regarding SSL providers (JDK/OpenSSL) and key store/trust store.
+Timeout Options | timeoutOptions | Do not timeout commands.
+Since: 5.1
+Options to configure command timeouts applied to timeout commands after dispatching these (active connections, queued while disconnected, batch buffer). By default, the synchronous API times out commands using RedisURI.getTimeout().
+Publish Reactive Signals on Scheduler | publishOnScheduler | Use I/O thread.
+Since: 5.1.4
+Use a dedicated Scheduler to emit reactive data signals. Enabling this option can be useful for reactive sequences that require a significant amount of processing with a single/a few Redis connections performance suffers from a single-thread-like behavior. Enabling this option uses EventExecutorGroup configured through ClientResources for data/completion signals. The used Thread is sticky across all signals for a single Publisher instance.
+[[H2]] Cluster-specific options¶
+ClusterClientOptions extend the regular ClientOptions by some cluster specifics.
+ClusterClientOptions are immutable. Connections inherit the current options at the moment the connection is created. Changes to options will not affect existing connections.
+ClusterTopologyRefreshOptions topologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
+.enablePeriodicRefresh(refreshPeriod(10, TimeUnit.MINUTES))
+.enableAllAdaptiveRefreshTriggers()
+.build();
+client.setOptions(ClusterClientOptions.builder()
+.topologyRefreshOptions(topologyRefreshOptions)
+.build());
+Name | Method | Default
+Periodic cluster topology refresh | enablePeriodicRefresh | false
+Since: 3.1, 4.0
+Enables or disables periodic cluster topology refresh. The refresh is handled in the background. Partitions, the view on the Redis cluster topology, are valid for a whole RedisClusterClient instance, not a connection. All connections created by this client operate on the one cluster topology.
+The refresh job is regularly executed, the period between the runs can be set with refreshPeriod. The refresh job starts after either opening the first connection with the job enabled or by calling reloadPartitions. The job can be disabled without discarding the full client by setting new ClientOptions.
+Cluster topology refresh period | refreshPeriod | 60 SECONDS
+Since: 3.1, 4.0
+Set the period between the refresh job runs. The effective interval cannot be changed once the refresh job is active. Changes to the value will be ignored.
+Adaptive cluster topology refresh | enableAdaptiveRefreshTrigger | (none)
+Since: 4.2
+Enables selectively adaptive topology refresh triggers. Adaptive refresh triggers initiate topology view updates based on events happened during Redis Cluster operations. Adaptive triggers lead to an immediate topology refresh. These refreshes are rate-limited using a timeout since events can happen on a large scale. Adaptive refresh triggers are disabled by default. Following triggers can be enabled:
+MOVED_REDIRECT, ASK_REDIRECT, PERSISTENT_RECONNECTS, UNKNOWN_NODE (since 5.1), and UNCOVERED_SLOT (since 5.2) (see also reconnect attempts for the reconnect trigger)
+Adaptive refresh triggers timeout | adaptiveRefreshTriggersTimeout | 30 SECONDS
+Since: 4.2
+Set the timeout between the adaptive refresh job runs. Multiple triggers within the timeout will be ignored, only the first enabled trigger leads to a topology refresh. The effective period cannot be changed once the refresh job is active. Changes to the value will be ignored.
+Reconnect attempts (Adaptive topology refresh trigger) | refreshTriggersReconnectAttempts | 5
+Since: 4.2
+Set the threshold for the PERSISTENT_RECONNECTS refresh trigger. Topology updates based on persistent reconnects lead only to a refresh if the reconnect process tries at least the number of specified attempts. The first reconnect attempt starts with 1.
+Dynamic topology refresh sources | dynamicRefreshSources | true
+Since: 4.2
+Discover cluster nodes from the topology and use only the discovered nodes as the source for the cluster topology. Using dynamic refresh will query all discovered nodes for the cluster topology details. If set to false, only the initial seed nodes will be used as sources for topology discovery and the number of clients will be obtained only for the initial seed nodes. This can be useful when using Redis Cluster with many nodes.
+Note that enabling dynamic topology refresh sources uses node addresses reported by Redis CLUSTER NODES output which typically contains IP addresses.
+Close stale connections | closeStaleConnections | true
+Since: 3.3, 4.1
+Stale connections are existing connections to nodes which are no longer part of the Redis Cluster. If this flag is set to true, then stale connections are closed upon topology refreshes. It's strongly advised to close stale connections as open connections will attempt to reconnect nodes if the node is no longer available and open connections require system resources.
+Limitation of cluster redirects | maxRedirects | 5
+Since: 3.1, 4.0
+When the assignment of a slot-hash is moved in a Redis Cluster and a client requests a key that is located on the moved slot-hash, the Cluster node responds with a -MOVED response. In this case, the client follows the redirection and queries the cluster specified within the redirection. Under some circumstances, the redirection can be endless. To protect the client and also the Cluster, a limit of max redirects can be configured. Once the limit is reached, the -MOVED error is returned to the caller. This limit also applies for -ASK redirections in case a slot is set to MIGRATING state.
+Filter nodes from Topology | nodeFilter | no filter
+Since: 6.1.6
+When providing a nodeFilter, then RedisClusterNodes can be filtered from the topology view to remove unwanted nodes (e.g. failed replicas). Note that the filter is applied only after obtaining the topology so the filter does not prevent trying to connect the node during topology discovery.
+Validate cluster node membership | validateClusterNodeMembership | true
+Since: 3.3, 4.0
+Validate the cluster node membership before allowing connections to that node. The current implementation performs redirects using MOVED and ASK and allows obtaining connections to the particular cluster nodes. The validation was introduced during the development of version 3.3 to prevent security breaches and only allow connections to the known hosts of the CLUSTER NODES output.
+There are some scenarios, where the strict validation is an obstruction:
+MOVED/ASK redirection but the cluster topology view is stale Connecting to cluster nodes using different IPs/hostnames (e.g. private/public IPs)
+Connecting to non-cluster members to reconfigure those while using the RedisClusterClient connection.
+[[H2]] Request queue size and cluster¶
+Clustered operations use multiple connections. The resulting overall-queue limit is requestQueueSize * ((number of cluster nodes * 2) + 1).
