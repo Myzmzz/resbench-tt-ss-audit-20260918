@@ -3475,3 +3475,322 @@ templates:
       family: 为每个可撤销步骤定义幂等的补偿动作，并明确不可回头点
       level: code
   violation_manifestation: 第三步失败后，前两步的扣减没有退回，留下一笔各服务数据对不上的脏记录。
+
+# ============================================================ delivery_semantics
+- template_id: T-DELIVERY-01
+  name: 生产端的确认级别不足以保证已确认的写不丢
+  mechanism_group: delivery_semantics
+  mechanism: producer acknowledgement
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 生产端的写确认必须要求复制到法定数量的副本，确认级别、最小同步副本数与副本因子三者要配套，否则「已确认」的消息在切主后仍可能丢失。
+    sources:
+      - doc_id: kafka-producer-config
+        quote: |-
+          acks=all This means the leader will wait for the full set of in-sync replicas to acknowledge the record. This guarantees that the record will not be lost as long as at least one in-sync replica remains alive.
+        location: Producer configs > acks
+      - doc_id: kafka-topic-config
+        quote: |-
+          When a producer sets acks to "all" (or "-1"), this configuration specifies the minimum number of replicas that must acknowledge a write for the write to be considered successful.
+        location: Topic configs > min.insync.replicas
+      - doc_id: rabbitmq-reliability
+        quote: |-
+          It's therefore critically important that durable queues (or replicated queue types covered below) are used for important data, and messages are published as persistent by publishers.
+        location: Reliability Guide > Durability
+  locate:
+    applies_when:
+      - 该服务向消息中间件生产不可丢失的消息
+    roles:
+      defect_site: 生产端的确认配置与该主题的副本参数
+      injection_site: 消息中间件的一个 broker 或分区主副本
+      manifest_site: 消费端收到的消息序列
+    instantiations:
+      - component: Kafka
+        how: producer 的 acks、topic 的 min.insync.replicas 与 replication.factor 三者的组合
+        config_or_code: producer 配置与 topic 配置
+      - component: RabbitMQ
+        how: 是否开启 publisher confirms，队列是否为 durable 或 quorum 类型
+        config_or_code: 源码与队列声明参数
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 确认级别不要求全部同步副本（Kafka 的 acks 非 all，或 RabbitMQ 未开 publisher confirms）
+        checker: manifest
+        query: producer 配置里的 acks 取值，以及队列声明时的 confirm 设置
+      - id: C2
+        kind: 必要
+        statement: min.insync.replicas 等于 1，或等于 replication.factor（前者不保证，后者一挂就不可写）
+        checker: manifest
+        query: topic 配置的 min.insync.replicas 与 replication.factor
+      - id: C3
+        kind: 反证
+        statement: 该消息本就允许丢失（指标上报、可重算的派生数据）
+        checker: llm
+        query: 这条消息丢失是否会造成业务上不可接受的后果？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: unclean leader election 的开关状态（决定落后副本能否被选为主）
+        checker: manifest
+        query: topic 配置的 unclean.leader.election.enable
+  experiment:
+    actions:
+      - action: 分区主副本实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在持续生产的同时删除承载该分区主副本的 broker 实例
+      - action: 副本之间网络分区
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 切断主副本与部分从副本之间的网络，制造同步副本集收缩
+    parameter_relation:
+      symbols:
+        - {symbol: R, meaning: 副本因子, source: manifest}
+        - {symbol: M, meaning: min.insync.replicas, source: manifest|default}
+        - {symbol: k, meaning: 同时失效的副本数, source: measured}
+        - {symbol: Q, meaning: 法定数量 = floor(R/2)+1, source: manifest}
+      boundary: "d* = k；当 k > R - M 时写入应被拒绝，当 M = 1 且 k >= 1 时已确认的写可能丢失"
+      worst_case_multiplier: 1
+      hold: 120
+      recovery_window: 300
+  verdict:
+    expected_behavior: 少数副本失效时写入仍成功且已确认的消息不丢；失去法定数量时写入被明确拒绝，而不是静默接受后丢失。
+    signals:
+      - {signal: 生产端收到成功确认的消息数与消费端最终读到的消息数之差, source: logs}
+      - {signal: 生产端是否收到 NotEnoughReplicas 一类的明确错误, source: logs}
+      - {signal: 注入期间同步副本集的大小变化, source: metrics}
+      - {signal: 切主事件的时刻与新主的日志末端位置, source: events}
+    alternative_explanations:
+      - 消息丢失发生在消费侧（提交了位移却没处理完），而不是生产侧
+      - 生产端自己在超时后放弃了重发
+    mitigation:
+      family: 副本因子取奇数、min.insync.replicas 留一个副本余量、生产端要求全部同步副本确认
+      level: config
+  violation_manifestation: 主副本一挂，生产端已经收到成功确认的消息在切主后读不到了，而各项配置单独看都「合法」。
+
+- template_id: T-DELIVERY-02
+  name: 消费端在业务处理完成之前就确认了消息
+  mechanism_group: delivery_semantics
+  mechanism: consumer acknowledgement
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 消费确认应当在业务处理成功之后发出；在处理完成前确认（自动确认或先提交位移）意味着消费者一旦中断，这些消息就再也不会被投递。
+    sources:
+      - doc_id: rabbitmq-confirms
+        quote: |-
+          In automatic acknowledgement mode, a message is considered to be successfully delivered immediately after it is sent. This mode trades off higher throughput (as long as the consumers can keep up) for reduced safety of delivery and consumer processing.
+        location: Consumer Acknowledgements and Publisher Confirms > Manual and automatic acknowledgement modes
+      - doc_id: kafka-consumer-config
+        quote: |-
+          If true the consumer's offset will be periodically committed in the background.
+        location: Consumer configs > enable.auto.commit
+  locate:
+    applies_when:
+      - 该服务从消息中间件消费消息并产生业务副作用
+    roles:
+      defect_site: 消费端的确认模式与确认时机
+      injection_site: 该消费者实例
+      manifest_site: 业务数据与消息积压
+    instantiations:
+      - component: RabbitMQ
+        how: 消费时是否使用了自动确认模式（autoAck / no_ack）
+        config_or_code: 源码（basicConsume 的 autoAck 参数）
+      - component: Kafka
+        how: enable.auto.commit 是否为 true；手动提交是否在业务处理之后
+        config_or_code: consumer 配置与源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 使用了自动确认模式，或位移在业务处理之前提交
+        checker: manifest
+        query: consumer 配置的 enable.auto.commit，以及 RabbitMQ 消费注册时的 autoAck 参数
+      - id: C2
+        kind: 必要
+        statement: 消费逻辑确实产生了外部副作用（落库、调下游），中断会造成真实损失
+        checker: codegraph
+        query: 起点为消息处理函数，沿调用边查 4 跳内是否到达存储写入或出站调用
+      - id: C3
+        kind: 反证
+        statement: 业务本身允许丢失这类消息（纯指标、可重算）
+        checker: llm
+        query: 这条消息未被处理是否会造成业务上不可接受的后果？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 自动提交的间隔（决定丢失窗口的大小）
+        checker: manifest
+        query: consumer 配置的 auto.commit.interval.ms
+  experiment:
+    actions:
+      - action: 消费者实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在消费者处理消息的过程中删除它的 Pod
+      - action: 业务写入依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让消费逻辑要写的存储不可达，使处理必然失败
+  verdict:
+    expected_behavior: 消费者中断或处理失败时，未处理完的消息会被重新投递，业务副作用最终仍然发生。
+    signals:
+      - {signal: 投递出去的消息数与最终产生业务副作用的条数之差, source: logs}
+      - {signal: 消费者重启后是否重新收到未处理完的消息, source: logs}
+      - {signal: 消费位移的提交时刻与业务写入时刻的先后, source: traces}
+      - {signal: 队列积压深度在注入前后的变化, source: metrics}
+    alternative_explanations:
+      - 消息确实被处理了，只是业务写入被后续逻辑回滚
+      - 生产端本就没有发出这些消息
+    mitigation:
+      family: 改用手动确认，在业务处理成功之后再确认或提交位移
+      level: code
+  violation_manifestation: 消费者一重启，正在处理的那批消息就永远消失了，业务数据缺了一段却没有任何错误记录。
+
+- template_id: T-DELIVERY-03
+  name: 消费失败无限重投，没有死信出口
+  mechanism_group: delivery_semantics
+  mechanism: dead letter
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 反复处理失败的消息应当在有限次数后转入死信目的地，而不是无限重投堵住队列。
+    sources:
+      - doc_id: rabbitmq-dlx
+        quote: |-
+          Messages from a queue can be "dead-lettered", which means these messages are republished to an exchange when any of the following four events occur.
+        location: Dead Letter Exchanges > 概述
+      - doc_id: rabbitmq-confirms
+        quote: |-
+          Automatic acknowledgement mode or manual acknowledgement mode with unlimited prefetch should be used with care. Consumers that consume a lot of messages without acknowledging will lead to memory consumption growth on the node they are connected to.
+        location: Consumer Acknowledgements and Publisher Confirms > Prefetch
+  locate:
+    applies_when:
+      - 消费侧存在失败后重投的路径
+    roles:
+      defect_site: 队列或订阅的死信配置与最大重投次数
+      injection_site: 队列中的一条会稳定处理失败的消息
+      manifest_site: 该队列的积压深度与消费吞吐
+    instantiations:
+      - component: RabbitMQ
+        how: 队列参数 x-dead-letter-exchange 与 x-dead-letter-routing-key；靠 reject 且 requeue=false 触发
+        config_or_code: 队列声明参数
+      - component: Kafka
+        how: 无原生死信，需消费端自行在重试上限后投递到死信主题
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 队列没有配置死信目的地，或消费端没有最大重投次数
+        checker: manifest
+        query: 队列声明参数里的 x-dead-letter-exchange 与消费端的重试上限配置
+      - id: C2
+        kind: 必要
+        statement: 消费失败走的是无限重投路径（requeue=true 或位移不前进）
+        checker: llm
+        query: 消费处理失败时，这条消息是否会被无限次重新投递？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 重投计数随消息持久化，能够可靠地达到上限
+        checker: llm
+        query: 重投次数是记录在消息属性里，还是只存在消费者进程内存中？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 消费者的并发度与预取数（决定一条毒消息能占住多少处理能力）
+        checker: manifest
+        query: 消费端的并发消费者数与 prefetch 设置
+  experiment:
+    actions:
+      - action: 注入一条必然处理失败的消息
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 向该队列投递一条消费端一定会抛异常的消息
+      - action: 消费者反复重启
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在重投过程中反复删除消费者 Pod，检验重投计数是否被重置
+    parameter_relation:
+      symbols:
+        - {symbol: k, meaning: 最大重投次数，无上限时视为无穷, source: manifest|code|default}
+        - {symbol: c, meaning: 消费者并发度, source: manifest|default}
+        - {symbol: p, meaning: 单次处理耗时, source: measured}
+        - {symbol: R, meaning: 观察期内消费者重启次数, source: measured}
+      boundary: "d* = 1（一条毒消息即可触发）；判定看重投次数是否收敛到 k"
+      worst_case_multiplier: c
+      hold: k * p * 2
+      recovery_window: k * p * 2
+  verdict:
+    expected_behavior: 毒消息在有限次重投后进入死信目的地，正常消息的处理不受影响。
+    signals:
+      - {signal: 该消息的累计重投次数是否收敛, source: metrics}
+      - {signal: 死信队列或死信主题是否收到它, source: logs}
+      - {signal: 队列积压深度与正常消息的处理延迟, source: metrics}
+      - {signal: 消费者重启后重投计数是否被清零, source: logs}
+    alternative_explanations:
+      - 消息被人工从队列里清掉了
+      - 消费端把异常吞掉并直接确认，看起来像「没有无限重投」，实为丢消息
+    mitigation:
+      family: 配置死信目的地与最大重投次数，且重投计数随消息持久化
+      level: config
+  violation_manifestation: 一条毒消息被无限重投，占满消费者并把正常消息饿死，队列积压持续上涨而死信目的地始终是空的。
+
+- template_id: T-DELIVERY-04
+  name: 承载重要数据的队列或消息没有持久化
+  mechanism_group: delivery_semantics
+  mechanism: durability
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 承载不可丢失数据的队列与消息必须声明为持久的，否则中间件实例重启即丢。
+    sources:
+      - doc_id: rabbitmq-reliability
+        quote: |-
+          With some messaging protocols supported by RabbitMQ, applications control durability of queues and messages. It's therefore critically important that durable queues (or replicated queue types covered below) are used for important data, and messages are published as persistent by publishers.
+        location: Reliability Guide > Durability
+  locate:
+    applies_when:
+      - 该队列承载的消息丢失会造成业务损失
+    roles:
+      defect_site: 队列与消息的持久化声明
+      injection_site: 承载该队列的中间件实例
+      manifest_site: 消费端收到的消息序列
+    instantiations:
+      - component: RabbitMQ
+        how: 队列声明为 durable，消息投递时标记为 persistent；或改用 quorum 队列
+        config_or_code: 源码（queueDeclare 的 durable 参数与消息属性）
+      - component: Kafka
+        how: 主题日志落在持久卷上，且副本因子大于 1
+        config_or_code: broker 的 log.dirs 与 topic 的 replication.factor
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 队列声明为非持久，或消息未标记为持久
+        checker: llm
+        query: 该队列声明时 durable 是否为 true，消息投递时是否标记为持久？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C2
+        kind: 必要
+        statement: 中间件的数据目录挂在临时存储上（容器层或 emptyDir）
+        checker: manifest
+        query: 中间件工作负载的 spec.template.spec.volumes 与 volumeMounts
+      - id: C3
+        kind: 反证
+        statement: 该队列承载的是可重算或可丢弃的数据
+        checker: llm
+        query: 该队列里的消息丢失是否会造成业务上不可接受的后果？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 中间件实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在队列中有未消费消息时删除中间件实例的 Pod
+  verdict:
+    expected_behavior: 中间件实例重建后，此前未消费的消息仍在队列里，消费端能继续处理。
+    signals:
+      - {signal: 实例重建前后队列中未消费消息数的差, source: metrics}
+      - {signal: 生产端已确认但消费端从未收到的消息条数, source: logs}
+      - {signal: 中间件数据目录对应的卷类型, source: status}
+    alternative_explanations:
+      - 消息在注入前已被消费完，本就没有待丢的数据
+      - 生产端在实例重启期间自行重发，掩盖了丢失
+    mitigation:
+      family: 队列与消息都声明持久化，数据目录挂持久卷，重要数据用复制型队列
+      level: config
+  violation_manifestation: 中间件实例一重建，队列里积压的消息全部消失，生产端却已经把它们当成投递成功了。
