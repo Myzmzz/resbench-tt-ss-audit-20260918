@@ -1,0 +1,18 @@
+rules:
+  - id: java-spring-retry-no-backoff
+    languages: [java]
+    severity: WARNING
+    message: >-
+      @Retryable 没有配 @Backoff，重试会以固定的极短间隔连发。依赖过载时这种重试
+      会把压力原样放大回去。
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @Retryable
+              $RET $M(...) { ... }
+          - pattern: |
+              @Retryable(...)
+              $RET $M(...) { ... }
+      - pattern-not: |
+          @Retryable(..., backoff = @Backoff(...), ...)
+          $RET $M(...) { ... }

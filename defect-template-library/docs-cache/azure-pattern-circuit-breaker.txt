@@ -3,4 +3,6 @@
 # 许可：© Microsoft，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] Solution
+...
+The Circuit Breaker pattern serves a different purpose than the Retry pattern. The Retry pattern enables an application to retry an operation with the expectation that it eventually succeeds. The Circuit Breaker pattern prevents an application from performing an operation that's likely to fail. An application can combine these two patterns by using the Retry pattern to invoke an operation through a circuit breaker. However, the retry logic should be sensitive to any exceptions that the circuit breaker returns and stop retry attempts if the circuit breaker indicates that a fault isn't transient.

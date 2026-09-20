@@ -955,3 +955,475 @@ templates:
       family: 包装层超时之外，底层客户端也要设连接与读写超时，并把取消信号传到最底层
       level: code
   violation_manifestation: 超时错误照常返回，线程池和连接池却持续被慢调用占着，最终整体不可用——负载看似被削掉，资源其实没有释放。
+
+# ============================================================ retry_backoff
+- template_id: T-RETRY-01
+  name: 重试没有指数退避与随机抖动
+  mechanism_group: retry_backoff
+  mechanism: retry backoff
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 自动重试必须按指数退避安排，并在退避时长上加随机抖动，不能以固定间隔或零间隔连发。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Always use randomized exponential backoff when scheduling retries.
+        location: Retries > When issuing automatic retries
+      - doc_id: aws-builders-timeouts
+        quote: |-
+          When failures are caused by overload or contention, backing off often doesn't help as much as it seems like it should. This is because of correlation. If all the failed calls back off to the same time, they cause contention or overload again when they are retried. Our solution is jitter.
+        location: Timeouts, retries and backoff with jitter > Jitter
+      - doc_id: grpc-retry
+        quote: |-
+          Jitter of plus or minus 20% is applied to the backoff delay to avoid hammering servers at the same time from a large number of clients.
+        location: Retry > Exponential backoff
+    defaults:
+      - {symbol: grpc_jitter, value: "±20%", unit: "—", doc_id: grpc-retry}
+  locate:
+    applies_when:
+      - 该出站路径上配置或实现了自动重试
+    roles:
+      defect_site: 重试策略的配置或手写重试循环
+      injection_site: 被重试的下游服务或中间件
+      manifest_site: 下游服务的入站 QPS 与错误率
+    instantiations:
+      - component: gRPC
+        how: service config 的 retryPolicy.initialBackoff / backoffMultiplier / maxBackoff
+        config_or_code: service config
+      - component: Envoy
+        how: retry_policy.retry_back_off 的 base_interval 与 max_interval
+        config_or_code: route.retry_policy
+      - component: Resilience4j
+        how: RetryConfig.intervalFunction 是否用了 ofExponentialRandomBackoff
+        config_or_code: resilience4j.retry 配置或源码
+      - component: Polly
+        how: RetryStrategyOptions 的 BackoffType 与 UseJitter
+        config_or_code: 源码
+      - component: go-retryablehttp
+        how: RetryWaitMin / RetryWaitMax 与自定义 Backoff 函数
+        config_or_code: 源码
+      - component: Spring Boot
+        how: "@Retryable 是否带 @Backoff，是否用了 ExponentialRandomBackOffPolicy"
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 重试策略没有指数退避（倍数缺失或等于 1），或退避没有抖动
+        checker: semgrep
+        query: checkers/semgrep/java-spring-retry-no-backoff.yaml、checkers/semgrep/go-retry-loop-no-backoff.yaml；配置型框架交 manifest 读 retry_policy
+      - id: C2
+        kind: 必要
+        statement: 该重试作用在跨进程调用上（进程内重试不构成对下游的放大）
+        checker: codegraph
+        query: 起点为重试装饰器或重试循环，沿调用边查 3 跳内是否到达出站客户端
+      - id: C3
+        kind: 反证
+        statement: 该客户端库自带抖动且未被关闭（例如 gRPC 的 ±20%）
+        checker: manifest
+        query: service config 的 retryPolicy 字段，或代理侧 retry_back_off 配置
+      - id: C4
+        kind: 附注
+        statement: 调用该下游的客户端实例数（抖动缺失时同步尖峰的高度与它成正比）
+        checker: runtime
+        query: 注入期间同时在重试的客户端副本数
+  experiment:
+    actions:
+      - action: 依赖返回可重试错误
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游在一段时间内稳定返回可重试状态码，制造全体客户端同时进入重试
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 中断该服务到下游的连接，恢复时观察重试是否成簇到达
+    parameter_relation:
+      symbols:
+        - {symbol: i0, meaning: 初始退避时长, source: manifest|code|default}
+        - {symbol: m, meaning: 退避倍数, source: manifest|code|default}
+        - {symbol: n, meaning: 最大尝试次数, source: manifest|code|default}
+        - {symbol: N, meaning: 同时重试的客户端副本数, source: measured}
+        - {symbol: q, meaning: 该路径的基线 QPS, source: measured}
+      boundary: d* = 0（只要下游持续返回可重试错误即可触发；本模板不靠幅值而靠持续时长）
+      worst_case_multiplier: n
+      hold: i0 * (m ** n - 1) / (m - 1) + n * q
+      recovery_window: 2 * i0 * (m ** n - 1) / (m - 1)
+  verdict:
+    expected_behavior: 依赖失败期间与恢复瞬间，下游入站 QPS 平滑上升，不出现周期性的同步尖峰。
+    signals:
+      - {signal: 下游入站请求到达时刻的直方图是否成簇, source: metrics}
+      - {signal: 重试间隔的实测分布是否呈指数增长且带离散, source: traces}
+      - {signal: 依赖恢复瞬间下游 QPS 相对基线的峰值倍数, source: metrics}
+    alternative_explanations:
+      - 尖峰来自上游流量本身的波动，而不是重试
+      - 客户端副本数很少，成簇不明显
+    mitigation:
+      family: 指数退避加随机抖动，并设退避上限
+      level: config
+  violation_manifestation: 依赖失败期间与刚恢复时，下游 QPS 出现周期性同步尖峰，把刚缓过来的依赖再次打垮。
+
+- template_id: T-RETRY-02
+  name: 重试次数没有上限
+  mechanism_group: retry_backoff
+  mechanism: retry attempts
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 每个请求的重试次数必须有上限，不能无限重试。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Limit retries per request. Don’t retry a given request indefinitely.
+        location: Retries > When issuing automatic retries
+      - doc_id: aws-builders-timeouts
+        quote: |-
+          In almost all cases, our solution is to limit the number of times that the client retries, and handle the resulting failure earlier in the service-oriented architecture.
+        location: Timeouts, retries and backoff with jitter > Backoff
+      - doc_id: istio-virtualservice
+        quote: |-
+          Number of retries to be allowed for a given request.
+        location: VirtualService > HTTPRetry > attempts
+    defaults:
+      - {symbol: envoy_num_retries, value: 1, unit: 次, doc_id: envoy-route-retry}
+  locate:
+    applies_when:
+      - 该出站路径上配置或实现了自动重试
+    roles:
+      defect_site: 重试策略的次数上限配置或手写重试循环的退出条件
+      injection_site: 被重试的下游服务或中间件
+      manifest_site: 下游服务的入站 QPS
+    instantiations:
+      - component: gRPC
+        how: retryPolicy.maxAttempts（含首次）
+        config_or_code: service config
+      - component: Envoy
+        how: retry_policy.num_retries，未配置时为 1
+        config_or_code: route.retry_policy.num_retries
+      - component: Istio
+        how: HTTPRetry.attempts；总请求数为 1 + attempts
+        config_or_code: spec.http[*].retries.attempts
+      - component: Resilience4j
+        how: RetryConfig.maxAttempts
+        config_or_code: resilience4j.retry 配置
+      - component: go-retryablehttp
+        how: Client.RetryMax
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 重试配置里没有最大尝试次数，或手写重试循环的退出条件只依赖成功
+        checker: semgrep
+        query: checkers/semgrep/go-retry-loop-no-backoff.yaml（同一处循环同时判次数上限）；配置型框架交 manifest
+      - id: C2
+        kind: 必要
+        statement: 该重试作用在跨进程调用上
+        checker: codegraph
+        query: 起点为重试装饰器或重试循环，沿调用边查 3 跳内是否到达出站客户端
+      - id: C3
+        kind: 反证
+        statement: 外层有总截止时间，会在次数跑满前把整串重试截断
+        checker: manifest
+        query: 该路径的 route timeout 或调用点的 deadline
+      - id: C4
+        kind: 附注
+        statement: 单次尝试的超时（与次数一起决定放大倍数的时间分布）
+        checker: manifest
+        query: perTryTimeout 或客户端超时值
+  experiment:
+    actions:
+      - action: 依赖持续失败
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游在整个注入窗内稳定返回可重试错误
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游端口拒绝连接
+    parameter_relation:
+      symbols:
+        - {symbol: n, meaning: 最大尝试次数（含首次），无上限时视为无穷, source: manifest|code|default}
+        - {symbol: A, meaning: 放大倍数 = 下游入站请求数 / 上游入站请求数, source: measured}
+        - {symbol: D, meaning: 该路径的总截止时间, source: manifest|requirement}
+        - {symbol: t, meaning: 单次尝试的超时, source: manifest|default}
+      boundary: d* = 0（下游持续失败即可触发）
+      worst_case_multiplier: n
+      hold: min(D, n * t)
+      recovery_window: 2 * min(D, n * t)
+  verdict:
+    expected_behavior: 下游持续不可用时，单个入站请求引发的出站尝试次数收敛到配置的上限。
+    signals:
+      - {signal: 每个入站请求对应的出站尝试次数, source: traces}
+      - {signal: 下游入站 QPS 与上游入站 QPS 的比值是否稳定, source: metrics}
+      - {signal: 注入持续期间放大倍数是否随时间继续增长, source: metrics}
+    alternative_explanations:
+      - 放大来自调用链上多层各自重试（T-RETRY-03），而不是单层无上限
+      - 客户端在连接失败时自行重连，计入了尝试次数
+    mitigation:
+      family: 给每个请求设最大尝试次数，超出即向上报错
+      level: config
+  violation_manifestation: 依赖不可用期间下游入站 QPS 持续攀升而不是稳定在有限倍数，依赖恢复后又被积压的重试再次打垮。
+
+- template_id: T-RETRY-03
+  name: 同一条调用链上多层都配了重试
+  mechanism_group: retry_backoff
+  mechanism: retry layering
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 一条调用链上只应有一层做重试；每层都重试时，最底层承受的尝试次数是各层次数的乘积。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          In particular, avoid amplifying retries by issuing retries at multiple levels: a single request at the highest layer may produce a number of attempts as large as the product of the number of attempts at each layer to the lowest layer.
+        location: Retries > When issuing automatic retries
+      - doc_id: azure-pattern-retry
+        quote: |-
+          Implement retry logic only where the full context of a failing operation is understood. For example, if a task that contains a retry policy invokes another task that also contains a retry policy, this extra layer of retries can add long delays to the processing.
+        location: Retry pattern > Issues and considerations
+  locate:
+    applies_when:
+      - 一条调用链上存在两个及以上可配置重试的位置（网关 / 网格 / 客户端 SDK / 业务代码）
+    roles:
+      defect_site: 该调用链上所有启用了重试的层
+      injection_site: 调用链最底层的服务或中间件
+      manifest_site: 最底层服务的入站 QPS
+    instantiations:
+      - component: Istio
+        how: 网格默认给 HTTP 路由带重试，应用层若也重试即成两层
+        config_or_code: spec.http[*].retries
+      - component: Envoy
+        how: route retry_policy 与应用内 SDK 重试叠加
+        config_or_code: route.retry_policy
+      - component: Spring Boot
+        how: RestClient / WebClient 重试、Spring Retry 注解与网格重试三层叠加
+        config_or_code: 源码与网格配置
+      - component: Resilience4j
+        how: Retry 装饰器与底层 HTTP 客户端自带重试叠加
+        config_or_code: resilience4j.retry 配置与客户端构造代码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 同一条调用路径上启用了重试的层数大于 1
+        checker: manifest
+        query: 对该路径逐层取 spec.http[*].retries.attempts、route.retry_policy.num_retries，与代码侧重试点计数相加
+      - id: C2
+        kind: 必要
+        statement: 代码侧确实存在一层重试（仅靠清单判不出应用内重试）
+        checker: codegraph
+        query: 起点为该服务的出站客户端调用点，向上查 3 跳内是否被重试装饰器或重试循环包裹
+      - id: C3
+        kind: 反证
+        statement: 内层被显式配置为不重试（attempts = 0 或 RetryMax = 0）
+        checker: manifest
+        query: 内层的 retries.attempts 或 num_retries 取值
+      - id: C4
+        kind: 附注
+        statement: 各层的次数取值（用于算乘积）
+        checker: manifest
+        query: 逐层的最大尝试次数
+  experiment:
+    actions:
+      - action: 最底层依赖持续失败
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让最底层服务在注入窗内稳定返回可重试错误
+      - action: 最底层依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 注入延迟使每层的单次超时都被触发
+    parameter_relation:
+      symbols:
+        - {symbol: k, meaning: 该调用链上启用重试的层数, source: manifest|code}
+        - {symbol: n_i, meaning: 第 i 层的最大尝试次数, source: manifest|code|default}
+        - {symbol: A, meaning: 最底层实测放大倍数, source: measured}
+        - {symbol: t_min, meaning: 各层中最短的单次超时, source: manifest|default}
+      boundary: d* = t_min（注入延迟超过最短的单次超时即可逐层触发重试）
+      worst_case_multiplier: "各层 n_i 的乘积"
+      hold: k * t_min
+      recovery_window: 2 * k * t_min
+  verdict:
+    expected_behavior: 最底层依赖失败时，它收到的尝试次数与单层配置同量级，而不是各层次数的乘积。
+    signals:
+      - {signal: 一次入口请求在最底层产生的请求计数, source: traces}
+      - {signal: 最底层入站 QPS 与入口 QPS 的比值, source: metrics}
+      - {signal: 各层的重试计数指标是否同时上升, source: metrics}
+    alternative_explanations:
+      - 单层次数配得很高，放大来自一层而非多层（用 C4 的逐层取值区分）
+      - 客户端连接重建被计成了业务重试
+    mitigation:
+      family: 只在最了解上下文的一层重试，其余层显式关掉
+      level: config
+  violation_manifestation: 一次用户操作在最底层变成几十次请求，本已过载的依赖被重试彻底锁死，且各层看自己的配置都「合规」。
+
+- template_id: T-RETRY-04
+  name: 对不可重试的错误也重试
+  mechanism_group: retry_backoff
+  mechanism: retryable condition
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 只有瞬时的、可重试的失败才应重试；永久错误与参数错误重试多少次都不会成功，只会白白消耗预算并压住下游。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Use clear response codes and consider how different failure modes should be handled. For example, separate retriable and nonretriable error conditions. Don’t retry permanent errors or malformed requests in a client, because neither will ever succeed.
+        location: Retries > When issuing automatic retries
+      - doc_id: azure-transient-faults
+        quote: |-
+          Retry tasks only when the faults are transient, which the nature of the error typically indicates, and when the operation might succeed when retried. For HTTP-based services, status code 429 (Too Many Requests) and 5xx server errors are typical retry candidates. Most 4xx client errors, like 400, 401, 403, and 404, indicate problems that a retry doesn't resolve.
+        location: Transient fault handling > Retry strategy guidelines
+  locate:
+    applies_when:
+      - 该出站路径上配置或实现了自动重试
+    roles:
+      defect_site: 重试策略的可重试条件（状态码白名单或异常类型）
+      injection_site: 被调用的下游服务
+      manifest_site: 下游服务的入站 QPS 与该服务的响应耗时
+    instantiations:
+      - component: gRPC
+        how: retryPolicy.retryableStatusCodes 是否是白名单，是否混入了 INVALID_ARGUMENT
+        config_or_code: service config
+      - component: Envoy
+        how: retry_on 的取值是否只含 5xx / gateway-error / reset / connect-failure
+        config_or_code: route.retry_policy.retry_on
+      - component: Istio
+        how: HTTPRetry.retryOn
+        config_or_code: spec.http[*].retries.retryOn
+      - component: Resilience4j
+        how: RetryConfig.retryExceptions / ignoreExceptions 是否按异常类型区分
+        config_or_code: resilience4j.retry 配置
+      - component: Polly
+        how: ShouldHandle 谓词是否按状态码与异常类型筛选
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 可重试条件是「捕获所有异常就重试」，或白名单里混入了 4xx / 参数错误 / 鉴权失败
+        checker: manifest
+        query: spec.http[*].retries.retryOn 与 service config 的 retryableStatusCodes
+      - id: C2
+        kind: 必要
+        statement: 代码侧的重试没有按错误类型分支（catch (Exception) 后直接重试）
+        checker: llm
+        query: 该重试实现是否对所有异常一视同仁地重试？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 重试条件是显式白名单且只含瞬时错误
+        checker: manifest
+        query: 重试条件配置的完整取值
+  experiment:
+    actions:
+      - action: 依赖返回确定性错误
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游稳定返回 400 / INVALID_ARGUMENT 这类重试不会成功的响应
+      - action: 依赖返回可重试错误
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 作为对照组，让下游返回 503，确认重试机制本身在工作
+  verdict:
+    expected_behavior: 面对确定性错误时不发生重试，请求快速失败；面对可重试错误时才重试。
+    signals:
+      - {signal: 注入确定性错误时下游收到的重复请求数是否仍为 1, source: traces}
+      - {signal: 按状态码分组的重试计数, source: metrics}
+      - {signal: 两组注入下该服务的响应耗时差异, source: metrics}
+    alternative_explanations:
+      - 下游把参数错误错误地映射成了 5xx，重试方其实没配错
+      - 客户端连接层面的重连被计成业务重试
+    mitigation:
+      family: 用白名单区分可重试与不可重试错误
+      level: config
+  violation_manifestation: 一个必然失败的请求被反复重试到用尽预算，既拖慢自己的响应，又把下游的处理能力耗在注定失败的请求上。
+
+- template_id: T-RETRY-05
+  name: 没有重试预算，重试量不随失败率收敛
+  mechanism_group: retry_backoff
+  mechanism: retry budget
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 除了单请求的次数上限，进程整体还应有一个重试总量预算；预算耗尽时直接失败，不再重试。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Consider having a server-wide retry budget. For example, only allow 60 retries per minute in a process, and if the retry budget is exceeded, don’t retry; just fail the request.
+        location: Retries > When issuing automatic retries
+      - doc_id: grpc-retry
+        quote: |-
+          For each server, the gRPC client tracks a token_count (initially set to maxTokens). Failed RPCs decrement the count by 1, successful RPCs increment it by tokenRatio. If the token_count falls below half of maxTokens, retries are paused until the count recovers.
+        location: Retry > Retry throttling
+      - doc_id: grpc-retry-grfc
+        quote: |-
+          gRPC prevents server overload due to retries and hedged RPCs by disabling these policies when the client’s ratio of failures to successes passes a certain threshold.
+        location: gRFC A6 Client Retries > Throttling Retry Attempts and Hedged RPCs
+  locate:
+    applies_when:
+      - 客户端对某个下游开启了自动重试
+    roles:
+      defect_site: 该客户端的重试节流或预算配置
+      injection_site: 被重试的下游服务
+      manifest_site: 下游服务的入站 QPS 构成（首发 与 重试 的比例）
+    instantiations:
+      - component: gRPC
+        how: service config 的 retryThrottling（maxTokens / tokenRatio），按 server name 统计
+        config_or_code: service config
+      - component: Envoy
+        how: cluster circuit_breakers.max_retries 限制并发重试数，是预算的一种近似
+        config_or_code: cluster.circuit_breakers
+      - component: Resilience4j
+        how: 无原生重试预算；需要用 RateLimiter 或熔断限制整体重试量
+        config_or_code: resilience4j 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 没有配置重试节流或预算（缺失，或被设成等同于不限）
+        checker: manifest
+        query: service config 的 retryThrottling 字段与 cluster.circuit_breakers.max_retries
+      - id: C2
+        kind: 必要
+        statement: 该路径上确实启用了重试（否则预算无意义）
+        checker: manifest
+        query: 该路径的重试配置是否存在且 attempts > 0
+      - id: C3
+        kind: 反证
+        statement: 下游侧已有针对该调用方的限流，能替代客户端预算的作用
+        checker: manifest
+        query: 下游的限流规则是否按调用方维度配置
+      - id: C4
+        kind: 附注
+        statement: 该依赖的正常错误率基线（预算阈值是否留有余量要靠它判断）
+        checker: runtime
+        query: 无注入时该依赖的错误率
+  experiment:
+    actions:
+      - action: 依赖大比例失败
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 按比例让下游返回可重试错误，比例从低到高扫
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游完全不可达，观察重试占比是否被压住
+    parameter_relation:
+      symbols:
+        - {symbol: f, meaning: 注入的下游失败比例, source: measured}
+        - {symbol: n, meaning: 单请求最大尝试次数, source: manifest|default}
+        - {symbol: r, meaning: 预算允许的重试占比，无预算时视为无穷, source: manifest|default}
+        - {symbol: A, meaning: 实测放大倍数, source: measured}
+      boundary: d* = 失败比例扫到使 A 超过 1 + r 的那个 f
+      worst_case_multiplier: n
+      hold: 60（按 SRE 给的「每分钟若干次」量级取一个完整统计窗）
+      recovery_window: 120
+  verdict:
+    expected_behavior: 下游失败率升高时，重试流量占比被压在预算之内，放大倍数收敛而不是趋近于次数上限。
+    signals:
+      - {signal: 重试请求数占该客户端出站总请求数的比例, source: metrics}
+      - {signal: 因预算耗尽而被本地丢弃的重试计数, source: metrics}
+      - {signal: 下游入站 QPS 随注入失败率的变化曲线, source: metrics}
+    alternative_explanations:
+      - 熔断先于预算打开，重试量下降来自熔断而非预算
+      - 上游流量本身在故障期间下降
+    mitigation:
+      family: 按失败与成功的比例节流重试，预算耗尽即直接失败
+      level: config
+  violation_manifestation: 依赖大面积失败时重试流量把它彻底压死，恢复之后又被积压的重试洪峰再打挂一次。

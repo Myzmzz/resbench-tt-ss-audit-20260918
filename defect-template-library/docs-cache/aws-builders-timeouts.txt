@@ -3,4 +3,9 @@
 # 许可：© Amazon，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] Retries and backoff
+...
+The preferred solution that we use in Amazon is a backoff. Instead of retrying immediately and aggressively, the client waits some amount of time between tries. The most common pattern is an exponential backoff, where the wait time is increased exponentially after every attempt. Exponential backoff can lead to very long backoff times, because exponential functions grow quickly. To avoid retrying for too long, implementations typically cap their backoff to a maximum value. This is called, predictably, capped exponential backoff. However, this introduces another problem. Now all of the clients are retrying constantly at the capped rate. In almost all cases, our solution is to limit the number of times that the client retries, and handle the resulting failure earlier in the service-oriented architecture. In most cases, the client is going to give up on the call anyway, because it has its own timeouts.
+...
+[[H2]] Jitter
+When failures are caused by overload or contention, backing off often doesn't help as much as it seems like it should. This is because of correlation. If all the failed calls back off to the same time, they cause contention or overload again when they are retried. Our solution is jitter. Jitter adds some amount of randomness to the backoff to spread the retries around in time. For more information about how much jitter to add and the best ways to add it, see Exponential Backoff and Jitter.

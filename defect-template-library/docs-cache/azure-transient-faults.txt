@@ -3,4 +3,5 @@
 # 许可：© Microsoft，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H3]] Check whether retrying suits the operation
+Retry tasks only when the faults are transient, which the nature of the error typically indicates, and when the operation might succeed when retried. For HTTP-based services, status code 429 (Too Many Requests) and 5xx server errors are typical retry candidates. Most 4xx client errors, like 400, 401, 403, and 404, indicate problems that a retry doesn't resolve. Don't retry operations that can't succeed, like updating a database item that doesn't exist or calling a service that returned a fatal error.

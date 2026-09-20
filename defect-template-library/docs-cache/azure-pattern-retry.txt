@@ -3,4 +3,6 @@
 # 许可：© Microsoft，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] General guidance
+...
+Implement retry logic only where the full context of a failing operation is understood. For example, if a task that contains a retry policy invokes another task that also contains a retry policy, this extra layer of retries can add long delays to the processing. It might be better to configure the lower-level task to fail fast and report the reason for the failure back to the task that invoked it. This higher-level task can then handle the failure based on its own policy.

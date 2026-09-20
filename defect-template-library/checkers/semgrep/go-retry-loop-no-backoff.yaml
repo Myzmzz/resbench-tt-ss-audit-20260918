@@ -1,0 +1,24 @@
+rules:
+  - id: go-retry-loop-no-backoff
+    languages: [go]
+    severity: WARNING
+    message: >-
+      手写的重试循环里没有任何退避等待（没有 time.Sleep / backoff / ticker），
+      失败后会立刻重发，等于把失败原样放大。
+    patterns:
+      - pattern: |
+          for $I := 0; $I < $N; $I++ {
+            ...
+            $RESP, $ERR = $CALL(...)
+            if $ERR != nil {
+              ...
+              continue
+            }
+            ...
+          }
+      - pattern-not-inside: |
+          for ... {
+            ...
+            time.Sleep(...)
+            ...
+          }

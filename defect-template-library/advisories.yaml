@@ -1,1 +1,35 @@
-advisories: []
+# 本版不生成场景的规则。参数关系属于概率型 / 累积型 / 滞后型 / 组合型 / 时机型 / 状态型，
+# 现有信号写不出稳定断言，或需要先有额外测量与状态。随库发布，供人工评审与后续版本使用。
+advisories:
+
+- advisory_id: A-RETRY-01
+  name: 重试放大把过载推成自持
+  mechanism_group: retry_backoff
+  parameter_kind: 概率型
+  rule:
+    statement: 当下游因过载开始拒绝时，重试带来的额外流量会把下游推得更满，进而产生更多拒绝，形成自持的正反馈。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          The volume of retries grows: 100 QPS of retries in the first second leads to 200 QPS, then to 300 QPS, and so on. Fewer and fewer requests are able to succeed on their first attempt, so less useful work is being performed as a fraction of requests to the backend.
+        location: Retries
+      - doc_id: sre-cascading-failures
+        quote: |-
+          If the backend spends a significant amount of resources processing requests that will ultimately fail due to overload, then the retries themselves may be keeping the backend in an overloaded mode.
+        location: Retries
+  why_not_supported: 是否进入正反馈取决于下游容量、当前负载水位与拒绝成本的比值，同一份配置在不同负载下结论相反，写不出与配置参数挂钩的判定边界。
+  what_is_needed: 需要下游的容量曲线（吞吐随并发的拐点）、拒绝一个请求相对处理一个请求的成本比，以及注入时的实际负载水位；具备这三项后可退化为一条以负载水位为自变量的阈值规则。
+
+- advisory_id: A-RETRY-02
+  name: 重试与熔断的相互作用
+  mechanism_group: retry_backoff
+  parameter_kind: 状态型
+  rule:
+    statement: 重试逻辑应当识别熔断器给出的拒绝，并在熔断指示故障不是瞬时的时候停止重试。
+    sources:
+      - doc_id: azure-pattern-circuit-breaker
+        quote: |-
+          An application can combine these two patterns by using the Retry pattern to invoke an operation through a circuit breaker. However, the retry logic should be sensitive to any exceptions that the circuit breaker returns and stop retry attempts if the circuit breaker indicates that a fault isn't transient.
+        location: Circuit Breaker pattern > Comparison to the Retry pattern
+  why_not_supported: 判定要看熔断器当时处于哪个状态、以及重试是否把「熔断拒绝」计入了失败，属状态相关；同样的配置在闭合态与打开态下的正确行为不同，无法只凭静态配置判出违反。
+  what_is_needed: 需要能在运行时读取熔断器状态机的当前状态与状态变迁时刻，并能把每次重试决策与当时的状态对齐。

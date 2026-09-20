@@ -75,7 +75,7 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
   retrieved_at: '2026-09-20'
-  sha256: 0c04a3639dfdabc07834c03265c96093d5d1d504253b5e0b38c5bad3487bef1b
+  sha256: b4b1f2a977e094a5c20da43205ada98e82e2e042faa5028ec14dcbf8405233cc
   source_sha256: ''
   license: © Amazon，文档未授权再分发
   redistribution: restricted
@@ -140,7 +140,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker
   retrieved_at: '2026-09-20'
-  sha256: 990b9ceecd30d139162fb01e09875b9c896e090eeb8fa979981a1243f40f5839
+  sha256: 11403c3bf65d904bffe93d7e6d6d5363a2b56526e6090dc98d52fcd6c7d95e01
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -192,7 +192,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/retry
   retrieved_at: '2026-09-20'
-  sha256: 53553852819dd1d3906b5a117d786c63086968ec36324398288aa5e0e5a1201f
+  sha256: 412a05cdcadbf5746f7e6cf9167ae5f4ec1edde4012c055302831774359f27f4
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -218,7 +218,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults
   retrieved_at: '2026-09-20'
-  sha256: 64994a84ccbe3e6b4f20f432a6892f610f2719fd36deaacd8e219c51d03615ad
+  sha256: 7fee7ee9ce412ca405178227d779cce35494a1cff2f9d2bf335afc47a64a0e86
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -1245,7 +1245,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/addressing-cascading-failures/
   retrieved_at: '2026-09-20'
-  sha256: b93a388a32b229eb44e3ae630ada3d4b55ceb93593cb50a62fb04d4dbd5d3e9a
+  sha256: 8fd7a4151817815ebd4f8f8fda02e0f4d68e3b002172de30de1328a1deb631ac
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
   redistribution: restricted
