@@ -3240,3 +3240,238 @@ templates:
       family: 回退只用本地可得的数据；做不到就去掉回退、加固主路径
       level: code
   violation_manifestation: 真出故障时回退路径自己也炸了，或者慢到把上游一起拖垮——平时不走的分支，等到要用的时候才发现不能用。
+
+# ============================================================ idempotency_compensation
+- template_id: T-IDEM-01
+  name: 会被重试的写操作没有幂等键
+  mechanism_group: idempotency_compensation
+  mechanism: idempotency key
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 带副作用且可能被重试的操作必须靠调用方提供的请求标识做幂等，使重复请求能被识别为同一次意图。
+    sources:
+      - doc_id: aws-builders-idempotency
+        quote: |-
+          At Amazon, our preferred approach is to incorporate a unique caller-provided client request identifier into our API contract. Requests from the same caller with the same client request identifier can be considered duplicate requests and can be dealt with accordingly.
+        location: Making retries safe with idempotent APIs > Reducing client complexity with idempotent API design
+      - doc_id: azure-pattern-retry
+        quote: |-
+          Consider whether the operation is idempotent. If so, it's inherently safe to retry. Otherwise, retries could cause the operation to be executed more than once, with unintended side effects.
+        location: Retry pattern > Issues and considerations
+  locate:
+    applies_when:
+      - 该接口带写副作用（落库、扣减、下单、发消息）
+      - 该接口所在路径上存在自动重试（客户端 SDK、网格、网关任一层）
+    roles:
+      defect_site: 该写接口的实现与它的入参契约
+      injection_site: 该服务自身（制造响应丢失）或它与调用方之间的网络
+      manifest_site: 该服务写入的存储
+    instantiations:
+      - component: Spring Boot
+        how: 写接口是否接受 Idempotency-Key 之类的请求头，并据此去重
+        config_or_code: 源码
+      - component: gRPC
+        how: 被放进 retryableStatusCodes 的方法是否具备幂等语义
+        config_or_code: service config 与源码
+      - component: Kafka
+        how: 生产端 enable.idempotence 只解决 broker 侧重复写，业务侧仍需自己的幂等键
+        config_or_code: producer 配置
+      - component: Envoy
+        how: retry_on 是否对带副作用的路由开启（对这类路由重试即要求幂等）
+        config_or_code: route.retry_policy.retry_on
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 该写接口没有接受调用方提供的幂等标识，也没有基于业务主键的去重
+        checker: codegraph
+        query: 起点为该写接口的处理函数，沿调用边查 4 跳内是否存在对幂等表或唯一约束的查询与写入
+      - id: C2
+        kind: 必要
+        statement: 该路径上确实存在自动重试
+        checker: manifest
+        query: 该路由的 retry_policy / retries.attempts，以及客户端 SDK 的重试配置
+      - id: C3
+        kind: 反证
+        statement: 该操作天然幂等（纯覆盖写、按主键的 upsert、只读）
+        checker: llm
+        query: 该操作重复执行两次的结果是否与执行一次相同？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 存储侧是否有唯一约束能兜住重复写
+        checker: llm
+        query: 该写入涉及的表是否存在能阻止重复插入的唯一约束？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 响应在返回途中丢失
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在该服务返回响应的方向上丢包或注入超过调用方超时的延迟，迫使调用方重试
+      - action: 依赖变慢触发重试
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 注入延迟使调用方超时并重试，而服务端其实已经处理成功
+  verdict:
+    expected_behavior: 同一次业务意图被重复提交时，副作用只发生一次，重复请求得到语义等价的响应。
+    signals:
+      - {signal: 注入窗内业务记录的新增条数与客户端发起的业务次数之比, source: logs}
+      - {signal: 幂等表或唯一约束的命中与冲突计数, source: metrics}
+      - {signal: 重复请求得到的响应是否与首次语义等价, source: traces}
+    alternative_explanations:
+      - 存储的唯一约束挡住了重复，接口本身其实没有做幂等（需用附注项区分）
+      - 客户端其实没有重试，重复来自用户操作
+    mitigation:
+      family: 调用方生成幂等键，服务端据此识别重复请求
+      level: code
+  violation_manifestation: 一次超时重试造成重复扣款或重复下单，账面上多出一笔谁也说不清来源的记录。
+
+- template_id: T-IDEM-02
+  name: 幂等标识的记录与业务副作用不在同一个原子操作里
+  mechanism_group: idempotency_compensation
+  mechanism: idempotency key atomicity
+  defect_class: 实现错误型
+  parameter_kind: 离散动作
+  rule:
+    statement: 记录幂等标识与产生业务副作用必须是同一个原子操作，否则会出现「标识记下了但业务没做」或「业务做了但标识没记」两种残缺状态。
+    sources:
+      - doc_id: aws-builders-idempotency
+        quote: |-
+          An important consideration is that the process that combines recording the idempotent token and all mutating operations related to servicing the request must meet the properties for an atomic, consistent, isolated, and durable (ACID) operation.
+        location: Making retries safe with idempotent APIs > Reducing client complexity with idempotent API design
+  locate:
+    applies_when:
+      - 该写接口已经实现了基于幂等标识的去重
+    roles:
+      defect_site: 幂等标识的写入位置与业务写入位置之间的事务边界
+      injection_site: 该服务的实例（在两次写入之间终止进程）
+      manifest_site: 该服务写入的存储
+    instantiations:
+      - component: Spring Boot
+        how: 幂等表的插入与业务写是否在同一个 @Transactional 边界内
+        config_or_code: 源码
+      - component: go-redis
+        how: 用 Redis SETNX 记标识、用数据库写业务，两者天然不在同一事务里
+        config_or_code: 源码
+      - component: HikariCP
+        how: 若两次写入取了不同连接，就不在同一本地事务内
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 幂等标识与业务数据写在不同的存储，或不在同一个事务边界内
+        checker: codegraph
+        query: 起点为该写接口的处理函数，比较幂等标识写入点与业务写入点是否处在同一事务作用域内（2 跳内）
+      - id: C2
+        kind: 反证
+        statement: 两者在同一本地事务内提交
+        checker: llm
+        query: 幂等标识的插入与业务数据的写入是否在同一个数据库事务中提交？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 附注
+        statement: 两次写入之间的时间窗（决定注入终止的时机精度）
+        checker: runtime
+        query: 从幂等标识写入到业务写入提交之间的耗时
+  experiment:
+    actions:
+      - action: 处理中途实例终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在请求处理过程中删除该服务的 Pod，反复多次以覆盖两次写入之间的时间窗
+      - action: 存储短暂不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让业务数据所在的存储短暂不可达，而幂等标识所在的存储仍然可写
+  verdict:
+    expected_behavior: 无论在哪个时刻中断，最终只会出现「都做了」或「都没做」两种状态，重试能够收敛。
+    signals:
+      - {signal: 幂等标识存在但对应业务记录缺失的条数, source: logs}
+      - {signal: 业务记录存在但幂等标识缺失，导致重复写入的条数, source: logs}
+      - {signal: 中断后重试是否被幂等标识误判为「已处理」而直接返回成功, source: traces}
+    alternative_explanations:
+      - 存储本身有补偿任务在后台修复，掩盖了瞬时的不一致
+      - 注入的终止时机没有落在两次写入之间，未能触发
+    mitigation:
+      family: 幂等标识与业务副作用同事务提交；跨存储时改用发件箱或补偿
+      level: code
+  violation_manifestation: 中断之后留下一个「幂等标识已记录、业务却没做成」的请求，重试被判为重复直接返回成功，这笔业务永远补不回来。
+
+- template_id: T-IDEM-03
+  name: 跨服务的多步写操作没有补偿动作
+  mechanism_group: idempotency_compensation
+  mechanism: compensating transaction
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 跨越多个服务或多个存储的写操作，每个已完成且可撤销的步骤都要有对应的补偿动作，且补偿本身必须幂等。
+    sources:
+      - doc_id: azure-pattern-compensating
+        quote: |-
+          Implement a compensating transaction that undoes the effects of completed steps in the original operation.
+        location: Compensating Transaction pattern > Solution
+      - doc_id: azure-pattern-compensating
+        quote: |-
+          You can use a workflow to implement an eventually consistent operation that requires compensation. As the original operation runs, the system records information about each step and how to undo it. If the operation fails, the workflow rewinds through the completed steps and reverses each step.
+        location: Compensating Transaction pattern > Solution
+  locate:
+    applies_when:
+      - 一次业务操作跨越两个及以上服务或存储的写入
+      - 这些写入无法放进单一本地事务
+    roles:
+      defect_site: 该业务流程的编排代码与各步骤的补偿实现
+      injection_site: 流程中间某一步所依赖的服务或存储
+      manifest_site: 各服务各自的业务数据
+    instantiations:
+      - component: Spring Boot
+        how: 每个流程步骤是否有对应的补偿方法，补偿方法是否幂等
+        config_or_code: 源码
+      - component: Kafka
+        how: 以事件驱动编排时，每步的事件与补偿事件是否都能被重放且幂等
+        config_or_code: 源码
+      - component: RabbitMQ
+        how: 补偿消息的投递是否可靠（持久化、确认、死信）
+        config_or_code: 源码与队列参数
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 存在已完成的步骤没有对应的撤销实现
+        checker: codegraph
+        query: 起点为流程编排函数，枚举各步骤调用点，检查每个步骤是否存在配对的撤销调用
+      - id: C2
+        kind: 必要
+        statement: 流程中途失败时没有触发撤销的代码路径
+        checker: llm
+        query: 该流程在中间步骤失败时，是否会调用前序步骤的撤销动作？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 所有写入其实都落在同一个存储且在同一本地事务内
+        checker: llm
+        query: 该流程的全部写入是否在同一个数据库事务中提交？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 流程的步骤数与各步骤的顺序（决定要逐个注入几次）
+        checker: codegraph
+        query: 起点为流程编排函数，列出按顺序调用的各写入步骤
+  experiment:
+    actions:
+      - action: 中间步骤所依赖的服务不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 依次让第 2 步、第 3 步…… 所依赖的服务不可达，每次只断一个
+      - action: 编排实例中途终止
+        type: 离散·有数量
+        target_role: injection_site
+        primitive_hint: 在流程执行中途删除编排服务的 Pod
+  verdict:
+    expected_behavior: 任一中间步骤失败后，前序步骤的副作用被撤销干净，系统不留中间态记录。
+    signals:
+      - {signal: 各服务业务记录的一致性核对结果, source: logs}
+      - {signal: 补偿动作的执行计数, source: metrics}
+      - {signal: 残留在中间态的记录条数, source: logs}
+      - {signal: 补偿被重复执行时是否产生二次副作用, source: logs}
+    alternative_explanations:
+      - 后台对账任务已经修复了不一致，观察窗太长看不出问题
+      - 注入点选在了不可撤销的步骤之后（越过了不可回头点）
+    mitigation:
+      family: 为每个可撤销步骤定义幂等的补偿动作，并明确不可回头点
+      level: code
+  violation_manifestation: 第三步失败后，前两步的扣减没有退回，留下一笔各服务数据对不上的脏记录。

@@ -49,7 +49,7 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
   retrieved_at: '2026-09-20'
-  sha256: a7bfd234b72a905b9c4dcb9fd1b47e23a5b131093201958c42eefa620dd14f55
+  sha256: 7571aac3e82f2853a7a3a948efb59208e7b862c0b8d38da81134a72d5e25ed68
   source_sha256: ''
   license: © Amazon，文档未授权再分发
   redistribution: restricted
@@ -153,7 +153,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction
   retrieved_at: '2026-09-20'
-  sha256: e151797530ac32cef16e25b5e388cfdb3f1e318577ab2fae731dfde7f8b3ef93
+  sha256: 50b8aefe0c5457b0ff1873f77a5f2800b8e8edfa4644b78cfb268e9ac801f062
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -192,7 +192,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/retry
   retrieved_at: '2026-09-20'
-  sha256: 412a05cdcadbf5746f7e6cf9167ae5f4ec1edde4012c055302831774359f27f4
+  sha256: 99bbb7094f2ec6dfeac6941c897824af39c8f42e1732221d5136c7f4cd4f9c4c
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
