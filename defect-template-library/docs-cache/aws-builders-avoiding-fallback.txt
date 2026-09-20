@@ -3,4 +3,10 @@
 # 许可：© Amazon，文档未授权再分发。本文件不是全文副本，只保留本库实际逐字引用到的段落及其所在小节标题，
 #      供 validate.py 逐字复核。需要全文请按上面的网址到原站点阅读。
 # ----------------------------------------------------------------------
-（本次提交尚无引用落在该文档上）
+[[H2]] Single-machine fallback
+...
+Not only might the fallback strategy make the problem worse, this will likely occur as a latent bug. It is easy to develop fallback strategies that rarely trigger in production. It might take years before even one customer's machine actually runs out of memory at just the right moment to trigger the specific line of code with the fallback to malloc2 shown earlier. If there is a bug in the fallback logic or some kind of side-effect that makes the overall problem worse, the engineers who wrote the code will likely have forgotten how it worked in the first place, and the code will be harder to fix. For a single-machine application, this may be an acceptable business trade-off, but in distributed systems the consequences are much more significant, as we’ll discuss later.
+...
+[[H2]] Conclusion
+...
+Instead, we favor code paths that are exercised in production continuously rather than rarely. We focus on improving the availability of our primary systems, by using patterns like pushing data to systems that need it instead of pulling and risking failure of a remote call at a critical time. Finally, we watch out for subtle behavior in our code that could flip it into a fallback-like mode of operation, such as by performing too many retries.

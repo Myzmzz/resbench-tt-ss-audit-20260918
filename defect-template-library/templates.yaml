@@ -2994,3 +2994,249 @@ templates:
       family: 关键负载写成 Guaranteed，非关键负载压到低档
       level: config
   violation_manifestation: 节点内存一紧张，关键服务先被驱逐，批处理任务反而留在节点上继续跑。
+
+# ============================================================ fallback_degradation
+- template_id: T-FALLBACK-01
+  name: 非关键依赖失败导致整个响应失败
+  mechanism_group: fallback_degradation
+  mechanism: graceful degradation
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 非关键依赖失败时应当只裁剪掉它负责的那部分结果，而不是让整个响应失败。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Graceful degradation takes the concept of load shedding one step further by reducing the amount of work that needs to be performed. In some applications, it’s possible to significantly decrease the amount of work or time needed by decreasing the quality of responses.
+        location: Preventing Server Overload > Load Shedding and Graceful Degradation
+      - doc_id: aws-war-reliability
+        quote: |-
+          Implement graceful degradation to transform applicable hard dependencies into soft dependencies
+        location: Reliability Pillar > 优雅降级最佳实践
+  locate:
+    applies_when:
+      - 一次响应聚合了两个及以上依赖的结果
+      - 其中至少一个依赖在业务上是可缺省的
+    roles:
+      defect_site: 聚合响应的处理函数及其异常处理
+      injection_site: 该非关键依赖
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Resilience4j
+        how: 非关键依赖是否被单独装饰并给了 fallback，而不是让异常冒泡
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 聚合接口对非关键字段的异常是否单独捕获并返回部分结果
+        config_or_code: 源码
+      - component: Envoy
+        how: 是否对非关键上游单独设更短超时与更激进的熔断
+        config_or_code: route.timeout 与 cluster.outlier_detection
+      - component: Polly
+        how: Fallback 策略是否只包住非关键调用
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 非关键依赖的调用没有被单独捕获，异常直接冒泡到整体失败
+        checker: codegraph
+        query: 起点为聚合接口的处理函数，沿调用边找到各依赖调用点，检查每个调用点是否处在独立的异常处理块内
+      - id: C2
+        kind: 必要
+        statement: 代码或配置里存在关键与非关键依赖的显式区分（没有这个区分就无从判断哪些该裁剪）
+        checker: llm
+        query: 该聚合接口是否对不同依赖做了关键性区分（独立装饰、独立捕获或注解标注）？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 该依赖在业务上是关键的，失败时整体失败是正确行为
+        checker: llm
+        query: 缺少该依赖的结果时，这个接口的响应是否仍对调用方有用？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 非关键依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 只让这一个依赖不可达，其余依赖保持正常
+      - action: 非关键依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 只对该依赖注入延迟，检查是否把整体响应拖到超时
+  verdict:
+    expected_behavior: 非关键依赖完全不可用时，接口整体成功率基本不变，只是响应里少了对应字段。
+    signals:
+      - {signal: 注入期间该接口的整体成功率, source: metrics}
+      - {signal: 响应体中对应字段缺失或为默认值的比例, source: logs}
+      - {signal: 该接口的 p99 延迟是否随非关键依赖的延迟同步上升, source: traces}
+    alternative_explanations:
+      - 该依赖其实是关键依赖，整体失败是预期行为
+      - 上游有缓存，掩盖了后端的失败
+    mitigation:
+      family: 区分关键与非关键依赖，非关键失败只裁剪对应结果
+      level: code
+  violation_manifestation: 一个可有可无的依赖挂掉，整个接口返回 5xx，用户看到的是整页失败而不是少了一个模块。
+
+- template_id: T-FALLBACK-02
+  name: 缓存兜底只在一个方向上成立
+  mechanism_group: fallback_degradation
+  mechanism: cache fallback
+  defect_class: 组合型
+  parameter_kind: 离散动作
+  rule:
+    statement: 把缓存当作韧性手段时，源不可用要能返回过期值，缓存不可用要能穿透到源；同时源的容量还得扛得住缓存全空。
+    sources:
+      - doc_id: azure-pattern-cache-aside
+        quote: |-
+          Caching replicates data. In limited ways, it can preserve the availability of frequently accessed data if the origin data store becomes temporarily unavailable.
+        location: Cache-Aside pattern > Reliability
+      - doc_id: sre-cascading-failures
+        quote: |-
+          It’s important to note the distinction between a latency cache versus a capacity cache: when a latency cache is employed, the service can sustain its expected load with an empty cache, but a service using a capacity cache cannot sustain its expected load under an empty cache.
+        location: Slow Startup and Cold Caching
+  locate:
+    applies_when:
+      - 该服务在读路径上使用了缓存
+    roles:
+      defect_site: 读路径上的缓存访问与回源逻辑
+      injection_site: 缓存实例，或缓存背后的源存储
+      manifest_site: 该服务的上游调用方，以及源存储的入站 QPS
+    instantiations:
+      - component: go-redis
+        how: 缓存命令报错时是否穿透到源，还是把错误直接抛给调用方
+        config_or_code: 源码
+      - component: Jedis
+        how: 同上；另看池耗尽时的异常是否被当成业务失败
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 源不可用时是否返回缓存中的过期值（stale-while-revalidate 语义）
+        config_or_code: 源码
+      - component: Lettuce
+        how: 命令超时后的重连行为是否让读路径整体失败
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 缓存访问异常没有被捕获成「未命中」，而是直接失败
+        checker: codegraph
+        query: 起点为缓存客户端调用点，向上查 2 跳内是否存在把缓存异常转成未命中的处理分支
+      - id: C2
+        kind: 必要
+        statement: 源不可用时没有返回过期值的路径（只有命中或回源两种结果）
+        checker: llm
+        query: 源存储不可用时，该读路径是否会返回缓存里已过期的数据？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 源侧配置了准入控制或限流，缓存全空时源不会被瞬间打垮
+        checker: manifest
+        query: 源存储前的限流配置或连接数上限
+      - id: C4
+        kind: 附注
+        statement: 缓存命中率与源容量（判断这是延迟型缓存还是容量型缓存）
+        checker: runtime
+        query: 稳态缓存命中率，以及源在缓存全空时需要承担的 QPS
+  experiment:
+    actions:
+      - action: 缓存不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让缓存实例不可达，观察读路径是失败还是穿透
+      - action: 源不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让源存储不可达，观察是否还能返回缓存里的值
+  verdict:
+    expected_behavior: 两个方向分别注入时，读路径都还能工作：源挂了返回过期值，缓存挂了穿透到源且源扛得住。
+    signals:
+      - {signal: 两种注入下该读接口的成功率, source: metrics}
+      - {signal: 缓存不可用期间源存储的入站 QPS 相对基线的倍数, source: metrics}
+      - {signal: 源不可用期间返回结果的新鲜度标记或版本, source: logs}
+      - {signal: 源存储在穿透期间的错误率与延迟, source: metrics}
+    alternative_explanations:
+      - 缓存命中率本就很低，穿透带来的放大不明显
+      - 上游重试掩盖了首次失败
+    mitigation:
+      family: 明确缓存是延迟型还是容量型，支持返回过期值并按空缓存备容量
+      level: code
+  violation_manifestation: 缓存一挂源被全量流量瞬间打死；或者源一挂，明明缓存里还有数据却直接返回错误——两个方向只要有一个不成立，缓存就不是韧性手段而是新的单点。
+
+- template_id: T-FALLBACK-03
+  name: 回退路径自己也依赖会一起失败的对象
+  mechanism_group: fallback_degradation
+  mechanism: fallback path
+  defect_class: 实现错误型
+  parameter_kind: 离散动作
+  rule:
+    statement: 回退路径不应依赖与主路径同时失效的对象；平时不走的回退分支很容易成为只在故障时才暴露的隐患。
+    sources:
+      - doc_id: aws-builders-avoiding-fallback
+        quote: |-
+          Not only might the fallback strategy make the problem worse, this will likely occur as a latent bug. It is easy to develop fallback strategies that rarely trigger in production.
+        location: Avoiding fallback in distributed systems > Single-machine fallback
+      - doc_id: aws-builders-avoiding-fallback
+        quote: |-
+          Instead, we favor code paths that are exercised in production continuously rather than rarely.
+        location: Avoiding fallback in distributed systems > How Amazon avoids fallback
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Remember that the code path you never use is the code path that (often) doesn’t work.
+        location: Preventing Server Overload > Load Shedding and Graceful Degradation
+  locate:
+    applies_when:
+      - 该服务对某个依赖配置了回退分支（fallback 方法、降级返回、备用数据源）
+    roles:
+      defect_site: 回退分支的实现
+      injection_site: 主路径依赖，以及回退分支自己依赖的对象
+      manifest_site: 该服务的上游调用方
+    instantiations:
+      - component: Resilience4j
+        how: CircuitBreaker / Retry 的 fallback 方法内部是否又发起远程调用
+        config_or_code: 源码
+      - component: Polly
+        how: Fallback 策略的委托内部是否又访问了可能同时失效的资源
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 降级分支是否读同一个数据库或同一个缓存
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 回退分支内部发起了远程调用或访问了外部资源
+        checker: codegraph
+        query: 起点为 fallback 方法符号，沿调用边查 3 跳内是否到达任一出站客户端
+      - id: C2
+        kind: 必要
+        statement: 回退分支访问的对象与主路径失败的原因相关（同一实例、同一网络路径、同一存储）
+        checker: llm
+        query: 回退分支访问的外部对象是否与主路径依赖同一个实例或同一条网络路径？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 回退分支只返回本地常量、本地缓存或静态默认值
+        checker: codegraph
+        query: 起点为 fallback 方法符号，查 3 跳内是否完全没有出站调用
+      - id: C4
+        kind: 附注
+        statement: 回退分支在稳态下是否有执行记录（长期为零说明它从未被验证过）
+        checker: runtime
+        query: 稳态下 fallback 分支的执行计数
+  experiment:
+    actions:
+      - action: 主路径依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让主依赖不可达，稳定触发回退分支
+      - action: 主依赖与回退依赖同时不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 若两者共用同一实例或同一网络路径，一次注入即可同时命中
+  verdict:
+    expected_behavior: 触发回退后，回退分支能成功返回，且耗时与主路径同量级。
+    signals:
+      - {signal: 回退分支的执行计数与其中的失败计数, source: metrics}
+      - {signal: 触发回退后该接口的端到端耗时, source: traces}
+      - {signal: 回退分支产生的出站调用数, source: traces}
+      - {signal: 触发回退后上游看到的错误率, source: metrics}
+    alternative_explanations:
+      - 回退失败是因为它依赖的对象恰好也在维护，属偶发
+      - 回退分支根本没被触发（熔断未打开），观察到的失败来自主路径
+    mitigation:
+      family: 回退只用本地可得的数据；做不到就去掉回退、加固主路径
+      level: code
+  violation_manifestation: 真出故障时回退路径自己也炸了，或者慢到把上游一起拖垮——平时不走的分支，等到要用的时候才发现不能用。

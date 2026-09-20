@@ -23,7 +23,7 @@ documents:
   version: unversioned
   url: https://web.archive.org/web/2024/https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/
   retrieved_at: '2026-09-20'
-  sha256: 1ab216e2fa01ac7b21f981d63ee3e31416bbbc7e83201d740f5967e711caf5a4
+  sha256: 3665ed2fc39e30ee3222f64def020b0a9ba8f553dd45d3ee89906ee9e4f1de59
   source_sha256: ''
   license: © Amazon，文档未授权再分发
   redistribution: restricted
@@ -88,7 +88,7 @@ documents:
   version: latest
   url: https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html
   retrieved_at: '2026-09-20'
-  sha256: 45922338e218e628902b71d148a68ae9472e224afa991c5d013ebce6b3e50dac
+  sha256: c86472489a5aa64f823b59f52d58fcc6bff87cf352fa62d82f80a44184c210d2
   source_sha256: ''
   license: © Amazon，文档未授权再分发
   redistribution: restricted
@@ -127,7 +127,7 @@ documents:
   version: unversioned
   url: https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside
   retrieved_at: '2026-09-20'
-  sha256: e274decaa134cedb561d211af9ad3cc61c4eb08e69f9fbe8486ce32851548669
+  sha256: 1d143afa84f126bea848187deb71feb40a0b8beb10ec684fc509f4b56b2fc820
   source_sha256: ''
   license: © Microsoft，文档未授权再分发
   redistribution: restricted
@@ -1245,7 +1245,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/addressing-cascading-failures/
   retrieved_at: '2026-09-20'
-  sha256: cd0146f7bfaf52174462923c09ace6d73563836171da2745f24be70c307b4127
+  sha256: 3b38631bbe6aa14cde7058422f7477d9068ec1a7e8b17bd4e8628fd8885efa25
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
   redistribution: restricted
