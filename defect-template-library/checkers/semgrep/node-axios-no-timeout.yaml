@@ -1,0 +1,13 @@
+rules:
+  - id: node-axios-no-timeout
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      axios 调用或实例没有设置 timeout。axios 的 timeout 缺省为 0，含义是不超时。
+    patterns:
+      - pattern-either:
+          - pattern: axios.create($CFG)
+          - pattern: axios.get(...)
+          - pattern: axios.post(...)
+          - pattern: axios($CFG)
+      - pattern-not-regex: '(?s)timeout\s*:'

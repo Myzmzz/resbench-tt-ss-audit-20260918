@@ -1245,7 +1245,7 @@ documents:
   version: unversioned
   url: https://sre.google/sre-book/addressing-cascading-failures/
   retrieved_at: '2026-09-20'
-  sha256: 33ed18569db28e6e2bc8725983a617891e2d76a6aeefd73f95f6f69391ef54ec
+  sha256: b93a388a32b229eb44e3ae630ada3d4b55ceb93593cb50a62fb04d4dbd5d3e9a
   source_sha256: ''
   license: © Google / O'Reilly，可在线免费阅读，未授权再分发
   redistribution: restricted

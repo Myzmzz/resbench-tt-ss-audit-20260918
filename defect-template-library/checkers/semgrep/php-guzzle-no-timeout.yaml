@@ -1,0 +1,15 @@
+rules:
+  - id: php-guzzle-no-timeout
+    languages: [php]
+    severity: WARNING
+    message: >-
+      Guzzle 请求没有给 timeout / connect_timeout 选项。Guzzle 的 timeout 缺省为 0，
+      含义是无限等待。
+    patterns:
+      - pattern-either:
+          - pattern: new GuzzleHttp\Client($OPTS)
+          - pattern: new Client($OPTS)
+          - pattern: $C->request(...)
+          - pattern: $C->get(...)
+          - pattern: $C->post(...)
+      - pattern-not-regex: "(?s)['\"]timeout['\"]\\s*=>"

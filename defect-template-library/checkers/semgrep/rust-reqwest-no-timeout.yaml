@@ -1,0 +1,12 @@
+rules:
+  - id: rust-reqwest-no-timeout
+    languages: [rust]
+    severity: WARNING
+    message: >-
+      reqwest 的 ClientBuilder 没有调用 timeout / connect_timeout。reqwest 默认不设超时。
+    patterns:
+      - pattern-either:
+          - pattern: reqwest::Client::builder()...build()
+          - pattern: reqwest::blocking::Client::builder()...build()
+      - pattern-not: reqwest::Client::builder()...timeout(...)...build()
+      - pattern-not: reqwest::blocking::Client::builder()...timeout(...)...build()

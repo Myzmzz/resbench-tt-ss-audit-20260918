@@ -454,3 +454,504 @@ templates:
       family: 按探针端点的基线耗时设置 timeoutSeconds 并留余量；同时收敛端点自身的工作量
       level: config
   violation_manifestation: 依赖只抖动几百毫秒，探针就连续超时，实例被摘流甚至被重启，而业务请求其实还在正常返回。
+
+# ============================================================ deadline_timeout
+- template_id: T-DEADLINE-01
+  name: 同步出站调用没有显式截止时间
+  mechanism_group: deadline_timeout
+  mechanism: request deadline
+  defect_class: 规范明示型
+  parameter_kind: 阈值型
+  rule:
+    statement: 每一个同步出站调用都必须显式设置截止时间；多数客户端的缺省行为是不设超时，等待可以无限长。
+    sources:
+      - doc_id: grpc-deadlines
+        quote: |-
+          By default, gRPC does not set a deadline which means it is possible for a client to end up waiting for a response effectively forever. To avoid this you should always explicitly set a realistic deadline in your clients.
+        location: Deadlines > Deadlines on the Client
+      - doc_id: python-requests-advanced
+        quote: |-
+          By default, requests do not time out unless a timeout value is set explicitly. Without a timeout, your code may hang for minutes or more.
+        location: Advanced Usage > Timeouts
+      - doc_id: php-guzzle
+        quote: |-
+          Float describing the total timeout of the request in seconds. Use 0 to wait indefinitely (the default behavior).
+        location: Request Options > timeout
+    defaults:
+      - {symbol: envoy_route_timeout, value: 15, unit: s, doc_id: envoy-timeouts}
+      - {symbol: httpx_default_timeout, value: 5, unit: s, doc_id: python-httpx-timeouts}
+      - {symbol: guzzle_timeout, value: 0, unit: "s（0 表示不超时）", doc_id: php-guzzle}
+      - {symbol: reqwest_timeout, value: "no timeout", unit: "—", doc_id: rust-reqwest}
+  locate:
+    applies_when:
+      - 服务存在同步出站调用（HTTP / gRPC / 数据库 / 缓存）
+      - 该调用位于对外接口的请求处理路径上
+    roles:
+      defect_site: 发起出站调用的客户端构造处与调用点
+      injection_site: 被调用的下游服务或中间件
+      manifest_site: 该服务自身，以及它的上游调用方
+    instantiations:
+      - component: gRPC
+        how: 调用点是否用 context.WithTimeout / CallOptions.withDeadlineAfter 设了 deadline
+        config_or_code: 源码
+      - component: Go net/http
+        how: http.Client.Timeout 是否设置，或请求是否带 deadline 的 context
+        config_or_code: 源码
+      - component: Python requests
+        how: requests 调用是否传了 timeout=
+        config_or_code: 源码
+      - component: Guzzle
+        how: 客户端或请求是否给了 timeout / connect_timeout 选项
+        config_or_code: 源码
+      - component: reqwest
+        how: ClientBuilder 是否调用 timeout / connect_timeout
+        config_or_code: 源码
+      - component: .NET HttpClient
+        how: HttpClient.Timeout 是否被显式设置，或调用是否传 CancellationToken
+        config_or_code: 源码
+      - component: Envoy
+        how: 路由是否显式配置 timeout；未配置时落在 15 秒默认值上
+        config_or_code: route.timeout
+      - component: Istio
+        how: VirtualService 的 http.timeout 是否配置；默认不启用
+        config_or_code: spec.http[*].timeout
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 出站客户端构造处或调用点没有设置超时，也没有传带 deadline 的 context
+        checker: semgrep
+        query: checkers/semgrep/go-http-client-no-timeout.yaml、checkers/semgrep/python-requests-no-timeout.yaml、checkers/semgrep/php-guzzle-no-timeout.yaml、checkers/semgrep/rust-reqwest-no-timeout.yaml、checkers/semgrep/java-resttemplate-no-timeout.yaml、checkers/semgrep/node-axios-no-timeout.yaml、checkers/semgrep/dotnet-httpclient-no-timeout.yaml
+      - id: C2
+        kind: 必要
+        statement: 该调用确实在对外接口的请求路径上（不是启动期一次性调用或后台任务）
+        checker: codegraph
+        query: 起点为对外 HTTP/gRPC 路由的处理函数符号，沿调用边查 5 跳内是否到达 C1 命中的调用点
+      - id: C3
+        kind: 反证
+        statement: 网关或网格层已对这条路径设了更短的超时，实际等待被外层截断
+        checker: manifest
+        query: 与该服务对应的 VirtualService.spec.http[*].timeout 或 Envoy route.timeout
+      - id: C4
+        kind: 附注
+        statement: 该调用的基线耗时（决定注入幅值的起点）
+        checker: runtime
+        query: 无注入时该出站调用的 p99 耗时
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，限定到该服务与下游的 Pod 对与端口
+      - action: 依赖不可达
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 丢弃该服务到下游的报文，制造既不回包也不拒绝的黑洞
+    parameter_relation:
+      symbols:
+        - {symbol: T, meaning: 该调用点实际生效的超时（含外层网关超时）, source: manifest|code|default}
+        - {symbol: b, meaning: 该出站调用的基线耗时 p99, source: measured}
+        - {symbol: U, meaning: 上游对本服务的超时, source: manifest|requirement|assumed_worst}
+        - {symbol: n, meaning: 一次入站请求对该下游的串行调用次数, source: measured|assumed_worst}
+      boundary: d* = T - b
+      worst_case_multiplier: n
+      hold: max(T, U) + b
+      recovery_window: 2 * (max(T, U) + b)
+  verdict:
+    expected_behavior: 下游变慢时调用方在自己的超时处截断并返回错误，占用的线程与连接随即释放。
+    signals:
+      - {signal: 出站调用 span 的时长分布是否在某个值处截断, source: traces}
+      - {signal: 出站调用的超时类错误码（DEADLINE_EXCEEDED / 504 / read timeout）计数, source: metrics}
+      - {signal: 注入期间该服务的在途请求数与线程占用, source: metrics}
+      - {signal: 上游对本服务的错误率与耗时, source: metrics}
+    alternative_explanations:
+      - 外层网关或网格的超时先于应用超时生效（需用反证项区分）
+      - 连接池耗尽导致请求在获取连接处失败，而不是在调用处超时
+      - 下游自己返回了错误，调用方并未真正等待
+    mitigation:
+      family: 在每个同步调用点显式设置连接超时与请求超时
+      level: code
+  violation_manifestation: 下游变慢后调用方的等待时长随注入幅值一路上涨、不在任何值处截断，线程与连接被长期占住。
+
+- template_id: T-DEADLINE-02
+  name: 出站截止时间不由入站剩余预算派生
+  mechanism_group: deadline_timeout
+  mechanism: deadline propagation
+  defect_class: 需求相对型
+  parameter_kind: 阈值型
+  rule:
+    statement: 服务再去调别人时应当沿用入站请求的截止时间，而不是自己另发明一个；否则上游早已放弃，下游还在为这次请求干活。
+    sources:
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Rather than inventing a deadline when sending RPCs to backends, servers should employ deadline propagation.
+        location: Latency and Deadlines > Deadline propagation
+      - doc_id: sre-cascading-failures
+        quote: |-
+          A common theme in many cascading outages is that servers spend resources handling requests that will exceed their deadlines on the client.
+        location: Latency and Deadlines > Missing deadlines
+      - doc_id: grpc-deadlines
+        quote: |-
+          Your server might need to call another server to produce a response. In these cases where your server also acts as a client you would want to honor the deadline set by the original client.
+        location: Deadlines > Deadline Propagation
+  locate:
+    applies_when:
+      - 服务既接收同步请求又发起同步出站调用（调用链深度 ≥ 2）
+    roles:
+      defect_site: 该服务的请求处理路径与出站调用点
+      injection_site: 调用链上更深一层的服务或中间件
+      manifest_site: 调用链的入口服务
+    instantiations:
+      - component: gRPC
+        how: Java 与 Go 默认继承入站 deadline；跨线程池提交任务或新建 context 时会丢
+        config_or_code: 源码
+      - component: Go context
+        how: 出站调用用的 context 是否派生自 r.Context()，而不是 context.Background()
+        config_or_code: 源码
+      - component: Spring Boot
+        how: WebClient / RestClient 的 responseTimeout 是写死常量还是按剩余预算推导
+        config_or_code: 源码与 spring.http.client.* 配置
+      - component: Istio
+        how: 网格只管本跳超时，不做跨跳预算传递，需要应用自己传
+        config_or_code: spec.http[*].timeout
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 请求处理路径上出现了与入站 context 无关的新建 context 或写死的超时常量
+        checker: semgrep
+        query: checkers/semgrep/go-context-background-in-handler.yaml；Java / .NET 侧交 llm 复核
+      - id: C2
+        kind: 必要
+        statement: 该服务确有更深一层的同步出站调用
+        checker: codegraph
+        query: 起点为该服务的入站路由处理函数，沿调用边查 5 跳内是否到达出站客户端
+      - id: C3
+        kind: 反证
+        statement: 出站超时的取值已经小于入站超时，即使不是派生出来的，实际也不会超出预算
+        checker: llm
+        query: 该出站调用的超时值是否小于本服务对外承诺的响应时间上限？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 入口对本服务的超时值（决定边界公式里的 B）
+        checker: manifest
+        query: 入口网关或上游服务对该服务的 route timeout
+  experiment:
+    actions:
+      - action: 链路末端变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在调用链最深一跳注入网络延迟
+    parameter_relation:
+      symbols:
+        - {symbol: B, meaning: 入口对本服务的截止时间, source: manifest|requirement}
+        - {symbol: e, meaning: 本服务在发出该出站调用前已消耗的时间, source: measured}
+        - {symbol: T, meaning: 本服务给该出站调用设的超时, source: manifest|code|default}
+        - {symbol: b, meaning: 该出站调用的基线耗时, source: measured}
+      boundary: d* = B - e - b
+      worst_case_multiplier: 1
+      hold: T + e
+      recovery_window: 2 * (T + e)
+  verdict:
+    expected_behavior: 入口的截止时间一到，链路上各跳同时停止为这次请求工作。
+    signals:
+      - {signal: 入口 span 已结束后，下游 span 仍在继续的时长, source: traces}
+      - {signal: 入口返回超时错误的时刻与下游调用结束时刻之差, source: traces}
+      - {signal: 入口超时之后下游仍产生的请求日志, source: logs}
+      - {signal: 下游在入口放弃后的 CPU 与线程占用, source: metrics}
+    alternative_explanations:
+      - 链路中存在异步分支，本就不受入口截止时间约束
+      - 追踪采样导致 span 缺失，看起来像没有结束
+    mitigation:
+      family: 出站超时由入站剩余预算推导，全链路传递同一绝对截止时间
+      level: code
+  violation_manifestation: 入口已经返回超时，链路深处仍在为这次请求继续调用和计算，过载时这部分是纯浪费的容量。
+
+- template_id: T-DEADLINE-03
+  name: 入口放弃后在途工作没有被取消
+  mechanism_group: deadline_timeout
+  mechanism: cancellation propagation
+  defect_class: 规范明示型
+  parameter_kind: 离散动作
+  rule:
+    statement: 调用方放弃之后，取消信号应当跨服务边界一路传到调用树底部，使各层停止为这次请求继续工作。
+    sources:
+      - doc_id: grpc-cancellation
+        quote: |-
+          When an RPC is cancelled, the server should stop any ongoing computation and end its side of the stream. Often, servers are also clients to upstream servers, so that cancellation operation should ideally propagate to all ongoing computation in the system that was initiated due to the original client RPC call.
+        location: Cancellation > 概述
+      - doc_id: grpc-deadlines
+        quote: |-
+          Please note that the server application is responsible for stopping any activity it has spawned to service the RPC. If your application is running a long-running process you should periodically check if the RPC that initiated it has been cancelled and if so, stop the processing.
+        location: Deadlines > Deadlines on the Server
+      - doc_id: go-context
+        quote: |-
+          A Context may be canceled to indicate that work done on its behalf should stop. A Context with a deadline is canceled after the deadline passes. When a Context is canceled, all Contexts derived from it are also canceled.
+        location: context package > Overview
+      - doc_id: sre-cascading-failures
+        quote: |-
+          Propagating cancellations reduces unneeded or doomed work by advising servers in an RPC call stack that their efforts are no longer necessary.
+        location: Latency and Deadlines > Cancellation propagation
+  locate:
+    applies_when:
+      - 服务在一次入站请求内发起同步出站调用，或把工作提交到线程池、协程、异步任务
+      - 入口存在会导致客户端提前放弃的机制（超时、用户断开、对冲请求取消落选副本）
+    roles:
+      defect_site: 该服务的请求处理路径与其向下的出站调用、任务提交点
+      injection_site: 调用链更深一层的服务或中间件
+      manifest_site: 调用链上被放弃请求仍在占用资源的各跳
+    instantiations:
+      - component: gRPC
+        how: 客户端 cancel 会向服务端发 CANCELLED；服务端须把同一 context 继续传给自己的出站调用
+        config_or_code: 源码
+      - component: Go context
+        how: 处理函数把 r.Context() 一路传下去；中途换成 context.Background() 即断链
+        config_or_code: 源码
+      - component: Node.js
+        how: AbortController 的 signal 是否传给下游 fetch / undici 请求
+        config_or_code: 源码
+      - component: .NET HttpClient
+        how: CancellationToken 是否沿调用链传递，而不是每层新建
+        config_or_code: 源码
+      - component: Spring Boot
+        how: 提交到 ExecutorService 或 @Async 的任务不会自动带上入站请求的取消信号
+        config_or_code: 源码
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 请求处理路径上存在断开取消链的写法（新建根 context、丢弃 CancellationToken、提交到不带取消的线程池）
+        checker: semgrep
+        query: checkers/semgrep/go-context-background-in-handler.yaml；Java / .NET / Node 侧交 llm 复核
+      - id: C2
+        kind: 必要
+        statement: 断链之后确有耗时的下游调用或计算（否则取消与否看不出差别）
+        checker: codegraph
+        query: 起点为 C1 命中的断链位置，沿调用边查 4 跳内是否到达出站客户端或显式的长循环
+      - id: C3
+        kind: 反证
+        statement: 下游调用自身的超时已经短于入口超时，即使取消不传播，工作也会很快自行结束
+        checker: llm
+        query: 该断链之后的出站调用是否设置了小于入口超时的超时值？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 吞掉取消异常的写法（catch CancelledError / InterruptedException 后继续执行）
+        checker: llm
+        query: 该处理路径是否在捕获取消类异常后继续执行后续步骤？回答 成立 / 不成立 / 无法判定 + 文件:行
+  experiment:
+    actions:
+      - action: 客户端提前放弃
+        type: 离散·无可比参数
+        target_role: manifest_site
+        primitive_hint: 在入口注入一个短于链路耗时的超时，或在压测客户端侧主动断开连接
+      - action: 链路末端变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 在最深一跳注入网络延迟，把链路耗时推过入口超时，从而稳定触发放弃
+  verdict:
+    expected_behavior: 入口放弃后的一个探针周期内，链路各跳都停止为这次请求工作，在途调用数回落到基线。
+    signals:
+      - {signal: 入口返回错误之后，下游仍在进行的 span 数量与持续时长, source: traces}
+      - {signal: 下游收到的取消信号计数（gRPC CANCELLED、客户端断开计数）, source: metrics}
+      - {signal: 入口放弃后下游的 CPU 占用与在途请求数是否回落, source: metrics}
+      - {signal: 入口放弃后下游仍产生的业务日志, source: logs}
+    alternative_explanations:
+      - 下游调用自身超时很短，工作本就会很快结束（需用反证项区分）
+      - 链路中存在设计上就该继续的异步分支（如落库后的事件投递）
+      - 追踪采样缺失，误判为「仍在进行」
+    mitigation:
+      family: 全链路传递取消信号，并在阻塞点与长循环里响应它
+      level: code
+  violation_manifestation: 客户端早已超时离开，后台仍有成比例的孤儿请求在跑，过载时这些请求把线程池与下游容量占满，形成只出不进的空转。
+
+- template_id: T-DEADLINE-04
+  name: 重试串的总耗时超出这条请求的截止时间
+  mechanism_group: deadline_timeout
+  mechanism: retry within deadline
+  defect_class: 组合型
+  parameter_kind: 阈值型
+  rule:
+    statement: 整串重试连同退避等待必须装进这次请求的总截止时间里，单次尝试的超时应由总预算推导，而不是与重试次数各自独立设定。
+    sources:
+      - doc_id: grpc-retry-grfc
+        quote: |-
+          As with retries, gRPC call deadlines apply to the entire chain of hedged requests. Once a deadline has passed, the operation fails regardless of in-flight RPCS, and regardless of the hedging configuration.
+        location: gRFC A6 Client Retries > Hedging Policy
+      - doc_id: istio-virtualservice
+        quote: |-
+          When request timeout of the HTTP route or per_try_timeout is configured, the actual number of retries attempted also depends on the specified request timeout and per_try_timeout values.
+        location: VirtualService > HTTPRetry > attempts
+      - doc_id: envoy-route-retry
+        quote: |-
+          (UInt32Value) Specifies the allowed number of retries. This parameter is optional and defaults to 1.
+        location: route_components.proto > RetryPolicy > num_retries
+    defaults:
+      - {symbol: envoy_num_retries, value: 1, unit: 次, doc_id: envoy-route-retry}
+      - {symbol: envoy_route_timeout, value: 15, unit: s, doc_id: envoy-timeouts}
+  locate:
+    applies_when:
+      - 同一条出站路径上同时配置了重试与超时
+    roles:
+      defect_site: 该路径的重试配置与超时配置
+      injection_site: 被调用的下游服务
+      manifest_site: 该服务的上游调用方或入口
+    instantiations:
+      - component: Envoy
+        how: per_try_timeout 与 route.timeout 的关系；per_try_timeout × (1 + num_retries) 不应超过 route.timeout
+        config_or_code: route.retry_policy 与 route.timeout
+      - component: Istio
+        how: HTTPRetry.perTryTimeout 与 http.timeout 的组合
+        config_or_code: spec.http[*].retries 与 spec.http[*].timeout
+      - component: gRPC
+        how: deadline 覆盖整串重试，maxAttempts 到不了就先 DEADLINE_EXCEEDED
+        config_or_code: service config 的 retryPolicy
+      - component: Resilience4j
+        how: Retry 的 maxAttempts 与 intervalFunction 叠加后的总时长，对比 TimeLimiter 的 timeoutDuration
+        config_or_code: resilience4j.retry 与 resilience4j.timelimiter 配置
+    checks:
+      - id: C1
+        kind: 必要
+        statement: (1 + 最大重试次数) × 单次超时 + 累计退避 大于该路径的总截止时间
+        checker: manifest
+        query: spec.http[*].[timeout, retries.attempts, retries.perTryTimeout]
+      - id: C2
+        kind: 必要
+        statement: 该框架的 timeout 是单次语义而非整串语义（决定上式是否成立）
+        checker: llm
+        query: 该客户端或代理的 timeout 参数作用于单次尝试还是整串重试？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C3
+        kind: 反证
+        statement: 外层已有一个更短的总截止时间，会先于重试串结束把请求截断
+        checker: manifest
+        query: 入口网关对该路径的 timeout 值
+      - id: C4
+        kind: 附注
+        statement: 退避序列的累计时长（无抖动时可由配置算出）
+        checker: manifest
+        query: 重试配置里的 initialBackoff、backoffMultiplier、maxBackoff
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，幅值取到刚好超过单次超时，稳定触发每一次重试
+      - action: 依赖返回可重试错误
+        type: 离散·有时长
+        target_role: injection_site
+        primitive_hint: 让下游在一段时间内稳定返回 503 之类的可重试状态码
+    parameter_relation:
+      symbols:
+        - {symbol: D, meaning: 该路径的总截止时间, source: manifest|requirement}
+        - {symbol: t, meaning: 单次尝试的超时, source: manifest|default}
+        - {symbol: n, meaning: 最大尝试次数（含首次）, source: manifest|default}
+        - {symbol: b, meaning: 累计退避时长, source: manifest|measured}
+        - {symbol: r, meaning: 该调用的基线耗时, source: measured}
+      boundary: d* = t - r
+      worst_case_multiplier: n
+      hold: min(D, n * t + b)
+      recovery_window: 2 * min(D, n * t + b)
+  verdict:
+    expected_behavior: 下游持续变慢时，上游的等待在总截止时间处截断，而不是累加到「次数 × 单次超时」。
+    signals:
+      - {signal: 上游端到端耗时 p99 是否停在 D 附近还是停在 n × t 附近, source: traces}
+      - {signal: 下游在一次入站请求内收到的尝试次数, source: traces}
+      - {signal: 上游看到的错误码类型（总超时 还是 重试耗尽）, source: metrics}
+    alternative_explanations:
+      - 重试因为不可重试错误而提前终止，没有跑满次数
+      - 下游熔断打开导致尝试被本地拒绝，耗时反而变短
+    mitigation:
+      family: 用总截止时间约束整串重试，单次超时由总预算与次数推导
+      level: config
+  violation_manifestation: 上游的等待时长膨胀到「尝试次数 × 单次超时」，远超它自己声明的预算，而下游在同一次用户请求里被打了好几遍。
+
+- template_id: T-DEADLINE-05
+  name: 超时包装器之外底层 I/O 没有自己的超时
+  mechanism_group: deadline_timeout
+  mechanism: timeout enforcement
+  defect_class: 实现错误型
+  parameter_kind: 阈值型
+  rule:
+    statement: 在阻塞调用外面套一层超时只让调用方不再等待，底层 I/O 必须另有自己的超时，否则工作线程在超时返回后仍被占着。
+    sources:
+      - doc_id: grpc-deadlines
+        quote: |-
+          Please note that the server application is responsible for stopping any activity it has spawned to service the RPC.
+        location: Deadlines > Deadlines on the Server
+      - doc_id: resilience4j-timelimiter
+        quote: |-
+          whether cancel should be called on the running future
+        location: TimeLimiter > Create and configure TimeLimiter
+      - doc_id: go-context
+        quote: |-
+          Failing to call the CancelFunc leaks the child and its children until the parent is canceled.
+        location: context package > Overview
+  locate:
+    applies_when:
+      - 出站调用被容错库的超时或时间限制器包裹
+      - 被包裹的是阻塞式客户端调用（JDBC、阻塞 HTTP 客户端、同步 Redis 命令）
+    roles:
+      defect_site: 超时装饰器与被包裹的底层客户端配置
+      injection_site: 被调用的下游服务或中间件
+      manifest_site: 该服务自身的线程池与连接池占用
+    instantiations:
+      - component: Resilience4j
+        how: TimeLimiter 的 cancelRunningFuture 是否开启；底层 HTTP / JDBC 客户端是否各自设了超时
+        config_or_code: resilience4j.timelimiter 配置与客户端构造代码
+      - component: Polly
+        how: Timeout 策略靠 CancellationToken 生效，被包裹的委托必须把 token 传到最底层
+        config_or_code: 源码
+      - component: Go context
+        how: context 超时只关闭 Done 通道，底层调用必须使用 ctx 感知的 API
+        config_or_code: 源码
+      - component: HikariCP
+        how: 池的 connectionTimeout 只管取连接，查询本身要靠驱动的 socketTimeout
+        config_or_code: spring.datasource.hikari.* 与 JDBC URL 参数
+    checks:
+      - id: C1
+        kind: 必要
+        statement: 被包裹的底层客户端没有各自的连接超时与读写超时
+        checker: semgrep
+        query: checkers/semgrep/go-sql-open-dsn-no-timeout.yaml、checkers/semgrep/java-resttemplate-no-timeout.yaml、checkers/semgrep/dotnet-httpclient-no-timeout.yaml
+      - id: C2
+        kind: 必要
+        statement: 外层确实存在一个超时装饰器（否则问题退化为 T-DEADLINE-01）
+        checker: codegraph
+        query: 起点为该出站调用点，向上查 3 跳内是否被 TimeLimiter / Polly Timeout / context.WithTimeout 包裹
+      - id: C3
+        kind: 反证
+        statement: 被包裹的任务响应中断或取消（把 token / context 传到了最底层）
+        checker: llm
+        query: 被超时装饰器包裹的代码是否把取消信号传递给了底层 I/O 调用？回答 成立 / 不成立 / 无法判定 + 文件:行
+      - id: C4
+        kind: 附注
+        statement: 该服务的工作线程数或连接池大小（决定占满所需的并发量）
+        checker: manifest
+        query: 线程池与连接池的上限配置
+  experiment:
+    actions:
+      - action: 依赖变慢
+        type: 连续幅值
+        target_role: injection_site
+        primitive_hint: 网络延迟，幅值取到明显大于外层超时
+    parameter_relation:
+      symbols:
+        - {symbol: Tw, meaning: 外层超时装饰器的超时值, source: manifest|code}
+        - {symbol: Ti, meaning: 底层 I/O 自己的超时，未设时视为无穷, source: manifest|code|default}
+        - {symbol: b, meaning: 该调用的基线耗时, source: measured}
+        - {symbol: N, meaning: 工作线程数或连接池上限, source: manifest|default}
+        - {symbol: q, meaning: 该路径的入站 QPS, source: measured}
+      boundary: d* = Tw - b
+      worst_case_multiplier: 1
+      hold: min(Ti, d) + Tw
+      recovery_window: 2 * min(Ti, d)
+  verdict:
+    expected_behavior: 超时触发后，被占用的线程与连接在同一时间量级内释放，在途数回落。
+    signals:
+      - {signal: 超时错误计数上升的同时，在途请求数与线程占用是否同步回落, source: metrics}
+      - {signal: 超时返回之后仍保持 ESTABLISHED 的下游连接数, source: metrics}
+      - {signal: 连接池等待队列长度与获取连接超时计数, source: metrics}
+      - {signal: 超时返回后仍然出现的下游响应日志, source: logs}
+    alternative_explanations:
+      - 线程占用上升来自入站请求堆积，而不是超时后未释放
+      - 连接池本身过小，问题出在获取连接而不是 I/O 未中断
+    mitigation:
+      family: 包装层超时之外，底层客户端也要设连接与读写超时，并把取消信号传到最底层
+      level: code
+  violation_manifestation: 超时错误照常返回，线程池和连接池却持续被慢调用占着，最终整体不可用——负载看似被削掉，资源其实没有释放。

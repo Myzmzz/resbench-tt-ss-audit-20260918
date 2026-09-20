@@ -1,0 +1,12 @@
+rules:
+  - id: dotnet-httpclient-no-timeout
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      HttpClient 构造后没有设置 Timeout，调用也没有传 CancellationToken。
+      HttpClient.Timeout 有 100 秒的默认值，对多数同步接口而言远大于上游预算。
+    patterns:
+      - pattern: new HttpClient(...)
+      - pattern-not-inside: |
+          $C.Timeout = $T;
+          ...

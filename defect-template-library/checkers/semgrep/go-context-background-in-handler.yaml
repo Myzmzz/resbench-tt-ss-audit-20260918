@@ -1,0 +1,13 @@
+rules:
+  - id: go-context-background-in-handler
+    languages: [go]
+    severity: WARNING
+    message: >-
+      HTTP 处理函数内部用 context.Background() / context.TODO() 新建了 context，
+      入站请求的取消与截止时间不会传到后续的出站调用上。应当从 r.Context() 派生。
+    patterns:
+      - pattern-inside: |
+          func $F($W http.ResponseWriter, $R *http.Request) { ... }
+      - pattern-either:
+          - pattern: context.Background()
+          - pattern: context.TODO()

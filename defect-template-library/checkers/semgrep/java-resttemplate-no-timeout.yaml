@@ -1,0 +1,17 @@
+rules:
+  - id: java-resttemplate-no-timeout
+    languages: [java]
+    severity: WARNING
+    message: >-
+      RestTemplate / WebClient 用默认的请求工厂构造，没有设置连接与读取超时。
+      默认工厂不设超时，下游不回包时调用线程会一直占着。
+    patterns:
+      - pattern-either:
+          - pattern: new RestTemplate()
+          - pattern: new RestTemplate($CONV)
+      - pattern-not-inside: |
+          $B.setConnectTimeout(...);
+          ...
+      - pattern-not-inside: |
+          $B.requestFactory(...);
+          ...
